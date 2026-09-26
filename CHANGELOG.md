@@ -4,6 +4,8 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.3: On startup, the previous `settlements.json` is copied to `plugins/Hamletfolk/backups/`;
+  the newest 5 copies are kept.
 - R1.7: Targets Minecraft 26.2 (the current stable Paper release) and Java 25.
 - R1.9: Renamed to Hamletfolk. The plugin is now `Hamletfolk`, its data lives in
   `plugins/Hamletfolk/`, and the permission is `hamletfolk.use`.

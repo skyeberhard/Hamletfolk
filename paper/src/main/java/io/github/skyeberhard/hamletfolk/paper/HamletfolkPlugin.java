@@ -1,7 +1,10 @@
 package io.github.skyeberhard.hamletfolk.paper;
 
+import io.github.skyeberhard.hamletfolk.core.SaveBackups;
 import io.github.skyeberhard.hamletfolk.core.SettlementRegistry;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.logging.Level;
 import org.bukkit.command.PluginCommand;
@@ -9,6 +12,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class HamletfolkPlugin extends JavaPlugin {
     private static final long SIMULATION_PERIOD_TICKS = 100;
+    private static final int BACKUPS_KEPT = 5;
 
     private SettlementStore store;
     private SettlementService service;
@@ -16,14 +20,23 @@ public final class HamletfolkPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        store = new SettlementStore(getDataFolder().toPath().resolve("settlements.json"));
+        Path saveFile = getDataFolder().toPath().resolve("settlements.json");
+        store = new SettlementStore(saveFile);
+        try {
+            SaveBackups.backup(saveFile, getDataFolder().toPath().resolve("backups"), BACKUPS_KEPT, Instant.now())
+                    .ifPresent(backup -> getLogger().info("Backed up settlements to " + backup.getFileName()));
+        } catch (IOException e) {
+            // A failed backup shouldn't stop the plugin, but it should be loud.
+            getLogger().log(Level.WARNING, "Could not back up settlements.json", e);
+        }
 
         SettlementRegistry registry;
         try {
             registry = store.load();
         } catch (IOException | RuntimeException e) {
             // Refuse to start rather than overwrite a save we couldn't read.
-            getLogger().log(Level.SEVERE, "Could not read settlements.json; disabling to protect the data", e);
+            getLogger().log(Level.SEVERE, "Could not read settlements.json; disabling to protect the data. "
+                    + "Recent copies are in the backups/ folder next to it.", e);
             getServer().getPluginManager().disablePlugin(this);
             return;
         }

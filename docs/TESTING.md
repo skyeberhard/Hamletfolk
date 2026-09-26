@@ -60,3 +60,4 @@ in the PR that changes the behavior.
 | T10 | R0.3 | Win a raid | History names you among the defenders |
 | T11 | R0.1 | Restart the server, check a villager's name and `/settlement history` | Everything is unchanged |
 | T12 | R0.2 | `/time add 2400000` (100 days) | The settlement catches up 60 days (the configured cap) without a lag spike |
+| T13 | R1.3 | Restart the server three times | `plugins/Hamletfolk/backups/` holds a timestamped copy per restart, never more than 5 |
