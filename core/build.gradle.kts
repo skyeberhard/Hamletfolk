@@ -9,3 +9,10 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
 }
+
+tasks.withType<Test>().configureEach {
+    testLogging {
+        // Show the performance test's timings in the build output.
+        showStandardStreams = true
+    }
+}
