@@ -42,27 +42,4 @@ SettlementRegistry
 
 ## Roadmap
 
-**Now (0.1)**: identities, ledger, daily production and consumption, famine and
-shortages, deaths/births/raids in history, dialogue, donations.
-
-**Next**
-- Cure zombie villagers back into their old identity instead of treating them as new.
-- Migration: unemployed or unhappy residents leave for a better-off settlement.
-- Buildings: `[Smithy]`, `[Farm]`, `[Mine]` signs register a building; later, infer
-  buildings from blocks. Buildings raise output and unlock occupations.
-- Villager trades priced by the ledger: scarce goods cost more, surplus is cheap.
-- Guards and defense spending when threat stays high.
-
-**Later**
-- Businesses owned by residents or players; wages; player investment.
-- Settlement growth (population cap from beds, new residents when food and housing allow).
-- Physical labor for villagers near players.
-- Trade between settlements.
-- Optional AI dialogue on top of the same state.
-
-## Known limitations in 0.1
-
-- The Paper module is compiled in CI, not yet tested on a live server.
-- A villager that wanders into another settlement's radius stays a member of the one it
-  was first seen in.
-- Settlements are never removed, even if everyone dies.
+See [ROADMAP.md](../ROADMAP.md).

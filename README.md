@@ -57,8 +57,15 @@ Requires Java 21.
 ./gradlew build
 ```
 
-The plugin jar is written to `paper/build/libs/`. Set `paperApiVersion` in
+The plugin jar is written to `paper/build/libs/`. Set `minecraftVersion` in
 `gradle.properties` to match your server's Minecraft version.
+
+## Developing
+
+- `./gradlew runServer` starts a local test server with the plugin. See
+  [docs/TESTING.md](docs/TESTING.md) for setup and playtest scenarios.
+- Work is tracked in [ROADMAP.md](ROADMAP.md). Commits and PRs start with the roadmap
+  ID they deliver (e.g. `R1.2: ...`), and [CHANGELOG.md](CHANGELOG.md) lists IDs per release.
 
 ## Layout
 
@@ -66,4 +73,4 @@ The plugin jar is written to `paper/build/libs/`. Set `paperApiVersion` in
   Java with no Minecraft dependencies, fully unit tested (`./gradlew :core:test`).
 - `paper/` — the thin Paper layer that maps villager entities and game events onto the core.
 
-See [docs/DESIGN.md](docs/DESIGN.md) for the design and roadmap.
+See [docs/DESIGN.md](docs/DESIGN.md) for the design.
