@@ -51,7 +51,7 @@ world untouched, except that villagers keep the name they were given (set
 
 ## Building
 
-Requires Java 21.
+Requires Java 25 (Minecraft 26.x requires it).
 
 ```
 ./gradlew build

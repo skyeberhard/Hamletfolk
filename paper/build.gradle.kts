@@ -10,7 +10,8 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:$minecraftVersion-R0.1-SNAPSHOT")
+    // Since 26.1, Paper API versions look like 26.2.build.<n>-<status>; "+" takes the latest build.
+    compileOnly("io.papermc.paper:paper-api:$minecraftVersion.build.+")
     implementation(project(":core"))
 }
 

@@ -4,6 +4,7 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.7: Targets Minecraft 26.2 (the current stable Paper release) and Java 25.
 - R1.9: Renamed to Hamletfolk. The plugin is now `Hamletfolk`, its data lives in
   `plugins/Hamletfolk/`, and the permission is `hamletfolk.use`.
 - R0.7: `./gradlew runServer` starts a local Paper test server with the plugin installed.
