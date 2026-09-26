@@ -1,6 +1,6 @@
-name: MCSocieties
+name: Hamletfolk
 version: '${version}'
-main: io.github.skyeberhard.societies.paper.SocietiesPlugin
+main: io.github.skyeberhard.hamletfolk.paper.HamletfolkPlugin
 api-version: '1.21'
 description: Gives villagers persistent identities, and gives villages an economy and a written history.
 author: skyeberhard
@@ -9,8 +9,8 @@ commands:
     description: Information about the nearest settlement.
     usage: /settlement [info|history|residents|donate]
     aliases: [village]
-    permission: mcsocieties.use
+    permission: hamletfolk.use
 permissions:
-  mcsocieties.use:
+  hamletfolk.use:
     description: Use /settlement and talk to residents.
     default: true

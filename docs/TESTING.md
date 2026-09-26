@@ -27,7 +27,7 @@ This builds the plugin, downloads Paper for the `minecraftVersion` in
 
 Re-run `./gradlew runServer` after code changes; it rebuilds the plugin each time.
 
-**Start fresh:** delete `paper/run/world*` and `paper/run/plugins/MCSocieties/`.
+**Start fresh:** delete `paper/run/world*` and `paper/run/plugins/Hamletfolk/`.
 
 ### Useful commands
 
@@ -39,7 +39,7 @@ Re-run `./gradlew runServer` after code changes; it rebuilds the plugin each tim
 | Spawn a zombie | `/summon zombie ~ ~ ~` |
 | Start a raid | `/effect give @s minecraft:bad_omen 600 0`, then walk into a village |
 | Make villagers breed | Give them bread; they need free beds |
-| Read the saved data | `paper/run/plugins/MCSocieties/settlements.json` |
+| Read the saved data | `paper/run/plugins/Hamletfolk/settlements.json` |
 
 ## Playtest scenarios
 

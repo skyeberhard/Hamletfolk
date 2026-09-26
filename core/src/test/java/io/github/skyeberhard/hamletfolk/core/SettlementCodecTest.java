@@ -1,4 +1,4 @@
-package io.github.skyeberhard.societies.core;
+package io.github.skyeberhard.hamletfolk.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

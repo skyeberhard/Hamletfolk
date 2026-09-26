@@ -1,4 +1,4 @@
-package io.github.skyeberhard.societies.core;
+package io.github.skyeberhard.hamletfolk.core;
 
 /** Abstract resource categories tracked in a settlement's ledger. */
 public enum ResourceType {

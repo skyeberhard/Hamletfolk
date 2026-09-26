@@ -1,10 +1,10 @@
-package io.github.skyeberhard.societies.paper;
+package io.github.skyeberhard.hamletfolk.paper;
 
-import io.github.skyeberhard.societies.core.HistoryEvent;
-import io.github.skyeberhard.societies.core.Resident;
-import io.github.skyeberhard.societies.core.ResourceMapper;
-import io.github.skyeberhard.societies.core.ResourceType;
-import io.github.skyeberhard.societies.core.Settlement;
+import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
+import io.github.skyeberhard.hamletfolk.core.Resident;
+import io.github.skyeberhard.hamletfolk.core.ResourceMapper;
+import io.github.skyeberhard.hamletfolk.core.ResourceType;
+import io.github.skyeberhard.hamletfolk.core.Settlement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;

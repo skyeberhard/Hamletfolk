@@ -1,4 +1,4 @@
-package io.github.skyeberhard.societies.core;
+package io.github.skyeberhard.hamletfolk.core;
 
 /** A resident's current wellbeing, each 0-100 where higher is better. */
 public final class Needs {

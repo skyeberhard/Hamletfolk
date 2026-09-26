@@ -1,6 +1,6 @@
-package io.github.skyeberhard.societies.paper;
+package io.github.skyeberhard.hamletfolk.paper;
 
-import io.github.skyeberhard.societies.core.HistoryEvent;
+import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
 import java.util.stream.Collectors;
 import org.bukkit.Raid;
 import org.bukkit.entity.Player;

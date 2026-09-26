@@ -22,7 +22,7 @@ tasks.processResources {
 
 // Bundle the core classes into the plugin jar so the server only needs one file.
 tasks.jar {
-    archiveBaseName.set("MCSocieties")
+    archiveBaseName.set("Hamletfolk")
     dependsOn(":core:jar")
     from(project(":core").sourceSets["main"].output)
 }

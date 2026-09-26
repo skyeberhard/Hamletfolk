@@ -1,11 +1,11 @@
-package io.github.skyeberhard.societies.paper;
+package io.github.skyeberhard.hamletfolk.paper;
 
 import org.bukkit.configuration.ConfigurationSection;
 
-record SocietiesConfig(int settlementRadius, int maxCatchUpDays, boolean showNames) {
+record HamletfolkConfig(int settlementRadius, int maxCatchUpDays, boolean showNames) {
 
-    static SocietiesConfig from(ConfigurationSection config) {
-        return new SocietiesConfig(
+    static HamletfolkConfig from(ConfigurationSection config) {
+        return new HamletfolkConfig(
                 Math.max(16, config.getInt("settlement-radius", 96)),
                 Math.max(1, config.getInt("max-catch-up-days", 60)),
                 config.getBoolean("show-names", true));

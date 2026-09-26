@@ -1,4 +1,4 @@
-package io.github.skyeberhard.societies.core;
+package io.github.skyeberhard.hamletfolk.core;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

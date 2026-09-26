@@ -1,13 +1,13 @@
-package io.github.skyeberhard.societies.paper;
+package io.github.skyeberhard.hamletfolk.paper;
 
-import io.github.skyeberhard.societies.core.SettlementRegistry;
+import io.github.skyeberhard.hamletfolk.core.SettlementRegistry;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.logging.Level;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public final class SocietiesPlugin extends JavaPlugin {
+public final class HamletfolkPlugin extends JavaPlugin {
     private static final long SIMULATION_PERIOD_TICKS = 100;
 
     private SettlementStore store;
@@ -28,7 +28,7 @@ public final class SocietiesPlugin extends JavaPlugin {
             return;
         }
 
-        service = new SettlementService(this, registry, SocietiesConfig.from(getConfig()));
+        service = new SettlementService(this, registry, HamletfolkConfig.from(getConfig()));
         getServer().getPluginManager().registerEvents(new VillagerListener(this, service), this);
         getServer().getPluginManager().registerEvents(new RaidListener(service), this);
 

@@ -1,4 +1,4 @@
-# MC Societies
+# Hamletfolk
 
 A Paper server plugin that turns vanilla villages into communities with memory.
 
@@ -42,10 +42,10 @@ the villager's own trade screen.
 ## Installing
 
 1. Build (below) or download the jar from the latest GitHub Actions run.
-2. Put `MCSocieties-<version>.jar` in the server's `plugins/` folder and restart.
-3. Optional: edit `plugins/MCSocieties/config.yml`.
+2. Put `Hamletfolk-<version>.jar` in the server's `plugins/` folder and restart.
+3. Optional: edit `plugins/Hamletfolk/config.yml`.
 
-Data is stored in `plugins/MCSocieties/settlements.json`. Removing the plugin leaves the
+Data is stored in `plugins/Hamletfolk/settlements.json`. Removing the plugin leaves the
 world untouched, except that villagers keep the name they were given (set
 `show-names: false` before first run if you don't want that).
 

@@ -1,11 +1,11 @@
-package io.github.skyeberhard.societies.paper;
+package io.github.skyeberhard.hamletfolk.paper;
 
 import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
-import io.github.skyeberhard.societies.core.Dialogue;
-import io.github.skyeberhard.societies.core.HistoryEvent;
-import io.github.skyeberhard.societies.core.Occupation;
-import io.github.skyeberhard.societies.core.Resident;
-import io.github.skyeberhard.societies.core.Settlement;
+import io.github.skyeberhard.hamletfolk.core.Dialogue;
+import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
+import io.github.skyeberhard.hamletfolk.core.Occupation;
+import io.github.skyeberhard.hamletfolk.core.Resident;
+import io.github.skyeberhard.hamletfolk.core.Settlement;
 import java.util.Random;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -32,11 +32,11 @@ import org.bukkit.inventory.EquipmentSlot;
 
 /** Keeps resident records in step with villager entities, and lets players talk to them. */
 final class VillagerListener implements Listener {
-    private final SocietiesPlugin plugin;
+    private final HamletfolkPlugin plugin;
     private final SettlementService service;
     private final Random chatter = new Random();
 
-    VillagerListener(SocietiesPlugin plugin, SettlementService service) {
+    VillagerListener(HamletfolkPlugin plugin, SettlementService service) {
         this.plugin = plugin;
         this.service = service;
     }
@@ -72,7 +72,7 @@ final class VillagerListener implements Listener {
             return;
         }
         Player player = event.getPlayer();
-        if (!player.isSneaking() || !player.hasPermission("mcsocieties.use")) {
+        if (!player.isSneaking() || !player.hasPermission("hamletfolk.use")) {
             return; // A normal right-click still opens trading.
         }
         event.setCancelled(true);

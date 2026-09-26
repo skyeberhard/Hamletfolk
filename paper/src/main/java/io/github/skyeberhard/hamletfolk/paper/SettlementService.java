@@ -1,11 +1,11 @@
-package io.github.skyeberhard.societies.paper;
+package io.github.skyeberhard.hamletfolk.paper;
 
-import io.github.skyeberhard.societies.core.HistoryEvent;
-import io.github.skyeberhard.societies.core.Occupation;
-import io.github.skyeberhard.societies.core.Resident;
-import io.github.skyeberhard.societies.core.Settlement;
-import io.github.skyeberhard.societies.core.SettlementRegistry;
-import io.github.skyeberhard.societies.core.SettlementSimulator;
+import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
+import io.github.skyeberhard.hamletfolk.core.Occupation;
+import io.github.skyeberhard.hamletfolk.core.Resident;
+import io.github.skyeberhard.hamletfolk.core.Settlement;
+import io.github.skyeberhard.hamletfolk.core.SettlementRegistry;
+import io.github.skyeberhard.hamletfolk.core.SettlementSimulator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -20,14 +20,14 @@ import org.bukkit.entity.Villager;
 final class SettlementService {
     private static final long TICKS_PER_DAY = 24_000L;
 
-    private final SocietiesPlugin plugin;
+    private final HamletfolkPlugin plugin;
     private final SettlementRegistry registry;
-    private final SocietiesConfig config;
+    private final HamletfolkConfig config;
     private final SettlementSimulator simulator = new SettlementSimulator();
     /** Parents of villagers that were just bred but haven't been added to the world yet. */
     private final Map<UUID, UUID[]> pendingParents = new HashMap<>();
 
-    SettlementService(SocietiesPlugin plugin, SettlementRegistry registry, SocietiesConfig config) {
+    SettlementService(HamletfolkPlugin plugin, SettlementRegistry registry, HamletfolkConfig config) {
         this.plugin = plugin;
         this.registry = registry;
         this.config = config;
@@ -37,7 +37,7 @@ final class SettlementService {
         return registry;
     }
 
-    SocietiesPlugin plugin() {
+    HamletfolkPlugin plugin() {
         return plugin;
     }
 

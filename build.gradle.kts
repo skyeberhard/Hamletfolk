@@ -1,7 +1,7 @@
 subprojects {
     apply(plugin = "java")
 
-    group = "io.github.skyeberhard.societies"
+    group = "io.github.skyeberhard.hamletfolk"
     version = "0.1.0-SNAPSHOT"
 
     repositories {

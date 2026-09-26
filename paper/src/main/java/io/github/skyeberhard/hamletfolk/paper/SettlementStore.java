@@ -1,11 +1,11 @@
-package io.github.skyeberhard.societies.paper;
+package io.github.skyeberhard.hamletfolk.paper;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import io.github.skyeberhard.societies.core.Settlement;
-import io.github.skyeberhard.societies.core.SettlementCodec;
-import io.github.skyeberhard.societies.core.SettlementRegistry;
+import io.github.skyeberhard.hamletfolk.core.Settlement;
+import io.github.skyeberhard.hamletfolk.core.SettlementCodec;
+import io.github.skyeberhard.hamletfolk.core.SettlementRegistry;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;

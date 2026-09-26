@@ -1,3 +1,3 @@
-rootProject.name = "mc-societies"
+rootProject.name = "hamletfolk"
 
 include("core", "paper")
