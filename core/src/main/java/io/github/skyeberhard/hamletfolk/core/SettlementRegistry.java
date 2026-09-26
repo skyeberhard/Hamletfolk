@@ -16,6 +16,8 @@ import java.util.UUID;
 public final class SettlementRegistry {
     private final Map<UUID, Settlement> settlements = new LinkedHashMap<>();
     private final Map<UUID, UUID> residentIndex = new HashMap<>();
+    /** Zombie villager id to the settlement holding the resident they used to be. */
+    private final Map<UUID, UUID> turnedIndex = new HashMap<>();
 
     public Collection<Settlement> settlements() {
         return Collections.unmodifiableCollection(settlements.values());
@@ -25,6 +27,9 @@ public final class SettlementRegistry {
         settlements.put(settlement.id(), settlement);
         for (Resident resident : settlement.residents()) {
             residentIndex.put(resident.id(), settlement.id());
+        }
+        for (UUID zombieId : settlement.turned().keySet()) {
+            turnedIndex.put(zombieId, settlement.id());
         }
     }
 
@@ -85,6 +90,55 @@ public final class SettlementRegistry {
         settlement.addResident(resident);
         residentIndex.put(residentId, settlement.id());
         return resident;
+    }
+
+    /**
+     * A resident became a zombie villager. They leave the population but are remembered
+     * under the zombie's id, so a cure can bring them back.
+     */
+    public Optional<Resident> turn(UUID residentId, UUID zombieId) {
+        UUID settlementId = residentIndex.get(residentId);
+        Optional<Resident> resident = remove(residentId);
+        resident.ifPresent(r -> {
+            settlements.get(settlementId).turned().put(zombieId, r);
+            turnedIndex.put(zombieId, settlementId);
+        });
+        return resident;
+    }
+
+    /** The resident a zombie villager used to be, if they were one of ours. */
+    public Optional<Resident> turnedResident(UUID zombieId) {
+        UUID settlementId = turnedIndex.get(zombieId);
+        return settlementId == null ? Optional.empty()
+                : Optional.ofNullable(settlements.get(settlementId).turned().get(zombieId));
+    }
+
+    public Optional<Settlement> settlementOfTurned(UUID zombieId) {
+        UUID settlementId = turnedIndex.get(zombieId);
+        return settlementId == null ? Optional.empty() : Optional.ofNullable(settlements.get(settlementId));
+    }
+
+    /**
+     * A zombie villager was cured into a new villager entity. If it used to be a resident,
+     * that same person returns to their settlement under the new villager's id.
+     */
+    public Optional<Resident> cure(UUID zombieId, UUID villagerId) {
+        UUID settlementId = turnedIndex.remove(zombieId);
+        if (settlementId == null) {
+            return Optional.empty();
+        }
+        Settlement settlement = settlements.get(settlementId);
+        Resident resident = settlement.turned().remove(zombieId).withId(villagerId);
+        settlement.addResident(resident);
+        residentIndex.put(villagerId, settlementId);
+        return Optional.of(resident);
+    }
+
+    /** A zombie villager died; the resident it used to be can no longer be cured. */
+    public Optional<Resident> forgetTurned(UUID zombieId) {
+        UUID settlementId = turnedIndex.remove(zombieId);
+        return settlementId == null ? Optional.empty()
+                : Optional.ofNullable(settlements.get(settlementId).turned().remove(zombieId));
     }
 
     /** Removes a resident from wherever they live and returns them. */

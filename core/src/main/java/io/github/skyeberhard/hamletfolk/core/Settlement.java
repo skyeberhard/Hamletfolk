@@ -23,6 +23,8 @@ public final class Settlement {
     private final Map<UUID, Resident> residents = new LinkedHashMap<>();
     private final Ledger ledger = new Ledger();
     private final List<HistoryEvent> history = new ArrayList<>();
+    /** Residents turned into zombie villagers, keyed by the zombie's entity id. They can be cured. */
+    private final Map<UUID, Resident> turned = new LinkedHashMap<>();
     /** Ongoing or one-time conditions, keyed by name, valued by the day they began. */
     private final Map<String, Long> conditions = new HashMap<>();
 
@@ -103,6 +105,15 @@ public final class Settlement {
 
     Resident removeResident(UUID id) {
         return residents.remove(id);
+    }
+
+    /** How many residents are currently zombie villagers who could still be cured. */
+    public int turnedCount() {
+        return turned.size();
+    }
+
+    Map<UUID, Resident> turned() {
+        return turned;
     }
 
     public List<HistoryEvent> history() {

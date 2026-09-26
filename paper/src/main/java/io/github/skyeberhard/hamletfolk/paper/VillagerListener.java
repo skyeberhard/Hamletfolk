@@ -7,10 +7,12 @@ import io.github.skyeberhard.hamletfolk.core.Occupation;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import java.util.Random;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
@@ -18,6 +20,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Raider;
 import org.bukkit.entity.Villager;
+import org.bukkit.entity.ZombieVillager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -94,6 +97,10 @@ final class VillagerListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onDeath(EntityDeathEvent event) {
+        if (event.getEntity() instanceof ZombieVillager zombie) {
+            onZombieDeath(zombie);
+            return;
+        }
         if (!(event.getEntity() instanceof Villager villager)) {
             return;
         }
@@ -110,25 +117,62 @@ final class VillagerListener implements Listener {
                 describe(resident) + " " + causeOfDeath(villager, killer) + ".");
     }
 
+    /** A zombie villager that used to be a resident died, so they can no longer be cured. */
+    private void onZombieDeath(ZombieVillager zombie) {
+        Settlement settlement = service.registry().settlementOfTurned(zombie.getUniqueId()).orElse(null);
+        Resident resident = service.registry().forgetTurned(zombie.getUniqueId()).orElse(null);
+        if (settlement != null && resident != null) {
+            settlement.record(SettlementService.day(zombie.getWorld()), HistoryEvent.Kind.DEATH,
+                    "The zombie that was once " + resident.fullName() + " was laid to rest.");
+        }
+    }
+
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onTransform(EntityTransformEvent event) {
+        if (event.getEntity() instanceof ZombieVillager zombie
+                && event.getTransformReason() == EntityTransformEvent.TransformReason.CURED
+                && event.getTransformedEntity() instanceof Villager cured) {
+            onCure(zombie, cured);
+            return;
+        }
         if (!(event.getEntity() instanceof Villager villager)) {
             return;
         }
-        Settlement settlement = service.registry().settlementOf(villager.getUniqueId()).orElse(null);
-        Resident resident = service.registry().remove(villager.getUniqueId()).orElse(null);
-        if (settlement == null || resident == null) {
+        UUID id = villager.getUniqueId();
+        Settlement settlement = service.registry().settlementOf(id).orElse(null);
+        if (settlement == null) {
             return;
         }
         long day = SettlementService.day(villager.getWorld());
         if (event.getTransformReason() == EntityTransformEvent.TransformReason.INFECTION) {
+            // Keep them on record under the zombie's id so a cure can bring them back (R1.2).
+            Resident resident = service.registry().turn(id, event.getTransformedEntity().getUniqueId()).orElseThrow();
             settlement.raiseThreat(20);
             settlement.record(day, HistoryEvent.Kind.DEATH, describe(resident) + " was turned by zombies.");
-        } else if (event.getTransformReason() == EntityTransformEvent.TransformReason.LIGHTNING) {
+            return;
+        }
+        Resident resident = service.registry().remove(id).orElseThrow();
+        if (event.getTransformReason() == EntityTransformEvent.TransformReason.LIGHTNING) {
             settlement.record(day, HistoryEvent.Kind.DEATH, describe(resident) + " was struck by lightning and became a witch.");
         } else {
             settlement.record(day, HistoryEvent.Kind.DEATH, describe(resident) + " was lost to strange magic.");
         }
+    }
+
+    /**
+     * Runs before the cured villager is added to the world, so by the time it is tracked it
+     * already has its old identity and isn't enrolled as a newcomer.
+     */
+    private void onCure(ZombieVillager zombie, Villager cured) {
+        Settlement settlement = service.registry().settlementOfTurned(zombie.getUniqueId()).orElse(null);
+        Resident resident = service.registry().cure(zombie.getUniqueId(), cured.getUniqueId()).orElse(null);
+        if (settlement == null || resident == null) {
+            return; // A zombie villager we never knew as a villager; it arrives as a newcomer.
+        }
+        OfflinePlayer healer = zombie.getConversionPlayer();
+        String by = healer != null && healer.getName() != null ? " by " + healer.getName() : "";
+        settlement.record(SettlementService.day(zombie.getWorld()), HistoryEvent.Kind.CURE,
+                resident.fullName() + " was cured" + by + " and came home to " + settlement.name() + ".");
     }
 
     private static String describe(Resident resident) {

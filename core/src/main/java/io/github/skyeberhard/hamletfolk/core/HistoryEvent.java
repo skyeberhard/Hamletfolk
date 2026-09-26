@@ -8,6 +8,7 @@ public record HistoryEvent(long day, Kind kind, String text) {
         ARRIVAL,
         BIRTH,
         DEATH,
+        CURE,
         RAID,
         FAMINE,
         RECOVERY,

@@ -102,6 +102,18 @@ public final class Resident {
         this.lastBlockedDay = day;
     }
 
+    /**
+     * The same person under a new entity id. Converting a mob (e.g. curing a zombie villager)
+     * creates a new entity, so the identity has to move to its UUID.
+     */
+    Resident withId(UUID newId) {
+        Resident copy = new Resident(newId, givenName, familyName, traits, occupation, adult, bornDay,
+                parentA, parentB, new Needs(needs.food(), needs.safety(), needs.purpose()));
+        copy.lastBlockedDay = lastBlockedDay;
+        copy.familiarity.putAll(familiarity);
+        return copy;
+    }
+
     /** How many times this resident has spoken with a given player. */
     public int familiarityWith(UUID playerId) {
         return familiarity.getOrDefault(playerId, 0);

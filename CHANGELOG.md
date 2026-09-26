@@ -4,6 +4,9 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.2: A villager infected by zombies and then cured comes back as the same person, with the
+  same name, family, traits and memory of players. History records who cured them.
+  `/settlement` shows how many residents are zombies who could still be cured.
 - R1.3: On startup, the previous `settlements.json` is copied to `plugins/Hamletfolk/backups/`;
   the newest 5 copies are kept.
 - R1.6: Performance test: 50 settlements of 50 residents simulate a day in a median 0.8 ms

@@ -73,6 +73,9 @@ final class SettlementCommand implements TabExecutor {
                 .append(Component.text(" · founded day " + s.foundedDay() + " (" + (today - s.foundedDay())
                         + " days ago)", NamedTextColor.GRAY)));
         line(player, "Population", s.population() + " (" + children + " children)");
+        if (s.turnedCount() > 0) {
+            line(player, "Lost to zombies", s.turnedCount() + " (they can still be cured)");
+        }
 
         StringBuilder stock = new StringBuilder();
         for (ResourceType type : ResourceType.values()) {

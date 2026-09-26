@@ -90,7 +90,7 @@ public final class Dialogue {
         List<HistoryEvent> history = settlement.history();
         List<HistoryEvent> memorable = history.stream()
                 .filter(e -> e.kind() == HistoryEvent.Kind.RAID || e.kind() == HistoryEvent.Kind.FAMINE
-                        || e.kind() == HistoryEvent.Kind.DONATION)
+                        || e.kind() == HistoryEvent.Kind.DONATION || e.kind() == HistoryEvent.Kind.CURE)
                 .filter(e -> day - e.day() > 7)
                 .toList();
         if (!memorable.isEmpty()) {

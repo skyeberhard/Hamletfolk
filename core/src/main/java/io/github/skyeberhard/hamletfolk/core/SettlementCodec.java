@@ -42,6 +42,10 @@ public final class SettlementCodec {
         }
         map.put("residents", residents);
 
+        Map<String, Object> turned = new LinkedHashMap<>();
+        s.turned().forEach((zombieId, r) -> turned.put(zombieId.toString(), encodeResident(r)));
+        map.put("turned", turned);
+
         List<Object> history = new ArrayList<>();
         for (HistoryEvent e : s.history()) {
             Map<String, Object> event = new LinkedHashMap<>();
@@ -101,6 +105,10 @@ public final class SettlementCodec {
 
         for (Object o : asList(map.get("residents"))) {
             s.addResident(decodeResident(asMap(o)));
+        }
+
+        for (Map.Entry<?, ?> entry : asMap(map.get("turned")).entrySet()) {
+            s.turned().put(UUID.fromString(entry.getKey().toString()), decodeResident(asMap(entry.getValue())));
         }
 
         for (Object o : asList(map.get("history"))) {
