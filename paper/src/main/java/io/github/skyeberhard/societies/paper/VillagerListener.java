@@ -1,0 +1,187 @@
+package io.github.skyeberhard.societies.paper;
+
+import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
+import io.github.skyeberhard.societies.core.Dialogue;
+import io.github.skyeberhard.societies.core.HistoryEvent;
+import io.github.skyeberhard.societies.core.Occupation;
+import io.github.skyeberhard.societies.core.Resident;
+import io.github.skyeberhard.societies.core.Settlement;
+import java.util.Random;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Monster;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
+import org.bukkit.entity.Raider;
+import org.bukkit.entity.Villager;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityBreedEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityTransformEvent;
+import org.bukkit.event.entity.VillagerCareerChangeEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.inventory.EquipmentSlot;
+
+/** Keeps resident records in step with villager entities, and lets players talk to them. */
+final class VillagerListener implements Listener {
+    private final SocietiesPlugin plugin;
+    private final SettlementService service;
+    private final Random chatter = new Random();
+
+    VillagerListener(SocietiesPlugin plugin, SettlementService service) {
+        this.plugin = plugin;
+        this.service = service;
+    }
+
+    @EventHandler
+    public void onAdd(EntityAddToWorldEvent event) {
+        if (event.getEntity() instanceof Villager villager) {
+            // Defer a tick: the entity is mid-insertion and shouldn't be modified yet.
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (villager.isValid()) {
+                    service.track(villager);
+                }
+            });
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onBreed(EntityBreedEvent event) {
+        if (event.getEntity() instanceof Villager child) {
+            service.expectBirth(child.getUniqueId(), event.getMother().getUniqueId(), event.getFather().getUniqueId());
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onCareerChange(VillagerCareerChangeEvent event) {
+        service.registry().resident(event.getEntity().getUniqueId()).ifPresent(resident ->
+                resident.setOccupation(Occupation.fromVanillaKey(event.getProfession().getKey().getKey())));
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onTalk(PlayerInteractEntityEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND || !(event.getRightClicked() instanceof Villager villager)) {
+            return;
+        }
+        Player player = event.getPlayer();
+        if (!player.isSneaking() || !player.hasPermission("mcsocieties.use")) {
+            return; // A normal right-click still opens trading.
+        }
+        event.setCancelled(true);
+
+        Resident resident = service.track(villager);
+        Settlement settlement = service.registry().settlementOf(resident.id()).orElseThrow();
+        service.simulate(settlement);
+        long day = SettlementService.day(villager.getWorld());
+
+        String title = resident.adult() ? resident.occupation().title() : "child";
+        player.sendMessage(Component.text(resident.fullName(), NamedTextColor.GOLD)
+                .append(Component.text(" · " + title + " of " + settlement.name() + " · " + mood(resident),
+                        NamedTextColor.GRAY)));
+        String line = Dialogue.greeting(resident, player.getUniqueId(), player.getName()) + " "
+                + Dialogue.speak(resident, settlement, day, chatter);
+        player.sendMessage(Component.text("\"" + line + "\"", NamedTextColor.WHITE, TextDecoration.ITALIC));
+        resident.recordConversation(player.getUniqueId());
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onDeath(EntityDeathEvent event) {
+        if (!(event.getEntity() instanceof Villager villager)) {
+            return;
+        }
+        Settlement settlement = service.registry().settlementOf(villager.getUniqueId()).orElse(null);
+        Resident resident = service.registry().remove(villager.getUniqueId()).orElse(null);
+        if (settlement == null || resident == null) {
+            return;
+        }
+        Entity killer = killerOf(villager);
+        if (killer instanceof Monster || killer instanceof Raider) {
+            settlement.raiseThreat(15);
+        }
+        settlement.record(SettlementService.day(villager.getWorld()), HistoryEvent.Kind.DEATH,
+                describe(resident) + " " + causeOfDeath(villager, killer) + ".");
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onTransform(EntityTransformEvent event) {
+        if (!(event.getEntity() instanceof Villager villager)) {
+            return;
+        }
+        Settlement settlement = service.registry().settlementOf(villager.getUniqueId()).orElse(null);
+        Resident resident = service.registry().remove(villager.getUniqueId()).orElse(null);
+        if (settlement == null || resident == null) {
+            return;
+        }
+        long day = SettlementService.day(villager.getWorld());
+        if (event.getTransformReason() == EntityTransformEvent.TransformReason.INFECTION) {
+            settlement.raiseThreat(20);
+            settlement.record(day, HistoryEvent.Kind.DEATH, describe(resident) + " was turned by zombies.");
+        } else if (event.getTransformReason() == EntityTransformEvent.TransformReason.LIGHTNING) {
+            settlement.record(day, HistoryEvent.Kind.DEATH, describe(resident) + " was struck by lightning and became a witch.");
+        } else {
+            settlement.record(day, HistoryEvent.Kind.DEATH, describe(resident) + " was lost to strange magic.");
+        }
+    }
+
+    private static String describe(Resident resident) {
+        return resident.adult()
+                ? resident.fullName() + ", the " + resident.occupation().title() + ","
+                : "Young " + resident.fullName();
+    }
+
+    private static String mood(Resident resident) {
+        int mood = resident.needs().mood();
+        if (mood >= 75) {
+            return "content";
+        }
+        if (mood >= 50) {
+            return "getting by";
+        }
+        if (mood >= 25) {
+            return "troubled";
+        }
+        return "desperate";
+    }
+
+    private static Entity killerOf(LivingEntity victim) {
+        if (!(victim.getLastDamageCause() instanceof EntityDamageByEntityEvent byEntity)) {
+            return null;
+        }
+        Entity damager = byEntity.getDamager();
+        if (damager instanceof Projectile projectile && projectile.getShooter() instanceof Entity shooter) {
+            return shooter;
+        }
+        return damager;
+    }
+
+    private static String causeOfDeath(LivingEntity victim, Entity killer) {
+        if (killer instanceof Player player) {
+            return "was killed by " + player.getName();
+        }
+        if (killer != null) {
+            String type = killer.getType().getKey().getKey().replace('_', ' ');
+            return "was killed by " + ("aeiou".indexOf(type.charAt(0)) >= 0 ? "an " : "a ") + type;
+        }
+        EntityDamageEvent last = victim.getLastDamageCause();
+        if (last == null) {
+            return "passed away";
+        }
+        return switch (last.getCause()) {
+            case FALL -> "fell to their death";
+            case DROWNING -> "drowned";
+            case FIRE, FIRE_TICK, LAVA -> "burned to death";
+            case LIGHTNING -> "was struck by lightning";
+            case SUFFOCATION -> "suffocated";
+            case STARVATION -> "starved";
+            default -> "passed away";
+        };
+    }
+}

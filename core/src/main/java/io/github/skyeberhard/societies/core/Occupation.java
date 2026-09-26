@@ -1,0 +1,75 @@
+package io.github.skyeberhard.societies.core;
+
+import java.util.Locale;
+
+/**
+ * What a resident does for a living. Mirrors vanilla villager professions so the
+ * Minecraft layer can map a villager's profession key straight onto it.
+ */
+public enum Occupation {
+    UNEMPLOYED("none", "unemployed", ResourceType.FOOD, 1, null),
+    NITWIT("nitwit", "idler", null, 0, null),
+    FARMER("farmer", "farmer", ResourceType.FOOD, 4, null),
+    FISHERMAN("fisherman", "fisher", ResourceType.FOOD, 3, null),
+    BUTCHER("butcher", "butcher", ResourceType.FOOD, 2, null),
+    SHEPHERD("shepherd", "shepherd", ResourceType.GOODS, 1, null),
+    LEATHERWORKER("leatherworker", "leatherworker", ResourceType.GOODS, 1, null),
+    FLETCHER("fletcher", "fletcher", ResourceType.WOOD, 2, null),
+    MASON("mason", "mason", ResourceType.STONE, 2, null),
+    ARMORER("armorer", "armorer", ResourceType.TOOLS, 1, ResourceType.METAL),
+    WEAPONSMITH("weaponsmith", "weaponsmith", ResourceType.TOOLS, 1, ResourceType.METAL),
+    TOOLSMITH("toolsmith", "toolsmith", ResourceType.TOOLS, 1, ResourceType.METAL),
+    CARTOGRAPHER("cartographer", "cartographer", ResourceType.GOODS, 1, null),
+    CLERIC("cleric", "cleric", ResourceType.GOODS, 1, null),
+    LIBRARIAN("librarian", "librarian", ResourceType.GOODS, 1, null);
+
+    private final String vanillaKey;
+    private final String title;
+    private final ResourceType produces;
+    private final int baseOutput;
+    private final ResourceType consumes;
+
+    Occupation(String vanillaKey, String title, ResourceType produces, int baseOutput, ResourceType consumes) {
+        this.vanillaKey = vanillaKey;
+        this.title = title;
+        this.produces = produces;
+        this.baseOutput = baseOutput;
+        this.consumes = consumes;
+    }
+
+    /** Maps a vanilla profession key (e.g. {@code "farmer"}) to an occupation. Unknown keys become UNEMPLOYED. */
+    public static Occupation fromVanillaKey(String key) {
+        if (key == null) {
+            return UNEMPLOYED;
+        }
+        String normalized = key.toLowerCase(Locale.ROOT);
+        int colon = normalized.indexOf(':');
+        if (colon >= 0) {
+            normalized = normalized.substring(colon + 1);
+        }
+        for (Occupation occupation : values()) {
+            if (occupation.vanillaKey.equals(normalized)) {
+                return occupation;
+            }
+        }
+        return UNEMPLOYED;
+    }
+
+    public String title() {
+        return title;
+    }
+
+    /** The resource this occupation adds to the ledger each day, or null if it produces nothing. */
+    public ResourceType produces() {
+        return produces;
+    }
+
+    public int baseOutput() {
+        return baseOutput;
+    }
+
+    /** The input this occupation needs one unit of per day to work, or null if it needs none. */
+    public ResourceType consumes() {
+        return consumes;
+    }
+}

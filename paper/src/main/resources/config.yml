@@ -1,0 +1,14 @@
+# Villagers within this many blocks of a settlement's center belong to it.
+# A villager found farther than this from every known settlement founds a new one.
+settlement-radius: 96
+
+# When a settlement is far behind (e.g. after the server was offline), simulate at most
+# this many in-game days to catch up. Older days are skipped.
+max-catch-up-days: 60
+
+# Show residents' names when you look at them. Villagers you've renamed with a
+# name tag are never overwritten.
+show-names: true
+
+# How often to save settlement data, in minutes.
+autosave-minutes: 5
