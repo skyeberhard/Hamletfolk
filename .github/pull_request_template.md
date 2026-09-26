@@ -1,6 +1,7 @@
 ## Roadmap items
 
-<!-- IDs from ROADMAP.md, e.g. R1.2. Update their status in ROADMAP.md in this PR. -->
+<!-- IDs from ROADMAP.md and their issues. Update their status in ROADMAP.md in this PR. -->
+- R?.? — Closes #
 
 ## What changed
 
