@@ -15,6 +15,8 @@
 - **"Done when" is the acceptance test.** An item is *Done* when that holds, and it is
   checked by a unit test or a scenario in [docs/TESTING.md](docs/TESTING.md) that names the ID.
 - **Releases are milestones.** [CHANGELOG.md](CHANGELOG.md) lists the IDs each release shipped.
+- **v1.0 is M1 to M5**: a village whose size, jobs, prices and defenses follow from its food,
+  housing and danger. M6 onward is the path from hamlets to a full society.
 
 Status: **Done** · **In progress** · **Planned** · **Dropped**
 
@@ -114,6 +116,8 @@ Goal: danger creates demand, and the village responds.
 
 Not committed to. Promote an idea to a milestone (with a new ID) before working on it.
 
+- Roads: paths wear in between homes, work and neighboring settlements, and become roads as traffic grows.
+- Settlement tiers: hamlets grow into towns and cities, with districts and richer and poorer neighborhoods.
 - Cultures per region: naming, architecture and values vary by biome.
 - Villagers physically working (walking to the farm, carrying goods) when players are near.
 - Crime, disputes over property.
