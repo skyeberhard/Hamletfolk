@@ -4,7 +4,7 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
-- R1.25: Shared `.claude/settings.json` allows Gradle and `git add`/`git commit` without
+- R1.25: Shared `.claude/settings.json` allows Gradle, `git add`/`git commit` and `git push` to the working branch without
   prompting, so local Claude Code runs can go unattended. `.claude/settings.local.json` is
   git-ignored for personal overrides.
 - R1.17: Saves are numbered when snapshotted; a slow background autosave can no longer

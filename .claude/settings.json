@@ -12,7 +12,8 @@
       "Bash(./gradlew *)",
       "Bash(gradlew.bat *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(git push origin claude/minecraft-npc-settlement-mod-h6nhem)"
     ]
   }
 }
