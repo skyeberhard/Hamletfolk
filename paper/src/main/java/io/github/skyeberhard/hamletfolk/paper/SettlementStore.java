@@ -3,6 +3,7 @@ package io.github.skyeberhard.hamletfolk.paper;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import io.github.skyeberhard.hamletfolk.core.SaveSequence;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.SettlementCodec;
 import io.github.skyeberhard.hamletfolk.core.SettlementRegistry;
@@ -22,6 +23,10 @@ final class SettlementStore {
 
     private final Path file;
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private final SaveSequence sequence = new SaveSequence();
+
+    /** A serialized copy of every settlement, numbered in the order it was taken. */
+    record Snapshot(long sequence, String json) { }
 
     SettlementStore(Path file) {
         this.file = file;
@@ -42,19 +47,26 @@ final class SettlementStore {
     }
 
     /** Must run on the main thread: it reads live settlement data. */
-    String serialize(SettlementRegistry registry) {
+    Snapshot snapshot(SettlementRegistry registry) {
         List<Map<String, Object>> entries = new ArrayList<>();
         for (Settlement settlement : registry.settlements()) {
             entries.add(SettlementCodec.encode(settlement));
         }
-        return gson.toJson(entries);
+        return new Snapshot(sequence.next(), gson.toJson(entries));
     }
 
-    /** Safe to call off the main thread. Writes to a temp file first so a crash can't truncate the save. */
-    synchronized void write(String json) throws IOException {
-        Files.createDirectories(file.getParent());
-        Path temp = file.resolveSibling(file.getFileName() + ".tmp");
-        Files.writeString(temp, json, StandardCharsets.UTF_8);
-        Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+    /**
+     * Safe to call off the main thread. Writes to a temp file first so a crash can't truncate
+     * the save, and skips the write if a newer snapshot has already been written (R1.17).
+     *
+     * @return whether this snapshot was written
+     */
+    boolean write(Snapshot snapshot) throws IOException {
+        return sequence.writeIfNewer(snapshot.sequence(), () -> {
+            Files.createDirectories(file.getParent());
+            Path temp = file.resolveSibling(file.getFileName() + ".tmp");
+            Files.writeString(temp, snapshot.json(), StandardCharsets.UTF_8);
+            Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        });
     }
 }

@@ -13,9 +13,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class HamletfolkPlugin extends JavaPlugin {
     private static final long SIMULATION_PERIOD_TICKS = 100;
     private static final int BACKUPS_KEPT = 5;
+    private static final long SAVE_REQUEST_DELAY_TICKS = 40;
 
     private SettlementStore store;
     private SettlementService service;
+    private boolean saveRequested;
 
     @Override
     public void onEnable() {
@@ -65,18 +67,34 @@ public final class HamletfolkPlugin extends JavaPlugin {
             return;
         }
         try {
-            store.write(store.serialize(service.registry()));
+            store.write(store.snapshot(service.registry()));
         } catch (IOException e) {
             getLogger().log(Level.SEVERE, "Failed to save settlements", e);
         }
     }
 
+    /**
+     * R1.18: save within a couple of seconds, for changes that shouldn't wait for the next
+     * autosave (e.g. a donation, where the items have already left the player). Several
+     * requests in quick succession cause one save. Main thread only.
+     */
+    void requestSave() {
+        if (saveRequested) {
+            return;
+        }
+        saveRequested = true;
+        getServer().getScheduler().runTaskLater(this, () -> {
+            saveRequested = false;
+            saveAsync();
+        }, SAVE_REQUEST_DELAY_TICKS);
+    }
+
     private void saveAsync() {
         // Snapshot on the main thread, where the data is safe to read; write the file off it.
-        String json = store.serialize(service.registry());
+        SettlementStore.Snapshot snapshot = store.snapshot(service.registry());
         getServer().getScheduler().runTaskAsynchronously(this, () -> {
             try {
-                store.write(json);
+                store.write(snapshot);
             } catch (IOException e) {
                 getLogger().log(Level.SEVERE, "Failed to save settlements", e);
             }

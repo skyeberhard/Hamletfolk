@@ -4,6 +4,10 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.17: Saves are numbered when snapshotted; a slow background autosave can no longer
+  overwrite a newer save (e.g. the one made at shutdown).
+- R1.18: A donation triggers a save within about 2 seconds instead of waiting for the next
+  autosave.
 - R1.20: When an input runs short, whoever went without most recently gets first claim the
   next day, so the shortfall rotates round-robin instead of always hitting the newest worker.
 - R1.16: docs/DEPLOYING.md documents the pin-and-verify process; PRODUCTION.md tracks

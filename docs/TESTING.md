@@ -87,3 +87,4 @@ in the PR that changes the behavior.
 | T13 | R1.3 | Restart the server three times | `plugins/Hamletfolk/backups/` holds a timestamped copy per restart, never more than 5 |
 | T14 | R1.2 | On hard difficulty, let a zombie kill a named villager; check `/settlement`; then cure the zombie villager | While a zombie: history says they were turned, `/settlement` shows 1 lost to zombies. After curing: same name; `/settlement history` says they were cured by you |
 | T15 | R1.2 | Turn a villager, restart the server, then cure them | They come back with the same name after the restart |
+| T16 | R1.18 | `/settlement donate` a stack of iron, wait 5 seconds, then kill the server process hard (not `stop`) and restart | `/settlement` still shows the donated metal, and history still has the donation |
