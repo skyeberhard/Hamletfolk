@@ -51,10 +51,32 @@ class SettlementSimulatorTest {
         assertTrue(s.hasCondition("shortage:metal"));
         assertEquals(0, s.ledger().get(ResourceType.TOOLS));
 
-        s.ledger().add(ResourceType.METAL, 10);
-        simulator.simulateTo(s, 2, 100);
+        // Output on any single day can legitimately be zero (low work ethic, an unlucky roll),
+        // so give the smith several days to work rather than asserting on day one alone.
+        s.ledger().add(ResourceType.METAL, 100);
+        simulator.simulateTo(s, 11, 100);
         assertFalse(s.hasCondition("shortage:metal"));
         assertTrue(s.ledger().get(ResourceType.TOOLS) > 0);
+    }
+
+    @Test
+    void lumberjacksFeedTheVillageWithWood() {
+        Settlement s = village(0, 5, Occupation.LUMBERJACK);
+        simulator.simulateTo(s, 30, 100);
+        assertTrue(s.ledger().get(ResourceType.WOOD) > 0);
+    }
+
+    @Test
+    void fletchersIdleWithoutWoodAndResumeWhenSupplied() {
+        Settlement s = village(4, 1, Occupation.FLETCHER);
+        simulator.simulateTo(s, 1, 100);
+        assertTrue(s.hasCondition("shortage:wood"));
+        assertEquals(0, s.ledger().get(ResourceType.GOODS));
+
+        s.ledger().add(ResourceType.WOOD, 100);
+        simulator.simulateTo(s, 11, 100);
+        assertFalse(s.hasCondition("shortage:wood"));
+        assertTrue(s.ledger().get(ResourceType.GOODS) > 0);
     }
 
     @Test
@@ -91,5 +113,28 @@ class SettlementSimulatorTest {
         new SettlementSimulator().simulateTo(a, 1_005, 10);
         new SettlementSimulator().simulateTo(b, 1_005, 10);
         assertEquals(SettlementCodec.encode(a), SettlementCodec.encode(b));
+    }
+
+    @Test
+    void scarceInputsRotateBetweenWorkers() {
+        // R1.20: two smiths, one ingot a day. Each should go without on some days, not the same one forever.
+        Settlement s = village(4, 0, Occupation.FARMER);
+        Resident first = registry.enroll(s, UUID.randomUUID(), Occupation.TOOLSMITH, true, 0, null, null);
+        Resident second = registry.enroll(s, UUID.randomUUID(), Occupation.TOOLSMITH, true, 0, null, null);
+        int firstIdle = 0;
+        int secondIdle = 0;
+        for (long day = 1; day <= 20; day++) {
+            s.ledger().add(ResourceType.METAL, 1);
+            simulator.simulateTo(s, day, 100);
+            if (first.lastBlockedDay() == day) {
+                firstIdle++;
+            }
+            if (second.lastBlockedDay() == day) {
+                secondIdle++;
+            }
+        }
+        assertEquals(20, firstIdle + secondIdle);
+        assertEquals(10, firstIdle, "first smith idle days");
+        assertEquals(10, secondIdle, "second smith idle days");
     }
 }

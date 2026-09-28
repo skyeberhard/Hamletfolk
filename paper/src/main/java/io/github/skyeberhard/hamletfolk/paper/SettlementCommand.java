@@ -160,6 +160,7 @@ final class SettlementCommand implements TabExecutor {
         s.record(SettlementService.day(player.getWorld()), HistoryEvent.Kind.DONATION,
                 player.getName() + " gave " + amount + " " + itemName + " to the village.");
         player.sendMessage(Component.text("The people of " + s.name() + " thank you.", NamedTextColor.GREEN));
+        service.plugin().requestSave();
     }
 
     private static void line(Player player, String label, String value) {

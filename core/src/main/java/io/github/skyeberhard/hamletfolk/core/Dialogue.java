@@ -105,7 +105,7 @@ public final class Dialogue {
 
     private static String randomTrade(Random random) {
         Occupation[] trades = {Occupation.FARMER, Occupation.MASON, Occupation.TOOLSMITH, Occupation.LIBRARIAN,
-                Occupation.FISHERMAN, Occupation.CARTOGRAPHER};
+                Occupation.FISHERMAN, Occupation.CARTOGRAPHER, Occupation.LUMBERJACK};
         return trades[random.nextInt(trades.length)].title();
     }
 }

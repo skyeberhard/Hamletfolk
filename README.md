@@ -84,6 +84,12 @@ Data is stored in `plugins/Hamletfolk/settlements.json`. Removing the plugin lea
 world untouched, except that villagers keep the name they were given (set
 `show-names: false` before first run if you don't want that).
 
+**Back it up.** The plugin keeps its own rolling backups in `plugins/Hamletfolk/backups/`
+(the last 5, made on every startup), but that's on the same disk as everything else — it
+won't survive a lost drive or a bad `rm -rf`. Include `plugins/Hamletfolk/` (both
+`settlements.json` and `backups/`) in whatever off-machine backup already covers the rest
+of the server's world data.
+
 ## Building
 
 Requires Java 25 (Minecraft 26.x requires it).
@@ -99,6 +105,8 @@ The plugin jar is written to `paper/build/libs/`. Set `minecraftVersion` in
 
 - `./gradlew runServer` starts a local test server with the plugin. See
   [docs/TESTING.md](docs/TESTING.md) for setup and playtest scenarios.
+- Deploying to a real server follows [docs/DEPLOYING.md](docs/DEPLOYING.md); [PRODUCTION.md](PRODUCTION.md)
+  tracks what's live.
 - Work is tracked in [ROADMAP.md](ROADMAP.md). Commits and PRs start with the roadmap
   ID they deliver (e.g. `R1.2: ...`), and [CHANGELOG.md](CHANGELOG.md) lists IDs per release.
 

@@ -1,6 +1,9 @@
 package io.github.skyeberhard.hamletfolk.core;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
@@ -14,6 +17,7 @@ public final class SettlementSimulator {
     static final int CHILD_FOOD_PER_DAY = 1;
     static final double THREAT_DECAY = 0.9;
     static final int[] POPULATION_MILESTONES = {10, 25, 50, 100, 250};
+    static final int ABANDONMENT_DAYS = 10;
 
     /**
      * Simulates every day from the settlement's last simulated day up to {@code targetDay}.
@@ -36,11 +40,14 @@ public final class SettlementSimulator {
     }
 
     void simulateDay(Settlement settlement, long day) {
+        if (updateAbandonment(settlement, day)) {
+            return; // R1.5: no residents for ABANDONMENT_DAYS straight; nothing left to simulate.
+        }
         Random random = new Random(settlement.id().getMostSignificantBits() ^ (day * 0x9E3779B97F4A7C15L));
         Ledger ledger = settlement.ledger();
 
         Map<ResourceType, Integer> idleForLack = new EnumMap<>(ResourceType.class);
-        for (Resident resident : settlement.residents()) {
+        for (Resident resident : workOrder(settlement)) {
             work(resident, ledger, day, random, idleForLack);
         }
 
@@ -65,6 +72,17 @@ public final class SettlementSimulator {
         updateMilestones(settlement, day);
     }
 
+    /**
+     * R1.20: the order residents claim scarce inputs in. Whoever went without most recently
+     * goes first, so when there isn't enough for everyone the shortfall rotates round-robin
+     * instead of always landing on the most recently enrolled. Stable, so it stays deterministic.
+     */
+    static List<Resident> workOrder(Settlement settlement) {
+        List<Resident> order = new ArrayList<>(settlement.residents());
+        order.sort(Comparator.comparingLong(Resident::lastBlockedDay).reversed());
+        return order;
+    }
+
     private static void work(Resident resident, Ledger ledger, long day, Random random,
                              Map<ResourceType, Integer> idleForLack) {
         Occupation occupation = resident.occupation();
@@ -82,6 +100,33 @@ public final class SettlementSimulator {
         int output = (int) Math.floor(occupation.baseOutput() * diligence + random.nextDouble());
         ledger.add(occupation.produces(), output);
         resident.needs().adjustPurpose(4);
+    }
+
+    /**
+     * Tracks how long a settlement has had no residents. Marks it abandoned once that streak
+     * reaches {@code ABANDONMENT_DAYS}, and clears the mark (with a history entry) the moment
+     * someone lives there again.
+     *
+     * @return true if the settlement is abandoned and still empty as of this day
+     */
+    private static boolean updateAbandonment(Settlement settlement, long day) {
+        Map<String, Long> conditions = settlement.conditions();
+        if (settlement.population() == 0) {
+            Long emptySince = conditions.get("emptySince");
+            if (emptySince == null) {
+                conditions.put("emptySince", day);
+            } else if (day - emptySince >= ABANDONMENT_DAYS - 1 && !conditions.containsKey("abandoned")) {
+                conditions.put("abandoned", day);
+                settlement.record(day, HistoryEvent.Kind.ABANDONED, settlement.name()
+                        + " was abandoned. No one has lived there for " + ABANDONMENT_DAYS + " days.");
+            }
+            return conditions.containsKey("abandoned");
+        }
+        conditions.remove("emptySince");
+        if (conditions.remove("abandoned") != null) {
+            settlement.record(day, HistoryEvent.Kind.MILESTONE, settlement.name() + " was resettled.");
+        }
+        return false;
     }
 
     private static void updateFamine(Settlement settlement, long day, int shortfall) {

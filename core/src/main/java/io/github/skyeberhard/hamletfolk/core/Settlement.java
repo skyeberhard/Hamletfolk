@@ -138,6 +138,11 @@ public final class Settlement {
         return Optional.empty();
     }
 
+    /** True once R1.5 has marked this settlement abandoned: empty for {@code ABANDONMENT_DAYS} days straight. */
+    public boolean isAbandoned() {
+        return hasCondition("abandoned");
+    }
+
     public boolean hasCondition(String key) {
         return conditions.containsKey(key);
     }

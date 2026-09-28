@@ -12,7 +12,8 @@ import java.util.UUID;
  * because serializers disagree on whether 3 comes back as an int, long or double.
  */
 public final class SettlementCodec {
-    public static final int FORMAT_VERSION = 1;
+    // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
+    public static final int FORMAT_VERSION = 2;
 
     private SettlementCodec() {
     }
@@ -83,7 +84,8 @@ public final class SettlementCodec {
         return map;
     }
 
-    public static Settlement decode(Map<?, ?> map) {
+    public static Settlement decode(Map<?, ?> raw) {
+        Map<?, ?> map = migrate(raw);
         Settlement s = new Settlement(
                 UUID.fromString(str(map, "id")),
                 str(map, "name"),
@@ -116,6 +118,32 @@ public final class SettlementCodec {
             s.record(num(event, "day").longValue(), HistoryEvent.Kind.valueOf(str(event, "kind")), str(event, "text"));
         }
         return s;
+    }
+
+    /**
+     * Brings an older save up to {@link #FORMAT_VERSION}, one step at a time. Refuses to load
+     * a save written by a newer version of the plugin rather than silently misreading it.
+     */
+    private static Map<?, ?> migrate(Map<?, ?> raw) {
+        int version = raw.containsKey("format") ? num(raw, "format").intValue() : 1;
+        if (version > FORMAT_VERSION) {
+            throw new IllegalArgumentException("settlements.json was written by a newer version of this plugin "
+                    + "(format " + version + "; this build supports up to " + FORMAT_VERSION + "). "
+                    + "Update the plugin before loading it, or restore an older copy from backups/.");
+        }
+        if (version >= FORMAT_VERSION) {
+            return raw;
+        }
+        Map<String, Object> migrated = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : raw.entrySet()) {
+            migrated.put(entry.getKey().toString(), entry.getValue());
+        }
+        if (version < 2) {
+            // v1 -> v2: "turned" (R1.2) didn't exist yet; an old save has none.
+            migrated.putIfAbsent("turned", new LinkedHashMap<>());
+        }
+        migrated.put("format", FORMAT_VERSION);
+        return migrated;
     }
 
     private static Resident decodeResident(Map<?, ?> map) {

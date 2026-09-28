@@ -46,7 +46,7 @@ Goal: safe to run on a copy of the real server.
 | R1.2 | [#17](https://github.com/skyeberhard/Hamletfolk/issues/17) | Cured zombie villagers keep their identity | An infected-then-cured villager has the same name, family and traits, and history records the cure | Done |
 | R1.3 | [#18](https://github.com/skyeberhard/Hamletfolk/issues/18) | Save backups | On startup, the previous `settlements.json` is copied to `backups/`, keeping the last 5 | Done |
 | R1.4 | [#19](https://github.com/skyeberhard/Hamletfolk/issues/19) | Admin commands | `/settlement admin` supports `inspect`, `rename`, `save`; gated by `hamletfolk.admin` | Planned |
-| R1.5 | [#20](https://github.com/skyeberhard/Hamletfolk/issues/20) | Abandoned settlements | A settlement with no residents for 10 days is marked abandoned, stops simulating, and keeps its history | Planned |
+| R1.5 | [#20](https://github.com/skyeberhard/Hamletfolk/issues/20) | Abandoned settlements | A settlement with no residents for 10 days is marked abandoned, stops simulating, and keeps its history | Done |
 | R1.6 | [#21](https://github.com/skyeberhard/Hamletfolk/issues/21) | Performance budget | A benchmark shows 50 settlements × 50 residents simulate one day in under 5 ms | Done |
 | R1.7 | [#22](https://github.com/skyeberhard/Hamletfolk/issues/22) | Match the server's version | `minecraftVersion` matches the server; the plugin runs on a copy of the server world for one session with no errors | In progress |
 | R1.8 | [#23](https://github.com/skyeberhard/Hamletfolk/issues/23) | Membership follows residents | A villager that settles in another settlement's area for 3 days moves to that settlement, recorded in both histories | Planned |
@@ -54,10 +54,18 @@ Goal: safe to run on a copy of the real server.
 | R1.10 | [#47](https://github.com/skyeberhard/Hamletfolk/issues/47) | World allow/deny list | Settlements are only tracked and simulated in worlds matching the config's allow-list (or not matching its deny-list); an out-of-scope world (e.g. a void-generated or pasted-structure dimension) is ignored with no errors | Planned |
 | R1.11 | [#48](https://github.com/skyeberhard/Hamletfolk/issues/48) | Bedrock (Geyser) playtest | T2-T10 pass for a Bedrock/Geyser player; any Java-only interaction (e.g. sneak + right-click) has a documented alternate path (command or plain interaction) that also works | Planned |
 | R1.12 | [#49](https://github.com/skyeberhard/Hamletfolk/issues/49) | Paper-layer performance measurement | An admin command (e.g. `/settlement perf`) reports Paper-layer tick cost with real villagers loaded, distinct from the core-only benchmark in R1.6 | Planned |
-| R1.13 | [#50](https://github.com/skyeberhard/Hamletfolk/issues/50) | Save schema version and migration | `settlements.json` carries a schema version; loading an older version migrates without data loss (unit test), and the save path is confirmed to be covered by off-machine backup | Planned |
-| R1.14 | [#51](https://github.com/skyeberhard/Hamletfolk/issues/51) | Correct `plugin.yml` api-version | `api-version` matches what Paper 26.x expects (confirmed against Paper docs, not just "compiles and loads") | Planned |
+| R1.13 | [#50](https://github.com/skyeberhard/Hamletfolk/issues/50) | Save schema version and migration | `settlements.json` carries a schema version; loading an older version migrates without data loss (unit test), and the save path is confirmed to be covered by off-machine backup | Done |
+| R1.14 | [#51](https://github.com/skyeberhard/Hamletfolk/issues/51) | Correct plugin.yml api-version | `api-version` in plugin.yml matches what Paper 26.x expects, confirmed against Paper's docs, not just "compiles and loads" | Done |
 | R1.15 | [#52](https://github.com/skyeberhard/Hamletfolk/issues/52) | Admin and abandonment land before M2 | R1.4 and R1.5 are merged before any M2 work begins | Planned |
-| R1.16 | [#53](https://github.com/skyeberhard/Hamletfolk/issues/53) | Pin-and-verify workflow | A documented process (in docs/) records which commit is live in production versus which was last verified, and is checked before each deploy | Planned |
+| R1.16 | [#53](https://github.com/skyeberhard/Hamletfolk/issues/53) | Pin-and-verify workflow | A documented process records which commit is live in production versus which was last verified, and is checked before each deploy | Done |
+| R1.17 | [#59](https://github.com/skyeberhard/Hamletfolk/issues/59) | Stale autosave can't overwrite a newer save | Each save snapshot carries a sequence number; a write older than the last one written is skipped, so an in-flight autosave can't overwrite the shutdown save | Done |
+| R1.18 | [#60](https://github.com/skyeberhard/Hamletfolk/issues/60) | Save soon after a donation | A donation schedules a debounced save within a few seconds instead of waiting up to 5 minutes for the next autosave | Done |
+| R1.19 | [#61](https://github.com/skyeberhard/Hamletfolk/issues/61) | Periodic backups while running | Besides the startup backup, a backup is taken on a configurable interval (default daily) using the same rotation | Planned |
+| R1.20 | [#62](https://github.com/skyeberhard/Hamletfolk/issues/62) | Fair allocation of scarce inputs | When an input runs short, which workers go without rotates day to day, so no resident is permanently idle while others always work | Done |
+| R1.21 | [#63](https://github.com/skyeberhard/Hamletfolk/issues/63) | Bounded history | Repeated minor events are merged and stored entries are capped, keeping major events (founding, deaths, raids, famines) over minor ones | Planned |
+| R1.22 | [#64](https://github.com/skyeberhard/Hamletfolk/issues/64) | Record skipped catch-up days | When catch-up skips days beyond `max-catch-up-days`, history records how many were skipped | Planned |
+| R1.23 | [#65](https://github.com/skyeberhard/Hamletfolk/issues/65) | Handle world time moving backwards | If the world's day is earlier than a settlement's last simulated day, new residents and history use the settlement's day, and nothing is recorded out of order | Planned |
+| R1.24 | [#66](https://github.com/skyeberhard/Hamletfolk/issues/66) | Decide on unemployed foraging | UNEMPLOYED producing 1 food/day is either documented as intended or removed | Planned |
 
 ## M2: Buildings (v0.3.0) · [#3](https://github.com/skyeberhard/Hamletfolk/issues/3)
 
@@ -81,6 +89,11 @@ Goal: trading with villagers is part of the village economy.
 | R3.3 | [#30](https://github.com/skyeberhard/Hamletfolk/issues/30) | Village requests | When a resource runs short, the village posts a request (e.g. "32 iron"); fulfilling it pays emeralds from the treasury | Planned |
 | R3.4 | [#31](https://github.com/skyeberhard/Hamletfolk/issues/31) | Player reputation | Each settlement tracks reputation per player from donations, requests and harm; dialogue and prices reflect it | Planned |
 | R3.5 | [#32](https://github.com/skyeberhard/Hamletfolk/issues/32) | Resident wealth and wages | Residents earn from work and spend on food; wealth shows in dialogue | Planned |
+| R3.6 | [#67](https://github.com/skyeberhard/Hamletfolk/issues/67) | Tool wear | Gathering occupations occasionally consume TOOLS and produce less while the village has none; a tool shortage is recorded like any other | Planned |
+| R3.7 | [#68](https://github.com/skyeberhard/Hamletfolk/issues/68) | Resource flow tracking | Each settlement keeps a rolling 7-day produced/consumed total per resource, shown in `/settlement` | Planned |
+| R3.8 | [#69](https://github.com/skyeberhard/Hamletfolk/issues/69) | Donations valued by what they're worth | Storage blocks count as their contents and tools by material tier; donating confirms (or takes a quantity) instead of silently taking the whole stack | Planned |
+| R3.9 | [#70](https://github.com/skyeberhard/Hamletfolk/issues/70) | Merchant occupation | A MERCHANT sells surplus goods, stone and excess stock for emeralds into the treasury | Planned |
+| R3.10 | [#71](https://github.com/skyeberhard/Hamletfolk/issues/71) | Storage capacity and food spoilage | Each resource has a storage limit (raised later by M2 storage buildings), excess is wasted, and food slowly spoils, so a surplus can end | Planned |
 
 ## M4: Growth and migration (v0.5.0) · [#5](https://github.com/skyeberhard/Hamletfolk/issues/5)
 
@@ -90,7 +103,14 @@ Goal: villages grow or shrink because of their circumstances.
 |---|---|---|---|---|
 | R4.1 | [#33](https://github.com/skyeberhard/Hamletfolk/issues/33) | Newcomers | With a food surplus and free beds, a new villager arrives and is recorded in history | Planned |
 | R4.2 | [#34](https://github.com/skyeberhard/Hamletfolk/issues/34) | Migration | Unemployed or unhappy residents leave for a better-off settlement nearby, recorded in both histories | Planned |
-| R4.3 | [#35](https://github.com/skyeberhard/Hamletfolk/issues/35) | Jobs follow need | Unemployed residents take the occupation the village is shortest of, if a workstation is free | Planned |
+| R4.3 | [#35](https://github.com/skyeberhard/Hamletfolk/issues/35) | Jobs follow need | Unemployed residents take the occupation the village is shortest of, if a workstation is free; SettlementService.track() no longer overwrites a non-vanilla occupation (LUMBERJACK, future MINER) back to the villager's vanilla profession on every tracking pass | Planned |
+| R4.4 | [#54](https://github.com/skyeberhard/Hamletfolk/issues/54) | Lumberjack occupation | A LUMBERJACK occupation produces WOOD with no vanilla profession backing it and no building required, replacing FLETCHER as the de facto wood source | Done |
+| R4.5 | [#55](https://github.com/skyeberhard/Hamletfolk/issues/55) | Fletcher consumes wood, not produces it | FLETCHER consumes WOOD and produces GOODS (arrows), matching its actual trade, once R4.4 gives wood a real source | Done |
+| R4.6 | [#56](https://github.com/skyeberhard/Hamletfolk/issues/56) | Building templates with tiers | A building type has ordered tiers, each a hand-authored NBT structure; given a building's tier and the settlement's materials, the system picks the best affordable tier and computes the block diff to reach it | Planned |
+| R4.7 | [#57](https://github.com/skyeberhard/Hamletfolk/issues/57) | Terrain-triggered construction and upgrade projects | A settlement lacking a needed building type queues a project on suitable terrain (R4.6); existing buildings are checked for affordable upgrades; player-built buildings are never auto-replaced | Planned |
+| R4.8 | [#58](https://github.com/skyeberhard/Hamletfolk/issues/58) | Builder occupation and work queue | A BUILDER occupation claims one queued project at a time, consumes materials from the ledger as it executes the block diff over real time, and the remaining work survives a restart | Planned |
+| R4.9 | [#72](https://github.com/skyeberhard/Hamletfolk/issues/72) | Unmet needs reduce output | A resident's food, safety and purpose affect how much they produce; a starving or terrified worker produces noticeably less | Planned |
+| R4.10 | [#73](https://github.com/skyeberhard/Hamletfolk/issues/73) | Children become apprentices in needed trades | A grown child takes the occupation the village is shortest of (preferring a parent's trade when also needed), recorded in history | Planned |
 
 ## M5: Defense (v0.6.0) · [#6](https://github.com/skyeberhard/Hamletfolk/issues/6)
 
@@ -129,3 +149,6 @@ Not committed to. Promote an idea to a milestone (with a new ID) before working 
 - Villagers physically working (walking to the farm, carrying goods) when players are near.
 - Crime, disputes over property.
 - Disasters: drought, fire, disease.
+- Smelting and fuel: miners produce ore, smiths turn ore plus fuel (wood or coal) into metal. Needs ORE and FUEL resource types; keep a single METAL until it matters.
+- Distinct purposes for cleric (healing, slower need loss), librarian (faster skill learning) and cartographer (finding trade routes), instead of generic GOODS.
+- Animal husbandry chain: a rancher-type occupation (SHEPHERD, extended) raises livestock that BUTCHER consumes, instead of butcher producing food for free. Same raw-producer/craft-consumer pattern as R2.3 (miner to smith) and R4.4/R4.5 (lumberjack to fletcher).
