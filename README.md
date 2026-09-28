@@ -84,6 +84,12 @@ Data is stored in `plugins/Hamletfolk/settlements.json`. Removing the plugin lea
 world untouched, except that villagers keep the name they were given (set
 `show-names: false` before first run if you don't want that).
 
+**Back it up.** The plugin keeps its own rolling backups in `plugins/Hamletfolk/backups/`
+(the last 5, made on every startup), but that's on the same disk as everything else — it
+won't survive a lost drive or a bad `rm -rf`. Include `plugins/Hamletfolk/` (both
+`settlements.json` and `backups/`) in whatever off-machine backup already covers the rest
+of the server's world data.
+
 ## Building
 
 Requires Java 25 (Minecraft 26.x requires it).

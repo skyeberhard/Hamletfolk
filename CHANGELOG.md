@@ -4,6 +4,10 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.13: `settlements.json` now enforces its schema version on load: an older save
+  migrates automatically (format 1, from before R1.2, gets its missing `turned` field), and
+  a save from a newer plugin build is refused rather than silently misread. README now
+  recommends off-machine backup coverage for `plugins/Hamletfolk/`.
 - R1.5: A settlement empty for 10 days straight is marked abandoned and stops being
   simulated (cheap to keep around indefinitely); its history is untouched, and it un-abandons
   the moment someone lives there again.
