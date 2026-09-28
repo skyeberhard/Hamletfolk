@@ -5,3 +5,6 @@ out/
 *.iml
 .vscode/
 run/
+
+# Personal Claude Code overrides
+.claude/settings.local.json

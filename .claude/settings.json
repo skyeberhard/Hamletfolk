@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew build)",
+      "Bash(./gradlew :core:test)",
+      "Bash(./gradlew :core:test --rerun)",
+      "Bash(./gradlew :paper:compileJava)",
+      "Bash(gradlew.bat build)",
+      "Bash(gradlew.bat :core:test)",
+      "Bash(gradlew.bat :core:test --rerun)",
+      "Bash(gradlew.bat :paper:compileJava)",
+      "Bash(./gradlew *)",
+      "Bash(gradlew.bat *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}

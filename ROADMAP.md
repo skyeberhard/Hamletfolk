@@ -66,6 +66,7 @@ Goal: safe to run on a copy of the real server.
 | R1.22 | [#64](https://github.com/skyeberhard/Hamletfolk/issues/64) | Record skipped catch-up days | When catch-up skips days beyond `max-catch-up-days`, history records how many were skipped | Planned |
 | R1.23 | [#65](https://github.com/skyeberhard/Hamletfolk/issues/65) | Handle world time moving backwards | If the world's day is earlier than a settlement's last simulated day, new residents and history use the settlement's day, and nothing is recorded out of order | Planned |
 | R1.24 | [#66](https://github.com/skyeberhard/Hamletfolk/issues/66) | Decide on unemployed foraging | UNEMPLOYED producing 1 food/day is either documented as intended or removed | Planned |
+| R1.25 | [#74](https://github.com/skyeberhard/Hamletfolk/issues/74) | Shared Claude Code permissions for unattended runs | `.claude/settings.json` is checked in with an allowlist for Gradle and `git add`/`git commit`, so an unattended local run doesn't stall at permission prompts; personal overrides go in the git-ignored `.claude/settings.local.json` | Done |
 
 ## M2: Buildings (v0.3.0) · [#3](https://github.com/skyeberhard/Hamletfolk/issues/3)
 
