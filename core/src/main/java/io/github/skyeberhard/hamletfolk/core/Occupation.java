@@ -14,8 +14,11 @@ public enum Occupation {
     BUTCHER("butcher", "butcher", ResourceType.FOOD, 2, null),
     SHEPHERD("shepherd", "shepherd", ResourceType.GOODS, 1, null),
     LEATHERWORKER("leatherworker", "leatherworker", ResourceType.GOODS, 1, null),
-    FLETCHER("fletcher", "fletcher", ResourceType.WOOD, 2, null),
+    FLETCHER("fletcher", "fletcher", ResourceType.GOODS, 1, ResourceType.WOOD),
     MASON("mason", "mason", ResourceType.STONE, 2, null),
+    // No vanilla profession backs these; they're assigned directly by the simulation
+    // (R4.3 "jobs follow need") rather than reached through fromVanillaKey.
+    LUMBERJACK("lumberjack", "lumberjack", ResourceType.WOOD, 3, null),
     ARMORER("armorer", "armorer", ResourceType.TOOLS, 1, ResourceType.METAL),
     WEAPONSMITH("weaponsmith", "weaponsmith", ResourceType.TOOLS, 1, ResourceType.METAL),
     TOOLSMITH("toolsmith", "toolsmith", ResourceType.TOOLS, 1, ResourceType.METAL),

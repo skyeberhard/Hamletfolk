@@ -4,6 +4,8 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R4.4/R4.5: Added a LUMBERJACK occupation as wood's real source, and FLETCHER now
+  consumes wood to produce goods (arrows) instead of producing wood directly.
 - R1.13: `settlements.json` now enforces its schema version on load: an older save
   migrates automatically (format 1, from before R1.2, gets its missing `turned` field), and
   a save from a newer plugin build is refused rather than silently misread. README now

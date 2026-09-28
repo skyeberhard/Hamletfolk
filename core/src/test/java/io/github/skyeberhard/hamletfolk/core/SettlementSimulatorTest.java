@@ -60,6 +60,26 @@ class SettlementSimulatorTest {
     }
 
     @Test
+    void lumberjacksFeedTheVillageWithWood() {
+        Settlement s = village(0, 5, Occupation.LUMBERJACK);
+        simulator.simulateTo(s, 30, 100);
+        assertTrue(s.ledger().get(ResourceType.WOOD) > 0);
+    }
+
+    @Test
+    void fletchersIdleWithoutWoodAndResumeWhenSupplied() {
+        Settlement s = village(4, 1, Occupation.FLETCHER);
+        simulator.simulateTo(s, 1, 100);
+        assertTrue(s.hasCondition("shortage:wood"));
+        assertEquals(0, s.ledger().get(ResourceType.GOODS));
+
+        s.ledger().add(ResourceType.WOOD, 100);
+        simulator.simulateTo(s, 11, 100);
+        assertFalse(s.hasCondition("shortage:wood"));
+        assertTrue(s.ledger().get(ResourceType.GOODS) > 0);
+    }
+
+    @Test
     void shortageIsRecordedOnceNotEveryDay() {
         Settlement s = village(4, 1, Occupation.ARMORER);
         simulator.simulateTo(s, 20, 100);

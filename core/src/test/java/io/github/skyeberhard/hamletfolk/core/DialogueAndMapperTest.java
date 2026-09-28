@@ -69,4 +69,18 @@ class DialogueAndMapperTest {
         assertEquals(Occupation.UNEMPLOYED, Occupation.fromVanillaKey("none"));
         assertEquals(Occupation.UNEMPLOYED, Occupation.fromVanillaKey("modded:alchemist"));
     }
+
+    @Test
+    void lumberjackAndFletcherFormARealDependencyChain() {
+        // R4.4/R4.5: fletcher no longer stands in as a de facto lumber source.
+        assertEquals(ResourceType.WOOD, Occupation.LUMBERJACK.produces());
+        assertEquals(null, Occupation.LUMBERJACK.consumes());
+        assertEquals(ResourceType.GOODS, Occupation.FLETCHER.produces());
+        assertEquals(ResourceType.WOOD, Occupation.FLETCHER.consumes());
+
+        // Bukkit's real Villager.Profession enum has no "lumberjack" entry, so no actual
+        // villager ever reports this key; the occupation is only ever reached by the
+        // simulation assigning it directly (R4.3). This just checks the round-trip is sane.
+        assertEquals(Occupation.LUMBERJACK, Occupation.fromVanillaKey("lumberjack"));
+    }
 }
