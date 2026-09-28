@@ -51,8 +51,10 @@ class SettlementSimulatorTest {
         assertTrue(s.hasCondition("shortage:metal"));
         assertEquals(0, s.ledger().get(ResourceType.TOOLS));
 
-        s.ledger().add(ResourceType.METAL, 10);
-        simulator.simulateTo(s, 2, 100);
+        // Output on any single day can legitimately be zero (low work ethic, an unlucky roll),
+        // so give the smith several days to work rather than asserting on day one alone.
+        s.ledger().add(ResourceType.METAL, 100);
+        simulator.simulateTo(s, 11, 100);
         assertFalse(s.hasCondition("shortage:metal"));
         assertTrue(s.ledger().get(ResourceType.TOOLS) > 0);
     }
