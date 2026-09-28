@@ -21,13 +21,17 @@ public final class SettlementSimulator {
 
     /**
      * Simulates every day from the settlement's last simulated day up to {@code targetDay}.
-     * If more than {@code maxDays} are pending, the oldest are skipped rather than replayed.
+     * If more than {@code maxDays} are pending, the oldest are skipped rather than replayed,
+     * and the history says how many (R1.22).
      *
      * @return the number of days simulated
      */
     public int simulateTo(Settlement settlement, long targetDay, int maxDays) {
         if (targetDay - settlement.lastSimulatedDay() > maxDays) {
+            long skipped = targetDay - settlement.lastSimulatedDay() - maxDays;
             settlement.setLastSimulatedDay(targetDay - maxDays);
+            settlement.record(targetDay - maxDays, HistoryEvent.Kind.MILESTONE, skipped + (skipped == 1 ? " day" : " days")
+                    + " passed unrecorded while " + settlement.name() + " went unvisited.");
         }
         int simulated = 0;
         while (settlement.lastSimulatedDay() < targetDay) {

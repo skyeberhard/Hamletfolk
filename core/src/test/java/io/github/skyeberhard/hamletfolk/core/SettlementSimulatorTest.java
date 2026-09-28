@@ -116,6 +116,19 @@ class SettlementSimulatorTest {
     }
 
     @Test
+    void skippedCatchUpDaysAreRecordedInHistory() {
+        // R1.22: 1,000 days pending with a 10-day cap skips 990, and the history says so.
+        Settlement s = village(3, 1, Occupation.MASON);
+        simulator.simulateTo(s, 1_000, 10);
+        assertTrue(s.history().stream().anyMatch(e -> e.text().startsWith("990 days passed unrecorded")));
+
+        // Nothing skipped, nothing recorded.
+        Settlement quiet = village(3, 1, Occupation.MASON);
+        simulator.simulateTo(quiet, 8, 10);
+        assertTrue(quiet.history().stream().noneMatch(e -> e.text().contains("unrecorded")));
+    }
+
+    @Test
     void scarceInputsRotateBetweenWorkers() {
         // R1.20: two smiths, one ingot a day. Each should go without on some days, not the same one forever.
         Settlement s = village(4, 0, Occupation.FARMER);
