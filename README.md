@@ -105,6 +105,8 @@ The plugin jar is written to `paper/build/libs/`. Set `minecraftVersion` in
 
 - `./gradlew runServer` starts a local test server with the plugin. See
   [docs/TESTING.md](docs/TESTING.md) for setup and playtest scenarios.
+- Deploying to a real server follows [docs/DEPLOYING.md](docs/DEPLOYING.md); [PRODUCTION.md](PRODUCTION.md)
+  tracks what's live.
 - Work is tracked in [ROADMAP.md](ROADMAP.md). Commits and PRs start with the roadmap
   ID they deliver (e.g. `R1.2: ...`), and [CHANGELOG.md](CHANGELOG.md) lists IDs per release.
 

@@ -4,6 +4,8 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.16: docs/DEPLOYING.md documents the pin-and-verify process; PRODUCTION.md tracks
+  which commit is live versus last verified.
 - R4.4/R4.5: Added a LUMBERJACK occupation as wood's real source, and FLETCHER now
   consumes wood to produce goods (arrows) instead of producing wood directly.
 - R1.13: `settlements.json` now enforces its schema version on load: an older save
