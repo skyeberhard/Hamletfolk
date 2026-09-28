@@ -4,6 +4,9 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.5: A settlement empty for 10 days straight is marked abandoned and stops being
+  simulated (cheap to keep around indefinitely); its history is untouched, and it un-abandons
+  the moment someone lives there again.
 - R1.14: `plugin.yml` api-version corrected from `1.21` to `26.2`, matching the Minecraft
   version this build actually targets since R1.7 (confirmed against PaperMC's docs).
 - R1.2: A villager infected by zombies and then cured comes back as the same person, with the

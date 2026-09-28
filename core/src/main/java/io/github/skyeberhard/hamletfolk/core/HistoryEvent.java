@@ -14,6 +14,7 @@ public record HistoryEvent(long day, Kind kind, String text) {
         RECOVERY,
         SHORTAGE,
         MILESTONE,
-        DONATION
+        DONATION,
+        ABANDONED
     }
 }
