@@ -1,7 +1,7 @@
 name: Hamletfolk
 version: '${version}'
 main: io.github.skyeberhard.hamletfolk.paper.HamletfolkPlugin
-api-version: '1.21'
+api-version: '26.2'
 description: Gives villagers persistent identities, and gives villages an economy and a written history.
 author: skyeberhard
 commands:

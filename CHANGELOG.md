@@ -4,6 +4,8 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.14: `plugin.yml` api-version corrected from `1.21` to `26.2`, matching the Minecraft
+  version this build actually targets since R1.7 (confirmed against PaperMC's docs).
 - R1.2: A villager infected by zombies and then cured comes back as the same person, with the
   same name, family, traits and memory of players. History records who cured them.
   `/settlement` shows how many residents are zombies who could still be cured.
