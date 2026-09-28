@@ -57,7 +57,8 @@ class SettlementSimulatorTest {
         s.ledger().add(ResourceType.METAL, 100);
         simulator.simulateTo(s, 11, 100);
         assertFalse(s.hasCondition("shortage:metal"));
-        assertTrue(s.ledger().get(ResourceType.TOOLS) > 0);
+        // Count what the smith made, not what is left: the farmers wear tools out too (R3.6).
+        assertTrue(s.flow().produced(ResourceType.TOOLS, s.lastSimulatedDay()) > 0);
     }
 
     @Test
