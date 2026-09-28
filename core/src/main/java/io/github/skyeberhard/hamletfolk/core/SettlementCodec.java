@@ -13,7 +13,8 @@ import java.util.UUID;
  */
 public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
-    public static final int FORMAT_VERSION = 2;
+    // 3: history events may carry "count" and "actor" (R1.21, merged donations).
+    public static final int FORMAT_VERSION = 3;
 
     private SettlementCodec() {
     }
@@ -53,6 +54,12 @@ public final class SettlementCodec {
             event.put("day", e.day());
             event.put("kind", e.kind().name());
             event.put("text", e.text());
+            if (e.count() != 1) {
+                event.put("count", e.count());
+            }
+            if (e.actor() != null) {
+                event.put("actor", e.actor());
+            }
             history.add(event);
         }
         map.put("history", history);
@@ -115,7 +122,10 @@ public final class SettlementCodec {
 
         for (Object o : asList(map.get("history"))) {
             Map<?, ?> event = asMap(o);
-            s.record(num(event, "day").longValue(), HistoryEvent.Kind.valueOf(str(event, "kind")), str(event, "text"));
+            Object actor = event.get("actor");
+            s.add(new HistoryEvent(num(event, "day").longValue(), HistoryEvent.Kind.valueOf(str(event, "kind")),
+                    str(event, "text"), event.containsKey("count") ? num(event, "count").intValue() : 1,
+                    actor == null ? null : actor.toString()));
         }
         return s;
     }
@@ -142,6 +152,7 @@ public final class SettlementCodec {
             // v1 -> v2: "turned" (R1.2) didn't exist yet; an old save has none.
             migrated.putIfAbsent("turned", new LinkedHashMap<>());
         }
+        // v2 -> v3: "count" and "actor" on history events are optional; old events read as count 1, no actor.
         migrated.put("format", FORMAT_VERSION);
         return migrated;
     }

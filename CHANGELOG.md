@@ -4,6 +4,11 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.21: History is bounded. A player's repeated donations within a week merge into one line
+  ("Skye made 14 donations this week"), and each settlement keeps at most 500 events, dropping
+  minor ones (donations, shortages, births, arrivals) before major ones (founding, deaths, cures,
+  raids, famines, abandonment). Save format is now 3 (optional `count`/`actor` on events).
+
 - R1.17: Saves are numbered when snapshotted; a slow background autosave can no longer
   overwrite a newer save (e.g. the one made at shutdown).
 - R1.18: A donation triggers a save within about 2 seconds instead of waiting for the next

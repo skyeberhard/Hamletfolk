@@ -157,8 +157,7 @@ final class SettlementCommand implements TabExecutor {
             s.ledger().add(type.get(), amount);
         }
         player.getInventory().setItemInMainHand(null);
-        s.record(SettlementService.day(player.getWorld()), HistoryEvent.Kind.DONATION,
-                player.getName() + " gave " + amount + " " + itemName + " to the village.");
+        s.recordDonation(SettlementService.day(player.getWorld()), player.getName(), amount, itemName);
         player.sendMessage(Component.text("The people of " + s.name() + " thank you.", NamedTextColor.GREEN));
         service.plugin().requestSave();
     }

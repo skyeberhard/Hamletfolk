@@ -12,6 +12,11 @@ import java.util.UUID;
 
 /** A community of residents with a shared ledger and a written history. */
 public final class Settlement {
+    /** Most events kept per settlement; past this, minor events go first (R1.21). */
+    public static final int MAX_HISTORY = 500;
+    /** A donor's donations within this many days of their first are merged into one line. */
+    public static final int DONATION_MERGE_DAYS = 7;
+
     private final UUID id;
     private final String name;
     private final String world;
@@ -121,7 +126,47 @@ public final class Settlement {
     }
 
     public void record(long day, HistoryEvent.Kind kind, String text) {
-        history.add(new HistoryEvent(day, kind, text));
+        add(new HistoryEvent(day, kind, text));
+    }
+
+    /**
+     * Records a donation, merging it into the donor's earlier donation from the last
+     * {@code DONATION_MERGE_DAYS} days ("Skye made 14 donations this week") so a busy
+     * donor doesn't fill the history.
+     */
+    public void recordDonation(long day, String donor, int amount, String itemName) {
+        for (int i = history.size() - 1; i >= 0; i--) {
+            HistoryEvent event = history.get(i);
+            if (event.day() <= day - DONATION_MERGE_DAYS) {
+                break;
+            }
+            if (event.kind() == HistoryEvent.Kind.DONATION && donor.equals(event.actor())) {
+                int count = event.count() + 1;
+                history.set(i, new HistoryEvent(event.day(), event.kind(),
+                        donor + " made " + count + " donations this week.", count, donor));
+                return;
+            }
+        }
+        add(new HistoryEvent(day, HistoryEvent.Kind.DONATION,
+                donor + " gave " + amount + " " + itemName + " to the village.", 1, donor));
+    }
+
+    /** Adds an event and, if the history is over {@code MAX_HISTORY}, drops the oldest minor one, else the oldest non-founding one. */
+    void add(HistoryEvent event) {
+        history.add(event);
+        while (history.size() > MAX_HISTORY) {
+            int drop = -1;
+            for (int i = 0; i < history.size(); i++) {
+                if (!history.get(i).kind().isMajor()) {
+                    drop = i;
+                    break;
+                }
+            }
+            if (drop < 0) {
+                drop = history.get(0).kind() == HistoryEvent.Kind.FOUNDED ? 1 : 0;
+            }
+            history.remove(drop);
+        }
     }
 
     /** The most recent event of the given kind on or after {@code sinceDay}, if any. */
