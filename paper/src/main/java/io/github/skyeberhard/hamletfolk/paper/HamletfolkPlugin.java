@@ -12,20 +12,25 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class HamletfolkPlugin extends JavaPlugin {
     private static final long SIMULATION_PERIOD_TICKS = 100;
-    private static final int BACKUPS_KEPT = 5;
     private static final long SAVE_REQUEST_DELAY_TICKS = 40;
+    private static final long TICKS_PER_HOUR = 60L * 60 * 20;
 
     private SettlementStore store;
     private SettlementService service;
     private boolean saveRequested;
+    private Path saveFile;
+    private Path backupDirectory;
+    private int backupsKept;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        Path saveFile = getDataFolder().toPath().resolve("settlements.json");
+        saveFile = getDataFolder().toPath().resolve("settlements.json");
+        backupDirectory = getDataFolder().toPath().resolve("backups");
+        backupsKept = Math.max(1, getConfig().getInt("backups.keep", 5));
         store = new SettlementStore(saveFile);
         try {
-            SaveBackups.backup(saveFile, getDataFolder().toPath().resolve("backups"), BACKUPS_KEPT, Instant.now())
+            SaveBackups.backup(saveFile, backupDirectory, backupsKept, Instant.now())
                     .ifPresent(backup -> getLogger().info("Backed up settlements to " + backup.getFileName()));
         } catch (IOException e) {
             // A failed backup shouldn't stop the plugin, but it should be loud.
@@ -57,6 +62,13 @@ public final class HamletfolkPlugin extends JavaPlugin {
 
         long autosaveTicks = Math.max(1, getConfig().getLong("autosave-minutes", 5)) * 60 * 20;
         getServer().getScheduler().runTaskTimer(this, this::saveAsync, autosaveTicks, autosaveTicks);
+
+        // R1.19: a server that runs for weeks between restarts still gets fresh backups.
+        double backupHours = getConfig().getDouble("backups.interval-hours", 24);
+        if (backupHours > 0) {
+            long backupTicks = Math.max(1, Math.round(backupHours * TICKS_PER_HOUR));
+            getServer().getScheduler().runTaskTimer(this, this::backupAsync, backupTicks, backupTicks);
+        }
 
         getLogger().info("Tracking " + registry.settlements().size() + " settlements.");
     }
@@ -98,6 +110,20 @@ public final class HamletfolkPlugin extends JavaPlugin {
             getLogger().log(Level.SEVERE, "Failed to save settlements", e);
             return false;
         }
+    }
+
+    /** Saves the current state, then copies the save file into backups/ with the usual rotation. */
+    private void backupAsync() {
+        SettlementStore.Snapshot snapshot = store.snapshot(service.registry());
+        getServer().getScheduler().runTaskAsynchronously(this, () -> {
+            try {
+                store.write(snapshot); // Skipped if a newer save already landed; either way the file is current.
+                SaveBackups.backup(saveFile, backupDirectory, backupsKept, Instant.now())
+                        .ifPresent(backup -> getLogger().info("Backed up settlements to " + backup.getFileName()));
+            } catch (IOException e) {
+                getLogger().log(Level.WARNING, "Could not back up settlements.json", e);
+            }
+        });
     }
 
     private void saveAsync() {

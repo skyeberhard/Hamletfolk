@@ -22,3 +22,11 @@ show-names: true
 
 # How often to save settlement data, in minutes.
 autosave-minutes: 5
+
+# Backups of settlements.json go in plugins/Hamletfolk/backups/. One is taken at every
+# startup, and another every interval-hours while the server runs (0 turns those off).
+# Only the newest `keep` are kept, startup and periodic together, so restarting often
+# pushes the older periodic ones out; raise `keep` if that matters.
+backups:
+  interval-hours: 24
+  keep: 5
