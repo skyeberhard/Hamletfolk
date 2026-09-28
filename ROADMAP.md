@@ -51,6 +51,13 @@ Goal: safe to run on a copy of the real server.
 | R1.7 | [#22](https://github.com/skyeberhard/Hamletfolk/issues/22) | Match the server's version | `minecraftVersion` matches the server; the plugin runs on a copy of the server world for one session with no errors | In progress |
 | R1.8 | [#23](https://github.com/skyeberhard/Hamletfolk/issues/23) | Membership follows residents | A villager that settles in another settlement's area for 3 days moves to that settlement, recorded in both histories | Planned |
 | R1.9 | [#46](https://github.com/skyeberhard/Hamletfolk/issues/46) | Rename project to Hamletfolk | Plugin, jar, data folder, permissions, packages and docs use the new name, and CI builds | Done |
+| R1.10 | [#47](https://github.com/skyeberhard/Hamletfolk/issues/47) | World allow/deny list | Settlements are only tracked and simulated in worlds matching the config's allow-list (or not matching its deny-list); an out-of-scope world is ignored with no errors | Planned |
+| R1.11 | [#48](https://github.com/skyeberhard/Hamletfolk/issues/48) | Bedrock (Geyser) playtest | The scenarios in docs/TESTING.md pass for a Bedrock player joining through Geyser, not just Java | Planned |
+| R1.12 | [#49](https://github.com/skyeberhard/Hamletfolk/issues/49) | Paper-layer performance measurement | The event handlers and command paths (not just the pure-Java core measured by R1.6) are profiled under load on a real server | Planned |
+| R1.13 | [#50](https://github.com/skyeberhard/Hamletfolk/issues/50) | Save schema version and migration | `settlements.json` carries a schema version; loading an older version migrates without data loss, and the save path is confirmed to be covered by off-machine backup | Planned |
+| R1.14 | [#51](https://github.com/skyeberhard/Hamletfolk/issues/51) | Correct plugin.yml api-version | `api-version` in plugin.yml matches what Paper 26.x expects, confirmed against Paper's docs, not just "compiles and loads" | Planned |
+| R1.15 | [#52](https://github.com/skyeberhard/Hamletfolk/issues/52) | Admin and abandonment land before M2 | R1.4 and R1.5 are both merged before any M2 item begins | Planned |
+| R1.16 | [#53](https://github.com/skyeberhard/Hamletfolk/issues/53) | Pin-and-verify workflow | A documented process records which commit is live in production versus which was last verified, and is checked before each deploy | Planned |
 
 ## M2: Buildings (v0.3.0) · [#3](https://github.com/skyeberhard/Hamletfolk/issues/3)
 
@@ -84,6 +91,11 @@ Goal: villages grow or shrink because of their circumstances.
 | R4.1 | [#33](https://github.com/skyeberhard/Hamletfolk/issues/33) | Newcomers | With a food surplus and free beds, a new villager arrives and is recorded in history | Planned |
 | R4.2 | [#34](https://github.com/skyeberhard/Hamletfolk/issues/34) | Migration | Unemployed or unhappy residents leave for a better-off settlement nearby, recorded in both histories | Planned |
 | R4.3 | [#35](https://github.com/skyeberhard/Hamletfolk/issues/35) | Jobs follow need | Unemployed residents take the occupation the village is shortest of, if a workstation is free | Planned |
+| R4.4 | [#54](https://github.com/skyeberhard/Hamletfolk/issues/54) | Lumberjack occupation | A LUMBERJACK occupation produces WOOD with no vanilla profession backing it and no building required, replacing FLETCHER as the de facto wood source | Planned |
+| R4.5 | [#55](https://github.com/skyeberhard/Hamletfolk/issues/55) | Fletcher consumes wood, not produces it | FLETCHER consumes WOOD and produces GOODS (arrows), matching its actual trade, once R4.4 gives wood a real source | Planned |
+| R4.6 | [#56](https://github.com/skyeberhard/Hamletfolk/issues/56) | Building templates with tiers | A building type has ordered tiers, each a hand-authored NBT structure; given a building's tier and the settlement's materials, the system picks the best affordable tier and computes the block diff to reach it | Planned |
+| R4.7 | [#57](https://github.com/skyeberhard/Hamletfolk/issues/57) | Terrain-triggered construction and upgrade projects | A settlement lacking a needed building type queues a project on suitable terrain (R4.6); existing buildings are checked for affordable upgrades; player-built buildings are never auto-replaced | Planned |
+| R4.8 | [#58](https://github.com/skyeberhard/Hamletfolk/issues/58) | Builder occupation and work queue | A BUILDER occupation claims one queued project at a time, consumes materials from the ledger as it executes the block diff over real time, and the remaining work survives a restart | Planned |
 
 ## M5: Defense (v0.6.0) · [#6](https://github.com/skyeberhard/Hamletfolk/issues/6)
 
@@ -122,3 +134,4 @@ Not committed to. Promote an idea to a milestone (with a new ID) before working 
 - Villagers physically working (walking to the farm, carrying goods) when players are near.
 - Crime, disputes over property.
 - Disasters: drought, fire, disease.
+- Animal husbandry chain: a rancher-type occupation (SHEPHERD, extended) raises livestock that BUTCHER consumes, instead of butcher producing food for free. Same raw-producer/craft-consumer pattern as R2.3 (miner to smith) and R4.4/R4.5 (lumberjack to fletcher).
