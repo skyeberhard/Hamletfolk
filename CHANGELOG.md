@@ -4,6 +4,10 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.10: `worlds.allow` and `worlds.deny` in config.yml (names or `*` patterns, case-insensitive)
+  decide where settlements are tracked. An excluded world is ignored: villagers there are not
+  enrolled, `/settlement` reports no settlement, and existing settlements in it stop simulating
+  but are kept. Empty lists mean every world, as before.
 - R1.4: `/settlement admin list|inspect|rename|save`, gated by the new `hamletfolk.admin`
   permission (ops by default) and usable from the server console, so state can be checked
   without a player in game. Settlements can be named by name or by id prefix.

@@ -58,7 +58,7 @@ final class VillagerListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBreed(EntityBreedEvent event) {
-        if (event.getEntity() instanceof Villager child) {
+        if (event.getEntity() instanceof Villager child && service.inScope(child.getWorld())) {
             service.expectBirth(child.getUniqueId(), event.getMother().getUniqueId(), event.getFather().getUniqueId());
         }
     }
@@ -75,7 +75,7 @@ final class VillagerListener implements Listener {
             return;
         }
         Player player = event.getPlayer();
-        if (!player.isSneaking() || !player.hasPermission("hamletfolk.use")) {
+        if (!player.isSneaking() || !player.hasPermission("hamletfolk.use") || !service.inScope(villager.getWorld())) {
             return; // A normal right-click still opens trading.
         }
         event.setCancelled(true);
@@ -101,7 +101,7 @@ final class VillagerListener implements Listener {
             onZombieDeath(zombie);
             return;
         }
-        if (!(event.getEntity() instanceof Villager villager)) {
+        if (!(event.getEntity() instanceof Villager villager) || !service.inScope(villager.getWorld())) {
             return;
         }
         Settlement settlement = service.registry().settlementOf(villager.getUniqueId()).orElse(null);
@@ -135,7 +135,7 @@ final class VillagerListener implements Listener {
             onCure(zombie, cured);
             return;
         }
-        if (!(event.getEntity() instanceof Villager villager)) {
+        if (!(event.getEntity() instanceof Villager villager) || !service.inScope(villager.getWorld())) {
             return;
         }
         UUID id = villager.getUniqueId();

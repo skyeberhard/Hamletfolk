@@ -45,7 +45,15 @@ final class SettlementService {
         return world.getFullTime() / TICKS_PER_DAY;
     }
 
+    /** R1.10: false for a world the config's allow/deny lists exclude; nothing there is tracked or simulated. */
+    boolean inScope(World world) {
+        return config.worlds().accepts(world.getName());
+    }
+
     Optional<Settlement> settlementAt(Location location) {
+        if (!inScope(location.getWorld())) {
+            return Optional.empty();
+        }
         return registry.nearest(location.getWorld().getName(), location.getBlockX(), location.getBlockZ(),
                 config.settlementRadius());
     }
@@ -53,7 +61,7 @@ final class SettlementService {
     /** Brings a settlement's simulation up to the current day of its world. */
     void simulate(Settlement settlement) {
         World world = Bukkit.getWorld(settlement.world());
-        if (world != null) {
+        if (world != null && inScope(world)) {
             simulator.simulateTo(settlement, day(world), config.maxCatchUpDays());
         }
     }
@@ -76,8 +84,14 @@ final class SettlementService {
         pendingParents.put(child, new UUID[] {parentA, parentB});
     }
 
-    /** Returns the villager's resident record, enrolling them in a settlement if they're new. */
+    /**
+     * Returns the villager's resident record, enrolling them in a settlement if they're new,
+     * or null if their world is excluded by the config (R1.10).
+     */
     Resident track(Villager villager) {
+        if (!inScope(villager.getWorld())) {
+            return null;
+        }
         Resident resident = registry.resident(villager.getUniqueId()).orElse(null);
         if (resident == null) {
             resident = enroll(villager);

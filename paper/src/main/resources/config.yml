@@ -6,6 +6,16 @@ settlement-radius: 96
 # this many in-game days to catch up. Older days are skipped.
 max-catch-up-days: 60
 
+# Which worlds settlements are tracked and simulated in. Names match the whole world
+# name, ignoring case; * matches any run of characters (e.g. "void_*").
+#   allow: only these worlds are tracked. Empty means every world.
+#   deny:  these worlds are never tracked, even if allowed above.
+# Use this to keep out worlds with pasted structures or void generation. Settlements
+# already saved in a world that is now excluded are kept but stop simulating.
+worlds:
+  allow: []
+  deny: []
+
 # Show residents' names when you look at them. Villagers you've renamed with a
 # name tag are never overwritten.
 show-names: true
