@@ -126,7 +126,7 @@ public final class Settlement {
     }
 
     public void record(long day, HistoryEvent.Kind kind, String text) {
-        add(new HistoryEvent(day, kind, text));
+        add(new HistoryEvent(effectiveDay(day), kind, text));
     }
 
     /**
@@ -135,6 +135,7 @@ public final class Settlement {
      * donor doesn't fill the history.
      */
     public void recordDonation(long day, String donor, int amount, String itemName) {
+        day = effectiveDay(day);
         for (int i = history.size() - 1; i >= 0; i--) {
             HistoryEvent event = history.get(i);
             if (event.day() <= day - DONATION_MERGE_DAYS) {
@@ -151,7 +152,16 @@ public final class Settlement {
                 donor + " gave " + amount + " " + itemName + " to the village.", 1, donor));
     }
 
-    /** Adds an event and, if the history is over {@code MAX_HISTORY}, drops the oldest minor one, else the oldest non-founding one. */
+    /**
+     * R1.23: the day to file an event under. If the world clock has gone backwards (e.g. after
+     * {@code /time set}), the settlement's own day wins, so nothing is recorded out of order.
+     */
+    public long effectiveDay(long worldDay) {
+        long latest = history.isEmpty() ? 0 : history.get(history.size() - 1).day();
+        return Math.max(worldDay, Math.max(lastSimulatedDay, latest));
+    }
+
+    /** Adds an event as given (loading a save uses this) and, if the history is over {@code MAX_HISTORY}, drops the oldest minor one, else the oldest non-founding one. */
     void add(HistoryEvent event) {
         history.add(event);
         while (history.size() > MAX_HISTORY) {

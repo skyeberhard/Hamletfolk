@@ -64,7 +64,7 @@ Goal: safe to run on a copy of the real server.
 | R1.20 | [#62](https://github.com/skyeberhard/Hamletfolk/issues/62) | Fair allocation of scarce inputs | When an input runs short, which workers go without rotates day to day, so no resident is permanently idle while others always work | Done |
 | R1.21 | [#63](https://github.com/skyeberhard/Hamletfolk/issues/63) | Bounded history | Repeated minor events are merged and stored entries are capped, keeping major events (founding, deaths, raids, famines) over minor ones | Done |
 | R1.22 | [#64](https://github.com/skyeberhard/Hamletfolk/issues/64) | Record skipped catch-up days | When catch-up skips days beyond `max-catch-up-days`, history records how many were skipped | Done |
-| R1.23 | [#65](https://github.com/skyeberhard/Hamletfolk/issues/65) | Handle world time moving backwards | If the world's day is earlier than a settlement's last simulated day, new residents and history use the settlement's day, and nothing is recorded out of order | Planned |
+| R1.23 | [#65](https://github.com/skyeberhard/Hamletfolk/issues/65) | Handle world time moving backwards | If the world's day is earlier than a settlement's last simulated day, new residents and history use the settlement's day, and nothing is recorded out of order | Done |
 | R1.24 | [#66](https://github.com/skyeberhard/Hamletfolk/issues/66) | Decide on unemployed foraging | UNEMPLOYED producing 1 food/day is either documented as intended or removed | Planned |
 
 ## M2: Buildings (v0.3.0) · [#3](https://github.com/skyeberhard/Hamletfolk/issues/3)

@@ -86,7 +86,7 @@ public final class SettlementRegistry {
                 ? Traits.inherit(mother.traits(), father.traits(), random)
                 : Traits.roll(random);
         Resident resident = new Resident(residentId, NameGenerator.givenName(random), familyName, traits,
-                occupation, adult, day, parentA, parentB, Needs.initial());
+                occupation, adult, settlement.effectiveDay(day), parentA, parentB, Needs.initial());
         settlement.addResident(resident);
         residentIndex.put(residentId, settlement.id());
         return resident;

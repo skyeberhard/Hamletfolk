@@ -4,9 +4,10 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.23: If the world clock goes backwards (e.g. `/time set`), new residents and history entries
+  use the settlement's own day, so nothing is filed before days already simulated.
 - R1.22: When catch-up skips days beyond `max-catch-up-days`, the settlement's history now
   records how many were skipped ("990 days passed unrecorded while Oakvale went unvisited.").
-
 - R1.21: History is bounded. A player's repeated donations within a week merge into one line
   ("Skye made 14 donations this week"), and each settlement keeps at most 500 events, dropping
   minor ones (donations, shortages, births, arrivals) before major ones (founding, deaths, cures,
