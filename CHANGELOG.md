@@ -4,6 +4,8 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.20: When an input runs short, whoever went without most recently gets first claim the
+  next day, so the shortfall rotates round-robin instead of always hitting the newest worker.
 - R1.16: docs/DEPLOYING.md documents the pin-and-verify process; PRODUCTION.md tracks
   which commit is live versus last verified.
 - R4.4/R4.5: Added a LUMBERJACK occupation as wood's real source, and FLETCHER now

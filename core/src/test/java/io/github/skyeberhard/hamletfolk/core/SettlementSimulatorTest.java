@@ -114,4 +114,27 @@ class SettlementSimulatorTest {
         new SettlementSimulator().simulateTo(b, 1_005, 10);
         assertEquals(SettlementCodec.encode(a), SettlementCodec.encode(b));
     }
+
+    @Test
+    void scarceInputsRotateBetweenWorkers() {
+        // R1.20: two smiths, one ingot a day. Each should go without on some days, not the same one forever.
+        Settlement s = village(4, 0, Occupation.FARMER);
+        Resident first = registry.enroll(s, UUID.randomUUID(), Occupation.TOOLSMITH, true, 0, null, null);
+        Resident second = registry.enroll(s, UUID.randomUUID(), Occupation.TOOLSMITH, true, 0, null, null);
+        int firstIdle = 0;
+        int secondIdle = 0;
+        for (long day = 1; day <= 20; day++) {
+            s.ledger().add(ResourceType.METAL, 1);
+            simulator.simulateTo(s, day, 100);
+            if (first.lastBlockedDay() == day) {
+                firstIdle++;
+            }
+            if (second.lastBlockedDay() == day) {
+                secondIdle++;
+            }
+        }
+        assertEquals(20, firstIdle + secondIdle);
+        assertEquals(10, firstIdle, "first smith idle days");
+        assertEquals(10, secondIdle, "second smith idle days");
+    }
 }

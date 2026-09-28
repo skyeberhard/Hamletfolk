@@ -1,6 +1,9 @@
 package io.github.skyeberhard.hamletfolk.core;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
@@ -44,7 +47,7 @@ public final class SettlementSimulator {
         Ledger ledger = settlement.ledger();
 
         Map<ResourceType, Integer> idleForLack = new EnumMap<>(ResourceType.class);
-        for (Resident resident : settlement.residents()) {
+        for (Resident resident : workOrder(settlement)) {
             work(resident, ledger, day, random, idleForLack);
         }
 
@@ -67,6 +70,17 @@ public final class SettlementSimulator {
         updateFamine(settlement, day, shortfall);
         updateShortages(settlement, day, idleForLack);
         updateMilestones(settlement, day);
+    }
+
+    /**
+     * R1.20: the order residents claim scarce inputs in. Whoever went without most recently
+     * goes first, so when there isn't enough for everyone the shortfall rotates round-robin
+     * instead of always landing on the most recently enrolled. Stable, so it stays deterministic.
+     */
+    static List<Resident> workOrder(Settlement settlement) {
+        List<Resident> order = new ArrayList<>(settlement.residents());
+        order.sort(Comparator.comparingLong(Resident::lastBlockedDay).reversed());
+        return order;
     }
 
     private static void work(Resident resident, Ledger ledger, long day, Random random,
