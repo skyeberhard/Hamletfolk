@@ -7,10 +7,13 @@ author: skyeberhard
 commands:
   settlement:
     description: Information about the nearest settlement.
-    usage: /settlement [info|history|residents|donate]
+    usage: /settlement [info|history|residents|donate|admin]
     aliases: [village]
     permission: hamletfolk.use
 permissions:
   hamletfolk.use:
     description: Use /settlement and talk to residents.
     default: true
+  hamletfolk.admin:
+    description: Use /settlement admin (list, inspect, rename, save), including from the console.
+    default: op

@@ -18,19 +18,25 @@ import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-/** /settlement [info|history|residents|donate] — always about the settlement you're standing in. */
+/** /settlement [info|history|residents|donate] — about the settlement you're standing in; admin works anywhere. */
 final class SettlementCommand implements TabExecutor {
     private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate");
     private static final int EVENTS_PER_PAGE = 3;
 
     private final SettlementService service;
+    private final AdminCommand admin;
 
     SettlementCommand(SettlementService service) {
         this.service = service;
+        this.admin = new AdminCommand(service);
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length > 0 && args[0].equalsIgnoreCase("admin")) {
+            admin.run(sender, args);
+            return true;
+        }
         if (!(sender instanceof Player player)) {
             sender.sendMessage("Only players can use this command.");
             return true;
@@ -58,11 +64,18 @@ final class SettlementCommand implements TabExecutor {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length > 1 && args[0].equalsIgnoreCase("admin")) {
+            return admin.complete(sender, args);
+        }
         if (args.length != 1) {
             return List.of();
         }
         String prefix = args[0].toLowerCase(Locale.ROOT);
-        return SUBCOMMANDS.stream().filter(s -> s.startsWith(prefix)).toList();
+        List<String> options = new ArrayList<>(SUBCOMMANDS);
+        if (sender.hasPermission(AdminCommand.PERMISSION)) {
+            options.add("admin");
+        }
+        return options.stream().filter(s -> s.startsWith(prefix)).toList();
     }
 
     private void info(Player player, Settlement s) {

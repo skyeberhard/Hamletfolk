@@ -4,6 +4,9 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.4: `/settlement admin list|inspect|rename|save`, gated by the new `hamletfolk.admin`
+  permission (ops by default) and usable from the server console, so state can be checked
+  without a player in game. Settlements can be named by name or by id prefix.
 - R3.6: Tool wear. Farmers, fishers, lumberjacks and masons wear out a tool on about 15% of
   working days, and produce 25% less while the village has none. A tool shortage is recorded
   in history ("Work slowed for lack of tools") and mentioned in dialogue, which gives TOOLS a

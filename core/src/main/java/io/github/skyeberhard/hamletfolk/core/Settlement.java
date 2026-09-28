@@ -18,7 +18,7 @@ public final class Settlement {
     public static final int DONATION_MERGE_DAYS = 7;
 
     private final UUID id;
-    private final String name;
+    private String name;
     private final String world;
     private final int centerX;
     private final int centerZ;
@@ -46,6 +46,10 @@ public final class Settlement {
 
     public UUID id() {
         return id;
+    }
+
+    void setName(String name) {
+        this.name = name;
     }
 
     public String name() {

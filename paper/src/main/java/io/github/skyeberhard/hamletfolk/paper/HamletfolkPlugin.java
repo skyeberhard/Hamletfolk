@@ -89,6 +89,17 @@ public final class HamletfolkPlugin extends JavaPlugin {
         }, SAVE_REQUEST_DELAY_TICKS);
     }
 
+    /** Saves on the calling (main) thread and reports whether it worked, for `/settlement admin save`. */
+    boolean saveNow() {
+        try {
+            store.write(store.snapshot(service.registry()));
+            return true;
+        } catch (IOException e) {
+            getLogger().log(Level.SEVERE, "Failed to save settlements", e);
+            return false;
+        }
+    }
+
     private void saveAsync() {
         // Snapshot on the main thread, where the data is safe to read; write the file off it.
         SettlementStore.Snapshot snapshot = store.snapshot(service.registry());

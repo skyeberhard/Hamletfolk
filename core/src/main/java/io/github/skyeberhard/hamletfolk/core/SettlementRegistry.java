@@ -60,6 +60,57 @@ public final class SettlementRegistry {
         return Optional.ofNullable(best);
     }
 
+    static final int MAX_NAME_LENGTH = 32;
+
+    /**
+     * Finds a settlement by exact name (any case) or by the start of its id, as shown by an
+     * admin listing. Empty if nothing matches or an id prefix is ambiguous.
+     */
+    public Optional<Settlement> find(String query) {
+        String wanted = query.strip();
+        if (wanted.isEmpty()) {
+            return Optional.empty();
+        }
+        for (Settlement s : settlements.values()) {
+            if (s.name().equalsIgnoreCase(wanted)) {
+                return Optional.of(s);
+            }
+        }
+        Settlement match = null;
+        for (Settlement s : settlements.values()) {
+            if (wanted.length() >= 4 && s.id().toString().startsWith(wanted.toLowerCase(java.util.Locale.ROOT))) {
+                if (match != null) {
+                    return Optional.empty();
+                }
+                match = s;
+            }
+        }
+        return Optional.ofNullable(match);
+    }
+
+    /**
+     * R1.4: renames a settlement and notes it in its history.
+     *
+     * @throws IllegalArgumentException with a message fit to show an admin if the name is unusable
+     */
+    public void rename(Settlement settlement, String newName, long day) {
+        String name = newName.strip();
+        if (name.isEmpty() || name.length() > MAX_NAME_LENGTH) {
+            throw new IllegalArgumentException("A name must be 1 to " + MAX_NAME_LENGTH + " characters.");
+        }
+        for (Settlement other : settlements.values()) {
+            if (other != settlement && other.name().equalsIgnoreCase(name)) {
+                throw new IllegalArgumentException("Another settlement is already called " + other.name() + ".");
+            }
+        }
+        String old = settlement.name();
+        if (old.equals(name)) {
+            return;
+        }
+        settlement.setName(name);
+        settlement.record(day, HistoryEvent.Kind.MILESTONE, old + " was renamed " + name + ".");
+    }
+
     /** Creates and registers a new settlement with a generated name. */
     public Settlement found(String world, int x, int z, long day) {
         UUID id = UUID.randomUUID();
