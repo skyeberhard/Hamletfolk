@@ -86,6 +86,10 @@ final class SettlementCommand implements TabExecutor {
         }
         line(player, "Stores", stock.toString());
         line(player, "Treasury", s.ledger().treasury() + " emeralds");
+        String flow = flowSummary(s);
+        if (!flow.isEmpty()) {
+            line(player, "Last " + s.flowDays() + " days", flow);
+        }
         line(player, "Danger", threatLabel(s.threat()));
 
         List<String> troubles = new ArrayList<>();
@@ -160,6 +164,24 @@ final class SettlementCommand implements TabExecutor {
         s.recordDonation(SettlementService.day(player.getWorld()), player.getName(), amount, itemName);
         player.sendMessage(Component.text("The people of " + s.name() + " thank you.", NamedTextColor.GREEN));
         service.plugin().requestSave();
+    }
+
+    /** R3.7: per-day production and use over the recent window, e.g. "food +12/day made, -15/day eaten". */
+    private static String flowSummary(Settlement s) {
+        long today = s.lastSimulatedDay();
+        int span = s.flowDays();
+        List<String> parts = new ArrayList<>();
+        for (ResourceType type : ResourceType.values()) {
+            int made = Math.round((float) s.flow().produced(type, today) / span);
+            int used = Math.round((float) s.flow().consumed(type, today) / span);
+            if (made == 0 && used == 0) {
+                continue;
+            }
+            String name = type.name().toLowerCase(Locale.ROOT);
+            parts.add(name + " +" + made + "/day made, -" + used + "/day "
+                    + (type == ResourceType.FOOD ? "eaten" : "used"));
+        }
+        return String.join("; ", parts);
     }
 
     private static void line(Player player, String label, String value) {

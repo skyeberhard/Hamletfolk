@@ -28,6 +28,7 @@ public final class Settlement {
     private final Map<UUID, Resident> residents = new LinkedHashMap<>();
     private final Ledger ledger = new Ledger();
     private final List<HistoryEvent> history = new ArrayList<>();
+    private final ResourceFlow flow = new ResourceFlow();
     /** Residents turned into zombie villagers, keyed by the zombie's entity id. They can be cured. */
     private final Map<UUID, Resident> turned = new LinkedHashMap<>();
     /** Ongoing or one-time conditions, keyed by name, valued by the day they began. */
@@ -119,6 +120,15 @@ public final class Settlement {
 
     Map<UUID, Resident> turned() {
         return turned;
+    }
+
+    public ResourceFlow flow() {
+        return flow;
+    }
+
+    /** How many days of flow data the settlement has, up to {@code ResourceFlow.WINDOW_DAYS}, at least 1. */
+    public int flowDays() {
+        return (int) Math.max(1, Math.min(ResourceFlow.WINDOW_DAYS, lastSimulatedDay - foundedDay));
     }
 
     public List<HistoryEvent> history() {

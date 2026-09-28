@@ -52,7 +52,7 @@ public final class SettlementSimulator {
 
         Map<ResourceType, Integer> idleForLack = new EnumMap<>(ResourceType.class);
         for (Resident resident : workOrder(settlement)) {
-            work(resident, ledger, day, random, idleForLack);
+            work(resident, settlement.flow(), ledger, day, random, idleForLack);
         }
 
         int demand = 0;
@@ -60,6 +60,7 @@ public final class SettlementSimulator {
             demand += resident.adult() ? ADULT_FOOD_PER_DAY : CHILD_FOOD_PER_DAY;
         }
         int eaten = ledger.take(ResourceType.FOOD, demand);
+        settlement.flow().recordConsumed(ResourceType.FOOD, day, eaten);
         int shortfall = demand - eaten;
         double fedFraction = demand == 0 ? 1.0 : (double) eaten / demand;
 
@@ -87,7 +88,7 @@ public final class SettlementSimulator {
         return order;
     }
 
-    private static void work(Resident resident, Ledger ledger, long day, Random random,
+    private static void work(Resident resident, ResourceFlow flow, Ledger ledger, long day, Random random,
                              Map<ResourceType, Integer> idleForLack) {
         Occupation occupation = resident.occupation();
         if (!resident.adult() || occupation.produces() == null) {
@@ -100,9 +101,13 @@ public final class SettlementSimulator {
             idleForLack.merge(input, 1, Integer::sum);
             return;
         }
+        if (input != null) {
+            flow.recordConsumed(input, day, 1);
+        }
         double diligence = 0.5 + resident.traits().workEthic() / 100.0;
         int output = (int) Math.floor(occupation.baseOutput() * diligence + random.nextDouble());
         ledger.add(occupation.produces(), output);
+        flow.recordProduced(occupation.produces(), day, output);
         resident.needs().adjustPurpose(4);
     }
 

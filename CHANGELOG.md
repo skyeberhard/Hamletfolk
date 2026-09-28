@@ -4,6 +4,9 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R3.7: Each settlement keeps a rolling 7-day total of what it produced and consumed per
+  resource (work, inputs and eating), saved with the settlement (format 4) and shown in
+  `/settlement` as e.g. "food +12/day made, -15/day eaten".
 - R1.23: If the world clock goes backwards (e.g. `/time set`), new residents and history entries
   use the settlement's own day, so nothing is filed before days already simulated.
 - R1.22: When catch-up skips days beyond `max-catch-up-days`, the settlement's history now
@@ -12,7 +15,6 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
   ("Skye made 14 donations this week"), and each settlement keeps at most 500 events, dropping
   minor ones (donations, shortages, births, arrivals) before major ones (founding, deaths, cures,
   raids, famines, abandonment). Save format is now 3 (optional `count`/`actor` on events).
-
 - R1.17: Saves are numbered when snapshotted; a slow background autosave can no longer
   overwrite a newer save (e.g. the one made at shutdown).
 - R1.18: A donation triggers a save within about 2 seconds instead of waiting for the next

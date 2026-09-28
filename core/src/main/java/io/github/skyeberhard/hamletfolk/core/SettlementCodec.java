@@ -14,7 +14,8 @@ import java.util.UUID;
 public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
-    public static final int FORMAT_VERSION = 3;
+    // 4: added "flow" (R3.7, 7-day produced/consumed totals).
+    public static final int FORMAT_VERSION = 4;
 
     private SettlementCodec() {
     }
@@ -37,6 +38,14 @@ public final class SettlementCodec {
         map.put("treasury", s.ledger().treasury());
 
         map.put("conditions", new LinkedHashMap<>(s.conditions()));
+
+        Map<String, Object> flow = new LinkedHashMap<>();
+        s.flow().days().forEach((type, byDay) -> {
+            Map<String, Object> rows = new LinkedHashMap<>();
+            byDay.forEach((day, row) -> rows.put(day.toString(), List.of(row[0], row[1])));
+            flow.put(type.name(), rows);
+        });
+        map.put("flow", flow);
 
         List<Object> residents = new ArrayList<>();
         for (Resident r : s.residents()) {
@@ -112,6 +121,16 @@ public final class SettlementCodec {
             s.conditions().put(entry.getKey().toString(), ((Number) entry.getValue()).longValue());
         }
 
+        for (Map.Entry<?, ?> entry : asMap(map.get("flow")).entrySet()) {
+            ResourceType type = ResourceType.valueOf(entry.getKey().toString());
+            for (Map.Entry<?, ?> row : asMap(entry.getValue()).entrySet()) {
+                List<?> amounts = asList(row.getValue());
+                long day = Long.parseLong(row.getKey().toString());
+                s.flow().recordProduced(type, day, intAt(amounts, 0));
+                s.flow().recordConsumed(type, day, intAt(amounts, 1));
+            }
+        }
+
         for (Object o : asList(map.get("residents"))) {
             s.addResident(decodeResident(asMap(o)));
         }
@@ -153,6 +172,7 @@ public final class SettlementCodec {
             migrated.putIfAbsent("turned", new LinkedHashMap<>());
         }
         // v2 -> v3: "count" and "actor" on history events are optional; old events read as count 1, no actor.
+        // v3 -> v4: "flow" (R3.7) is optional; an old save simply starts with no flow history.
         migrated.put("format", FORMAT_VERSION);
         return migrated;
     }
