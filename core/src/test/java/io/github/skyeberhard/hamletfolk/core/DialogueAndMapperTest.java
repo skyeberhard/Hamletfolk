@@ -19,6 +19,7 @@ class DialogueAndMapperTest {
             registry.enroll(s, UUID.randomUUID(), Occupation.FARMER, true, 0, null, null);
         }
         Resident smith = registry.enroll(s, UUID.randomUUID(), Occupation.TOOLSMITH, true, 0, null, null);
+        s.ledger().add(ResourceType.TOOLS, 1000); // tool wear (R3.6) is tested separately
         new SettlementSimulator().simulateTo(s, 2, 100);
 
         String line = Dialogue.speak(smith, s, 2, new Random(1));

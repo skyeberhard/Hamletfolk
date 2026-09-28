@@ -18,6 +18,10 @@ public final class SettlementSimulator {
     static final double THREAT_DECAY = 0.9;
     static final int[] POPULATION_MILESTONES = {10, 25, 50, 100, 250};
     static final int ABANDONMENT_DAYS = 10;
+    /** R3.6: chance per working day that a gatherer wears out one tool. */
+    static final double TOOL_WEAR_CHANCE = 0.15;
+    /** R3.6: output multiplier for gatherers while the village has no tools. */
+    static final double TOOLLESS_OUTPUT = 0.75;
 
     /**
      * Simulates every day from the settlement's last simulated day up to {@code targetDay}.
@@ -50,9 +54,10 @@ public final class SettlementSimulator {
         Random random = new Random(settlement.id().getMostSignificantBits() ^ (day * 0x9E3779B97F4A7C15L));
         Ledger ledger = settlement.ledger();
 
+        Random wearRandom = new Random(settlement.id().getLeastSignificantBits() ^ (day * 0x9E3779B97F4A7C15L) ^ 0x700157L);
         Map<ResourceType, Integer> idleForLack = new EnumMap<>(ResourceType.class);
         for (Resident resident : workOrder(settlement)) {
-            work(resident, settlement.flow(), ledger, day, random, idleForLack);
+            work(resident, settlement.flow(), ledger, day, random, wearRandom, idleForLack);
         }
 
         int demand = 0;
@@ -89,6 +94,7 @@ public final class SettlementSimulator {
     }
 
     private static void work(Resident resident, ResourceFlow flow, Ledger ledger, long day, Random random,
+                             Random wearRandom,
                              Map<ResourceType, Integer> idleForLack) {
         Occupation occupation = resident.occupation();
         if (!resident.adult() || occupation.produces() == null) {
@@ -104,8 +110,17 @@ public final class SettlementSimulator {
         if (input != null) {
             flow.recordConsumed(input, day, 1);
         }
+        double toolFactor = 1.0;
+        if (occupation.usesTools()) {
+            if (ledger.get(ResourceType.TOOLS) == 0) {
+                toolFactor = TOOLLESS_OUTPUT;
+                idleForLack.merge(ResourceType.TOOLS, 1, Integer::sum);
+            } else if (wearRandom.nextDouble() < TOOL_WEAR_CHANCE) {
+                flow.recordConsumed(ResourceType.TOOLS, day, ledger.take(ResourceType.TOOLS, 1));
+            }
+        }
         double diligence = 0.5 + resident.traits().workEthic() / 100.0;
-        int output = (int) Math.floor(occupation.baseOutput() * diligence + random.nextDouble());
+        int output = (int) Math.floor(occupation.baseOutput() * diligence * toolFactor + random.nextDouble());
         ledger.add(occupation.produces(), output);
         flow.recordProduced(occupation.produces(), day, output);
         resident.needs().adjustPurpose(4);
@@ -151,6 +166,13 @@ public final class SettlementSimulator {
         }
     }
 
+    private static String shortageText(ResourceType type, String resource, int workers) {
+        String who = workers + (workers == 1 ? " worker" : " workers");
+        return type == ResourceType.TOOLS
+                ? "Work slowed for lack of tools. " + who + " made do with worn-out ones."
+                : "Work stopped for lack of " + resource + ". " + who + " sat idle.";
+    }
+
     private static void updateShortages(Settlement settlement, long day, Map<ResourceType, Integer> idleForLack) {
         Map<String, Long> conditions = settlement.conditions();
         for (ResourceType type : ResourceType.values()) {
@@ -159,8 +181,7 @@ public final class SettlementSimulator {
             String resource = type.name().toLowerCase(Locale.ROOT);
             if (idle > 0 && !conditions.containsKey(key)) {
                 conditions.put(key, day);
-                settlement.record(day, HistoryEvent.Kind.SHORTAGE, "Work stopped for lack of " + resource
-                        + ". " + idle + (idle == 1 ? " worker" : " workers") + " sat idle.");
+                settlement.record(day, HistoryEvent.Kind.SHORTAGE, shortageText(type, resource, idle));
             } else if (idle == 0 && conditions.containsKey(key)) {
                 conditions.remove(key);
                 settlement.record(day, HistoryEvent.Kind.RECOVERY, "Supplies of " + resource + " were restored.");

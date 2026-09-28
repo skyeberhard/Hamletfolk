@@ -39,6 +39,7 @@ class SettlementSimulatorTest {
     @Test
     void farmersFeedTheVillage() {
         Settlement s = village(5, 2, Occupation.LIBRARIAN);
+        s.ledger().add(ResourceType.TOOLS, 1000); // tool wear (R3.6) is tested separately
         simulator.simulateTo(s, 30, 100);
         assertFalse(s.hasCondition("famine"));
         assertTrue(s.ledger().get(ResourceType.FOOD) > 0);
@@ -82,6 +83,7 @@ class SettlementSimulatorTest {
     @Test
     void shortageIsRecordedOnceNotEveryDay() {
         Settlement s = village(4, 1, Occupation.ARMORER);
+        s.ledger().add(ResourceType.TOOLS, 1000); // tool wear (R3.6) is tested separately
         simulator.simulateTo(s, 20, 100);
         long shortages = s.history().stream().filter(e -> e.kind() == HistoryEvent.Kind.SHORTAGE).count();
         assertEquals(1, shortages);

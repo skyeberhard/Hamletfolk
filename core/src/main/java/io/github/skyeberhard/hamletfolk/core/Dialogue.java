@@ -42,6 +42,9 @@ public final class Dialogue {
             return Optional.of("I haven't worked in days. There's no " + input.name().toLowerCase(Locale.ROOT)
                     + " anywhere in " + settlement.name() + ".");
         }
+        if (resident.occupation().usesTools() && settlement.hasCondition("shortage:tools")) {
+            return Optional.of("Our tools are worn to nothing. Everything takes twice as long in " + settlement.name() + ".");
+        }
         Optional<HistoryEvent> loss = settlement.latest(HistoryEvent.Kind.DEATH, day - 7);
         if (loss.isPresent()) {
             return Optional.of("Did you hear? " + loss.get().text() + " It's been hard on everyone.");

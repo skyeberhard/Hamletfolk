@@ -67,6 +67,11 @@ public enum Occupation {
         return produces;
     }
 
+    /** Gatherers wear out tools as they work (R3.6). */
+    public boolean usesTools() {
+        return this == FARMER || this == FISHERMAN || this == LUMBERJACK || this == MASON;
+    }
+
     public int baseOutput() {
         return baseOutput;
     }
