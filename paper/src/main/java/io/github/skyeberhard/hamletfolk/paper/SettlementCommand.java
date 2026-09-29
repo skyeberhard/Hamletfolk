@@ -22,6 +22,8 @@ import org.bukkit.inventory.ItemStack;
 final class SettlementCommand implements TabExecutor {
     private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate");
     private static final int EVENTS_PER_PAGE = 3;
+    /** Vanilla's limit for a written book; more and the client refuses it. */
+    private static final int MAX_BOOK_PAGES = 100;
 
     private final SettlementService service;
     private final AdminCommand admin;
@@ -121,13 +123,19 @@ final class SettlementCommand implements TabExecutor {
     }
 
     private void history(Player player, Settlement s) {
+        List<HistoryEvent> all = s.history();
+        // A written book holds at most MAX_BOOK_PAGES pages; one is the title page.
+        int room = (MAX_BOOK_PAGES - 1) * EVENTS_PER_PAGE;
+        List<HistoryEvent> events = all.subList(Math.max(0, all.size() - room), all.size());
+        String count = events.size() == all.size()
+                ? all.size() + " recorded events"
+                : "the latest " + events.size() + " of " + all.size() + " recorded events";
+
         List<Component> pages = new ArrayList<>();
         pages.add(Component.text("The History of\n", NamedTextColor.DARK_GRAY)
                 .append(Component.text(s.name() + "\n\n", NamedTextColor.DARK_BLUE))
-                .append(Component.text(s.population() + " residents\n" + s.history().size() + " recorded events",
-                        NamedTextColor.BLACK)));
+                .append(Component.text(s.population() + " residents\n" + count, NamedTextColor.BLACK)));
 
-        List<HistoryEvent> events = s.history();
         for (int i = 0; i < events.size(); i += EVENTS_PER_PAGE) {
             Component page = Component.empty();
             for (HistoryEvent event : events.subList(i, Math.min(events.size(), i + EVENTS_PER_PAGE))) {
