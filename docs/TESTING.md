@@ -77,7 +77,8 @@ in the PR that changes the behavior.
 | T3 | R0.3 | `/settlement` in the village | Name, founding day, population, stores, danger |
 | T4 | R0.4 | Sneak + right-click a villager | Name, job and mood, then a line of dialogue; plain right-click still opens trading |
 | T5 | R0.4 | Talk to the same villager 6 times | Greeting changes from stranger to "Good to see you, <you>!" |
-| T6 | R0.2, R0.4 | Spawn a toolsmith; `/time add 24000` twice; talk to them | They say there's no metal; `/settlement` shows "Troubles: no metal" |
+| T6 | R0.2, R0.4, R1.26 | Place a smithing table and summon a villager next to it so they become a toolsmith (without a workstation vanilla removes the job); `/time add 24000` twice; talk to them | `/settlement` shows "Troubles: no metal". A starving village gives the famine line first ("There's no food left…"), so the toolsmith mentions food, not metal |
+| T6b | R0.4, R1.26 | After T6, hold bread and `/settlement donate` until the village has food; `/time add 24000`; talk to the toolsmith | Famine ends and they say there's no metal |
 | T7 | R0.2 | Hold iron ingots, `/settlement donate`, skip a day | Shortage ends; history shows the donation and "Supplies of metal were restored." |
 | T8 | R0.3 | Let a zombie kill a villager | History: "<name>, the <job>, was killed by a zombie." |
 | T9 | R0.3 | Breed two villagers | The baby shares a parent's family name; history records the birth |

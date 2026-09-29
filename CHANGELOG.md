@@ -4,6 +4,8 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.26: Playtest scenario T6 now notes that a starving village gives the famine line before the
+  "no metal" one, needs a smithing table for the toolsmith, and gains T6b for the metal line once fed.
 - R1.25: Shared `.claude/settings.json` allows Gradle, `git add`/`git commit` and `git push` to the working branch without
   prompting, so local Claude Code runs can go unattended. `.claude/settings.local.json` is
   git-ignored for personal overrides.
