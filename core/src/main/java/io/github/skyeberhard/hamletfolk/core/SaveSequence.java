@@ -33,6 +33,14 @@ public final class SaveSequence {
         return true;
     }
 
+    /**
+     * Runs {@code action} while no write can run, e.g. copying the save file for a backup
+     * (R1.19), which on Windows could otherwise block a concurrent write's atomic replace.
+     */
+    public synchronized <E extends Exception> void exclusive(Write<E> action) throws E {
+        action.run();
+    }
+
     @FunctionalInterface
     public interface Write<E extends Exception> {
         void run() throws E;

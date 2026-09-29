@@ -118,7 +118,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
         getServer().getScheduler().runTaskAsynchronously(this, () -> {
             try {
                 store.write(snapshot); // Skipped if a newer save already landed; either way the file is current.
-                SaveBackups.backup(saveFile, backupDirectory, backupsKept, Instant.now())
+                store.backup(backupDirectory, backupsKept)
                         .ifPresent(backup -> getLogger().info("Backed up settlements to " + backup.getFileName()));
             } catch (IOException e) {
                 getLogger().log(Level.WARNING, "Could not back up settlements.json", e);

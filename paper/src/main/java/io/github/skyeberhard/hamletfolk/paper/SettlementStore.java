@@ -3,6 +3,7 @@ package io.github.skyeberhard.hamletfolk.paper;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import io.github.skyeberhard.hamletfolk.core.SaveBackups;
 import io.github.skyeberhard.hamletfolk.core.SaveSequence;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.SettlementCodec;
@@ -13,9 +14,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /** Reads and writes all settlements as one JSON file in the plugin's data folder. */
 final class SettlementStore {
@@ -68,5 +71,15 @@ final class SettlementStore {
             Files.writeString(temp, snapshot.json(), StandardCharsets.UTF_8);
             Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         });
+    }
+
+    /**
+     * Copies the save file into {@code directory} (R1.19) while no write can replace it. Safe
+     * to call off the main thread.
+     */
+    Optional<Path> backup(Path directory, int keep) throws IOException {
+        List<Optional<Path>> result = new ArrayList<>(1);
+        sequence.exclusive(() -> result.add(SaveBackups.backup(file, directory, keep, Instant.now())));
+        return result.get(0);
     }
 }
