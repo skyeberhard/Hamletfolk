@@ -91,6 +91,43 @@ class SettlementSimulatorTest {
     }
 
     @Test
+    void aFlickeringShortageIsRecordedOnceNotOnEveryFlip() {
+        // R1.21: metal arriving every other day turns the shortage on and off, but the
+        // history shouldn't fill with it.
+        Settlement s = village(4, 1, Occupation.TOOLSMITH);
+        s.ledger().add(ResourceType.TOOLS, 1000);
+        int flips = 0;
+        boolean wasShort = false;
+        for (long day = 1; day <= 40; day++) {
+            if (day % 2 == 0) {
+                s.ledger().add(ResourceType.METAL, 1);
+            }
+            simulator.simulateTo(s, day, 100);
+            boolean isShort = s.hasCondition("shortage:metal");
+            if (isShort != wasShort) {
+                flips++;
+            }
+            wasShort = isShort;
+        }
+        assertTrue(flips > 10, "the shortage should really be flickering: " + flips);
+        long lines = s.history().stream()
+                .filter(e -> e.text().contains("metal")).count();
+        assertTrue(lines <= 2, "history lines about metal: " + lines);
+    }
+
+    @Test
+    void aShortageThatReturnsAndLastsIsRecordedAgain() {
+        Settlement s = village(4, 1, Occupation.TOOLSMITH);
+        s.ledger().add(ResourceType.TOOLS, 1000);
+        simulator.simulateTo(s, 1, 100);                 // short: recorded
+        s.ledger().add(ResourceType.METAL, 1);
+        simulator.simulateTo(s, 2, 100);                 // restored: recorded
+        simulator.simulateTo(s, 3 + SettlementSimulator.SHORTAGE_QUIET_DAYS, 100); // back, and it lasts
+        long shortages = s.history().stream().filter(e -> e.kind() == HistoryEvent.Kind.SHORTAGE).count();
+        assertEquals(2, shortages);
+    }
+
+    @Test
     void populationMilestoneRecorded() {
         Settlement s = village(10, 0, Occupation.FARMER);
         simulator.simulateTo(s, 1, 100);

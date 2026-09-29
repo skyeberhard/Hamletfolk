@@ -22,6 +22,8 @@ public final class SettlementSimulator {
     static final double TOOL_WEAR_CHANCE = 0.15;
     /** R3.6: output multiplier for gatherers while the village has no tools. */
     static final double TOOLLESS_OUTPUT = 0.75;
+    /** A shortage returning within this many days of its recorded end isn't recorded again. */
+    static final int SHORTAGE_QUIET_DAYS = 7;
 
     /**
      * Whether gatherers slow down (and a tool shortage is recorded) while the village has no
@@ -196,12 +198,29 @@ public final class SettlementSimulator {
             String key = "shortage:" + type.name().toLowerCase(Locale.ROOT);
             int idle = idleForLack.getOrDefault(type, 0);
             String resource = type.name().toLowerCase(Locale.ROOT);
+            // R1.21: a shortage that returns within SHORTAGE_QUIET_DAYS of ending is the same
+            // trouble flickering on and off, so it isn't written down again (nor its end).
+            String recoveredKey = "recovered:" + resource;
+            String quietKey = "quiet:" + resource;
             if (idle > 0 && !conditions.containsKey(key)) {
                 conditions.put(key, day);
+                Long recovered = conditions.get(recoveredKey);
+                if (recovered != null && day - recovered <= SHORTAGE_QUIET_DAYS) {
+                    conditions.put(quietKey, day);
+                } else {
+                    settlement.record(day, HistoryEvent.Kind.SHORTAGE, shortageText(type, resource, idle));
+                }
+            } else if (idle > 0 && conditions.containsKey(quietKey)
+                    && day - conditions.get(key) >= SHORTAGE_QUIET_DAYS) {
+                // Not a flicker after all: it has lasted, so it goes in the history.
+                conditions.remove(quietKey);
                 settlement.record(day, HistoryEvent.Kind.SHORTAGE, shortageText(type, resource, idle));
             } else if (idle == 0 && conditions.containsKey(key)) {
                 conditions.remove(key);
-                settlement.record(day, HistoryEvent.Kind.RECOVERY, "Supplies of " + resource + " were restored.");
+                conditions.put(recoveredKey, day); // the quiet window runs from the latest end
+                if (conditions.remove(quietKey) == null) {
+                    settlement.record(day, HistoryEvent.Kind.RECOVERY, "Supplies of " + resource + " were restored.");
+                }
             }
         }
     }
