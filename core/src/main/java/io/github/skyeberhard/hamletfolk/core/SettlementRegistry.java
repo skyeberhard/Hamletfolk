@@ -1,9 +1,11 @@
 package io.github.skyeberhard.hamletfolk.core;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -64,28 +66,39 @@ public final class SettlementRegistry {
 
     /**
      * Finds a settlement by exact name (any case) or by the start of its id, as shown by an
-     * admin listing. Empty if nothing matches or an id prefix is ambiguous.
+     * admin listing. Empty unless exactly one settlement matches.
      */
     public Optional<Settlement> find(String query) {
+        List<Settlement> matches = findAll(query);
+        return matches.size() == 1 ? Optional.of(matches.get(0)) : Optional.empty();
+    }
+
+    /**
+     * Every settlement matching {@code query}: all with that exact name (any case, since
+     * generated names can repeat), or failing that, all whose id starts with it (at least
+     * 4 characters).
+     */
+    public List<Settlement> findAll(String query) {
         String wanted = query.strip();
         if (wanted.isEmpty()) {
-            return Optional.empty();
+            return List.of();
         }
+        List<Settlement> byName = new ArrayList<>();
         for (Settlement s : settlements.values()) {
             if (s.name().equalsIgnoreCase(wanted)) {
-                return Optional.of(s);
+                byName.add(s);
             }
         }
-        Settlement match = null;
+        if (!byName.isEmpty() || wanted.length() < 4) {
+            return byName;
+        }
+        List<Settlement> byId = new ArrayList<>();
         for (Settlement s : settlements.values()) {
-            if (wanted.length() >= 4 && s.id().toString().startsWith(wanted.toLowerCase(java.util.Locale.ROOT))) {
-                if (match != null) {
-                    return Optional.empty();
-                }
-                match = s;
+            if (s.id().toString().startsWith(wanted.toLowerCase(java.util.Locale.ROOT))) {
+                byId.add(s);
             }
         }
-        return Optional.ofNullable(match);
+        return byId;
     }
 
     /**

@@ -67,7 +67,7 @@ final class AdminCommand {
     }
 
     private void inspect(CommandSender sender, String[] args) {
-        Optional<Settlement> target = args.length >= 3 ? lookup(sender, args[2]) : here(sender);
+        Optional<Settlement> target = args.length >= 3 ? lookup(sender, words(args, 2, args.length)) : here(sender);
         if (target.isEmpty()) {
             return;
         }
@@ -80,11 +80,19 @@ final class AdminCommand {
             sender.sendMessage(USAGE);
             return;
         }
-        Optional<Settlement> target = lookup(sender, args[2]);
+        // Names can have spaces: the old name is the longest run of words that names a settlement.
+        int split = -1;
+        for (int end = args.length - 1; end > 2; end--) {
+            if (!service.registry().findAll(words(args, 2, end)).isEmpty()) {
+                split = end;
+                break;
+            }
+        }
+        Optional<Settlement> target = lookup(sender, words(args, 2, split < 0 ? 3 : split));
         if (target.isEmpty()) {
             return;
         }
-        String newName = String.join(" ", Arrays.copyOfRange(args, 3, args.length));
+        String newName = words(args, split, args.length);
         String oldName = target.get().name();
         try {
             service.registry().rename(target.get(), newName, target.get().lastSimulatedDay());
@@ -102,12 +110,26 @@ final class AdminCommand {
                 : "Save failed. See the server log.");
     }
 
+    private static String words(String[] args, int from, int to) {
+        return String.join(" ", Arrays.copyOfRange(args, from, to));
+    }
+
+    /** One settlement by name or id prefix; otherwise tells the sender why not (none, or which ones). */
     private Optional<Settlement> lookup(CommandSender sender, String query) {
-        Optional<Settlement> found = service.registry().find(query);
-        if (found.isEmpty()) {
+        List<Settlement> matches = service.registry().findAll(query);
+        if (matches.isEmpty()) {
             sender.sendMessage("No settlement matches \"" + query + "\". Try /settlement admin list.");
+            return Optional.empty();
         }
-        return found;
+        if (matches.size() > 1) {
+            sender.sendMessage(matches.size() + " settlements match \"" + query + "\". Use an id instead:");
+            for (Settlement s : matches) {
+                sender.sendMessage("  " + s.name() + " [" + s.id().toString().substring(0, 8) + "] " + s.world()
+                        + " " + s.centerX() + ", " + s.centerZ());
+            }
+            return Optional.empty();
+        }
+        return Optional.of(matches.get(0));
     }
 
     /** The settlement a player is standing in; console users have to name one. */

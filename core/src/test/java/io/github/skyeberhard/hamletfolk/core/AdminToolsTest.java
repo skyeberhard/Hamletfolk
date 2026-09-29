@@ -29,6 +29,26 @@ class AdminToolsTest {
     }
 
     @Test
+    void duplicateGeneratedNamesAreReportedNotSilentlyPicked() {
+        // Generated names can repeat; a lookup must not quietly pick the first.
+        Settlement a = new Settlement(java.util.UUID.randomUUID(), "Ashford", "world", 0, 0, 0);
+        Settlement b = new Settlement(java.util.UUID.randomUUID(), "Ashford", "world", 900, 0, 0);
+        registry.add(a);
+        registry.add(b);
+        assertEquals(List.of(a, b), registry.findAll("ashford"));
+        assertTrue(registry.find("Ashford").isEmpty());
+        assertEquals(b, registry.find(b.id().toString().substring(0, 8)).orElseThrow());
+    }
+
+    @Test
+    void namesWithSpacesAreFoundWhole() {
+        Settlement s = registry.found("world", 0, 0, 0);
+        registry.rename(s, "New Haven", 1);
+        assertEquals(s, registry.find("new haven").orElseThrow());
+        assertTrue(registry.findAll("New").isEmpty());
+    }
+
+    @Test
     void renameChangesTheNameAndNotesItInHistory() {
         Settlement s = registry.found("world", 0, 0, 3);
         String old = s.name();
