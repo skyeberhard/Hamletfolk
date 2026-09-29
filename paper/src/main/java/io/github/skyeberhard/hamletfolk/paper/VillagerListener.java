@@ -83,7 +83,7 @@ final class VillagerListener implements Listener {
         Resident resident = service.track(villager);
         Settlement settlement = service.registry().settlementOf(resident.id()).orElseThrow();
         service.simulate(settlement);
-        long day = SettlementService.day(villager.getWorld());
+        long day = settlement.effectiveDay(SettlementService.day(villager.getWorld())); // R1.23
 
         String title = resident.adult() ? resident.occupation().title() : "child";
         player.sendMessage(Component.text(resident.fullName(), NamedTextColor.GOLD)

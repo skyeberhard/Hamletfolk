@@ -81,7 +81,7 @@ final class SettlementCommand implements TabExecutor {
     }
 
     private void info(Player player, Settlement s) {
-        long today = SettlementService.day(player.getWorld());
+        long today = s.effectiveDay(SettlementService.day(player.getWorld())); // R1.23
         long children = s.residents().stream().filter(r -> !r.adult()).count();
 
         player.sendMessage(Component.text(s.name(), NamedTextColor.GOLD)

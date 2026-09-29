@@ -112,17 +112,19 @@ final class SettlementService {
                 villager.getWorld().getName(), location.getBlockX(), location.getBlockZ(), today));
         // A settlement that is behind would otherwise simulate the newcomer through days they weren't there.
         simulate(settlement);
+        // R1.23: if the world clock went backwards, go by the settlement's own day.
+        long day = settlement.effectiveDay(today);
 
         UUID[] parents = pendingParents.remove(villager.getUniqueId());
         Resident resident = registry.enroll(settlement, villager.getUniqueId(), occupationOf(villager),
-                villager.isAdult(), today, parents == null ? null : parents[0], parents == null ? null : parents[1]);
+                villager.isAdult(), day, parents == null ? null : parents[0], parents == null ? null : parents[1]);
 
         if (parents != null) {
-            settlement.record(today, HistoryEvent.Kind.BIRTH, resident.fullName() + " was born to "
+            settlement.record(day, HistoryEvent.Kind.BIRTH, resident.fullName() + " was born to "
                     + nameOf(parents[0]) + " and " + nameOf(parents[1]) + ".");
-        } else if (today > settlement.foundedDay()) {
+        } else if (day > settlement.foundedDay()) {
             // Villagers present when a settlement is first found are its founders, not arrivals.
-            settlement.record(today, HistoryEvent.Kind.ARRIVAL,
+            settlement.record(day, HistoryEvent.Kind.ARRIVAL,
                     resident.fullName() + " settled in " + settlement.name() + ".");
         }
         return resident;
