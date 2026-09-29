@@ -160,12 +160,19 @@ class SettlementSimulatorTest {
         // R1.22: 1,000 days pending with a 10-day cap skips 990, and the history says so.
         Settlement s = village(3, 1, Occupation.MASON);
         simulator.simulateTo(s, 1_000, 10);
-        assertTrue(s.history().stream().anyMatch(e -> e.text().startsWith("990 days passed unrecorded")));
+        assertTrue(s.history().stream().anyMatch(e -> e.text().startsWith("990 days passed that no one in")));
 
         // Nothing skipped, nothing recorded.
         Settlement quiet = village(3, 1, Occupation.MASON);
         simulator.simulateTo(quiet, 8, 10);
-        assertTrue(quiet.history().stream().noneMatch(e -> e.text().contains("unrecorded")));
+        assertTrue(quiet.history().stream().noneMatch(e -> e.text().contains("wrote down")));
+
+        // An abandoned settlement has nothing to miss, so nothing is written.
+        Settlement empty = registry.found("world", 0, 0, 0);
+        simulator.simulateTo(empty, 20, 100);
+        assertTrue(empty.isAbandoned());
+        simulator.simulateTo(empty, 2_000, 10);
+        assertTrue(empty.history().stream().noneMatch(e -> e.text().contains("wrote down")));
     }
 
     @Test

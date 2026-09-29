@@ -51,8 +51,12 @@ public final class SettlementSimulator {
         if (targetDay - settlement.lastSimulatedDay() > maxDays) {
             long skipped = targetDay - settlement.lastSimulatedDay() - maxDays;
             settlement.setLastSimulatedDay(targetDay - maxDays);
-            settlement.record(targetDay - maxDays, HistoryEvent.Kind.MILESTONE, skipped + (skipped == 1 ? " day" : " days")
-                    + " passed unrecorded while " + settlement.name() + " went unvisited.");
+            // Usually server downtime or a big /time add. An abandoned settlement has nothing to miss.
+            if (!settlement.isAbandoned()) {
+                settlement.record(targetDay - maxDays, HistoryEvent.Kind.MILESTONE, skipped
+                        + (skipped == 1 ? " day" : " days") + " passed that no one in " + settlement.name()
+                        + " wrote down.");
+            }
         }
         int simulated = 0;
         while (settlement.lastSimulatedDay() < targetDay) {
