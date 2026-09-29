@@ -20,7 +20,7 @@ the villager's own trade screen.
 | `/settlement` | Summary of the village you're standing in: population, stores, treasury, danger, troubles. |
 | `/settlement history` | Opens the village's history book. |
 | `/settlement residents` | Who lives here and what they do. |
-| `/settlement donate` | Gives the stack in your hand to the village. Food, wood, stone, metal, tools, wool/leather/paper, or emeralds (into the treasury). |
+| `/settlement donate [amount\|all]` | With no amount, tells you what the stack in your hand is worth. With an amount (or `all`), gives that many to the village. Items count by value: an iron block is worth nine ingots, and a better tool is worth more. Food, wood, stone, metal, tools, wool/leather/paper, or emeralds (into the treasury). |
 
 `/village` is an alias for `/settlement`.
 

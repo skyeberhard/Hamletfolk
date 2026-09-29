@@ -7,7 +7,7 @@ author: skyeberhard
 commands:
   settlement:
     description: Information about the nearest settlement.
-    usage: /settlement [info|history|residents|donate|admin]
+    usage: /settlement [info|history|residents|donate [amount|all]|admin]
     aliases: [village]
     permission: hamletfolk.use
 permissions:

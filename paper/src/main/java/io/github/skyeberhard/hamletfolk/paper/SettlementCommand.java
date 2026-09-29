@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalInt;
 import net.kyori.adventure.inventory.Book;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -18,7 +19,7 @@ import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-/** /settlement [info|history|residents|donate] — about the settlement you're standing in; admin works anywhere. */
+/** /settlement [info|history|residents|donate [amount|all]] — about the settlement you're standing in; admin works anywhere. */
 final class SettlementCommand implements TabExecutor {
     private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate");
     private static final int EVENTS_PER_PAGE = 3;
@@ -56,7 +57,7 @@ final class SettlementCommand implements TabExecutor {
             case "info" -> info(player, settlement);
             case "history" -> history(player, settlement);
             case "residents" -> residents(player, settlement);
-            case "donate" -> donate(player, settlement);
+            case "donate" -> donate(player, settlement, args);
             default -> {
                 return false;
             }
@@ -68,6 +69,9 @@ final class SettlementCommand implements TabExecutor {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length > 1 && args[0].equalsIgnoreCase("admin")) {
             return admin.complete(sender, args);
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("donate")) {
+            return "all".startsWith(args[1].toLowerCase(Locale.ROOT)) ? List.of("all") : List.of();
         }
         if (args.length != 1) {
             return List.of();
@@ -161,29 +165,63 @@ final class SettlementCommand implements TabExecutor {
         }
     }
 
-    private void donate(Player player, Settlement s) {
+    /**
+     * /settlement donate [amount|all]. Without an amount it only says what you're holding is
+     * worth, so nothing is taken by accident (R3.8). Items are credited by value: a storage
+     * block counts as what it holds, and a better tool as more than a worse one.
+     */
+    private void donate(Player player, Settlement s, String[] args) {
         ItemStack item = player.getInventory().getItemInMainHand();
         if (item.getType().isAir()) {
             player.sendMessage(Component.text("Hold the items you want to donate.", NamedTextColor.GRAY));
             return;
         }
         String material = item.getType().getKey().getKey();
-        int amount = item.getAmount();
+        int held = item.getAmount();
         String itemName = material.replace('_', ' ');
 
-        if (ResourceMapper.isCurrency(material)) {
-            s.ledger().addTreasury(amount);
-        } else {
-            Optional<ResourceType> type = ResourceMapper.classify(material);
-            if (type.isEmpty()) {
-                player.sendMessage(Component.text(s.name() + " has no use for " + itemName + ".", NamedTextColor.GRAY));
-                return;
-            }
-            s.ledger().add(type.get(), amount);
+        int emeralds = ResourceMapper.currencyValue(material);
+        Optional<ResourceMapper.Value> value = emeralds > 0 ? Optional.empty() : ResourceMapper.value(material);
+        if (emeralds == 0 && value.isEmpty()) {
+            player.sendMessage(Component.text(s.name() + " has no use for " + itemName + ".", NamedTextColor.GRAY));
+            return;
         }
-        player.getInventory().setItemInMainHand(null);
+        int unitsPerItem = emeralds > 0 ? emeralds : value.get().unitsPerItem();
+        String unitName = emeralds > 0 ? "emeralds" : value.get().type().name().toLowerCase(Locale.ROOT);
+
+        if (args.length < 2) {
+            player.sendMessage(Component.text("You're holding " + held + " " + itemName + ", worth "
+                    + (held * unitsPerItem) + " " + unitName + " to " + s.name() + ". Use ", NamedTextColor.GRAY)
+                    .append(Component.text("/settlement donate <amount>", NamedTextColor.YELLOW))
+                    .append(Component.text(" or ", NamedTextColor.GRAY))
+                    .append(Component.text("/settlement donate all", NamedTextColor.YELLOW))
+                    .append(Component.text(".", NamedTextColor.GRAY)));
+            return;
+        }
+        OptionalInt quantity = ResourceMapper.parseQuantity(args[1], held);
+        if (quantity.isEmpty()) {
+            player.sendMessage(Component.text("Say how many to donate: a number from 1 to " + held
+                    + ", or \"all\".", NamedTextColor.GRAY));
+            return;
+        }
+        int amount = quantity.getAsInt();
+        int credited = amount * unitsPerItem;
+
+        if (emeralds > 0) {
+            s.ledger().addTreasury(credited);
+        } else {
+            s.ledger().add(value.get().type(), credited);
+        }
+        if (amount == held) {
+            player.getInventory().setItemInMainHand(null);
+        } else {
+            ItemStack rest = item.clone();
+            rest.setAmount(held - amount);
+            player.getInventory().setItemInMainHand(rest);
+        }
         s.recordDonation(SettlementService.day(player.getWorld()), player.getName(), amount, itemName);
-        player.sendMessage(Component.text("The people of " + s.name() + " thank you.", NamedTextColor.GREEN));
+        player.sendMessage(Component.text("The people of " + s.name() + " thank you. (+" + credited + " "
+                + unitName + ")", NamedTextColor.GREEN));
         service.plugin().requestSave();
     }
 
