@@ -4,6 +4,9 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.25: Shared `.claude/settings.json` allows Gradle, `git add`/`git commit` and `git push` to the working branch without
+  prompting, so local Claude Code runs can go unattended. `.claude/settings.local.json` is
+  git-ignored for personal overrides.
 - R1.19: Periodic backups. Besides the startup backup, `settlements.json` is saved and copied
   into `backups/` every `backups.interval-hours` (default 24; 0 turns it off) while the server
   runs, with the same rotation; `backups.keep` (default 5) sets how many are kept.
