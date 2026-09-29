@@ -24,6 +24,21 @@ public final class SettlementSimulator {
     static final double TOOLLESS_OUTPUT = 0.75;
 
     /**
+     * Whether gatherers slow down (and a tool shortage is recorded) while the village has no
+     * tools. Off until R2.3 gives METAL a source: smiths need metal to make tools, and without
+     * a miner every village would stay toolless for good. Tools still wear out either way.
+     */
+    private final boolean toollessPenalty;
+
+    public SettlementSimulator() {
+        this(false);
+    }
+
+    SettlementSimulator(boolean toollessPenalty) {
+        this.toollessPenalty = toollessPenalty;
+    }
+
+    /**
      * Simulates every day from the settlement's last simulated day up to {@code targetDay}.
      * If more than {@code maxDays} are pending, the oldest are skipped rather than replayed,
      * and the history says how many (R1.22).
@@ -93,7 +108,7 @@ public final class SettlementSimulator {
         return order;
     }
 
-    private static void work(Resident resident, ResourceFlow flow, Ledger ledger, long day, Random random,
+    private void work(Resident resident, ResourceFlow flow, Ledger ledger, long day, Random random,
                              Random wearRandom,
                              Map<ResourceType, Integer> idleForLack) {
         Occupation occupation = resident.occupation();
@@ -113,8 +128,10 @@ public final class SettlementSimulator {
         double toolFactor = 1.0;
         if (occupation.usesTools()) {
             if (ledger.get(ResourceType.TOOLS) == 0) {
-                toolFactor = TOOLLESS_OUTPUT;
-                idleForLack.merge(ResourceType.TOOLS, 1, Integer::sum);
+                if (toollessPenalty) {
+                    toolFactor = TOOLLESS_OUTPUT;
+                    idleForLack.merge(ResourceType.TOOLS, 1, Integer::sum);
+                }
             } else if (wearRandom.nextDouble() < TOOL_WEAR_CHANCE) {
                 flow.recordConsumed(ResourceType.TOOLS, day, ledger.take(ResourceType.TOOLS, 1));
             }

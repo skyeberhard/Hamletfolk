@@ -8,10 +8,13 @@ import java.util.Random;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** R3.6: gatherers wear out tools and produce less while the village has none. */
+/**
+ * R3.6: gatherers wear out tools. The toolless penalty is off by default until R2.3 gives
+ * METAL a source, so the penalty tests use a simulator with it switched on.
+ */
 class ToolWearTest {
     private final SettlementRegistry registry = new SettlementRegistry();
-    private final SettlementSimulator simulator = new SettlementSimulator();
+    private final SettlementSimulator simulator = new SettlementSimulator(true);
 
     private Settlement village(Occupation job, int workers) {
         Settlement s = registry.found("world", 0, 0, 0);
@@ -71,6 +74,21 @@ class ToolWearTest {
         s.ledger().add(ResourceType.TOOLS, 1000);
         simulator.simulateTo(s, 11, 100);
         assertFalse(s.hasCondition("shortage:tools"));
+    }
+
+    @Test
+    void byDefaultAToollessVillageIsNotPenalised() {
+        // No job makes METAL yet, so smiths can't make tools; a penalty would starve every village.
+        SettlementSimulator standard = new SettlementSimulator();
+        Settlement bare = village(Occupation.MASON, 10);
+        Settlement equipped = SettlementCodec.decode(SettlementCodec.encode(bare)); // same people, same dice
+        equipped.ledger().add(ResourceType.TOOLS, 1_000_000);
+        standard.simulateTo(equipped, 40, 100);
+        standard.simulateTo(bare, 40, 100);
+        long dayNow = equipped.lastSimulatedDay();
+        assertEquals(equipped.flow().produced(ResourceType.STONE, dayNow), bare.flow().produced(ResourceType.STONE, dayNow));
+        assertFalse(bare.hasCondition("shortage:tools"));
+        assertTrue(bare.history().stream().noneMatch(e -> e.text().contains("tools")));
     }
 
     @Test

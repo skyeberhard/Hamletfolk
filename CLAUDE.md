@@ -54,9 +54,9 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   Must be fixed as part of R4.3.
 - **Resources with no sink yet:** STONE, GOODS and the treasury only accumulate until
   R3.9 (merchant), R4.8 (builder) and R5.1 (guards) land. TOOLS now wear out (R3.6).
-- **Tool wear changes village balance:** a new village has no tools, so gatherers start at 75%
-  output (`TOOLLESS_OUTPUT`) until a smith or a donation supplies some. Tests that aren't about
-  tool wear stock `TOOLS` in the ledger. Watch this in the first playtest and retune if needed.
+- **Tool wear penalty is off** (`SettlementSimulator.toollessPenalty`, false by default): no
+  occupation produces METAL until R2.3, so smiths can't make tools and a penalty would starve
+  every village. Turn it on as part of R2.3; then R3.6 can be marked Done.
 - **`SettlementService.track()` returns null** for a world excluded by `worlds.allow/deny`
   (R1.10); callers must handle it.
 - **Line endings:** working copies are CRLF (autocrlf) while the repo stores LF, so git warns
@@ -67,7 +67,7 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
 ## Where things stand
 
 - Done: M0; M1 items R1.2, R1.3, R1.4, R1.5, R1.6, R1.9, R1.10, R1.13, R1.14, R1.16, R1.17,
-  R1.18, R1.19, R1.20, R1.21, R1.22, R1.23; M3 items R3.6, R3.7; M4 items R4.4, R4.5.
+  R1.18, R1.19, R1.20, R1.21, R1.22, R1.23; M3 item R3.7 (R3.6 partly, see above); M4 items R4.4, R4.5.
   Save format is 4 (R1.21 added event count/actor, R3.7 added flow).
 - **Next, highest value:** R1.1 (first playtest — the Paper layer has never run; scenarios
   T1–T19 in docs/TESTING.md, of which T17 (admin), T18 (worlds) and T19 (backups) are new and

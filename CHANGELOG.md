@@ -14,11 +14,10 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 - R1.4: `/settlement admin list|inspect|rename|save`, gated by the new `hamletfolk.admin`
   permission (ops by default) and usable from the server console, so state can be checked
   without a player in game. Settlements can be named by name or by id prefix.
-- R3.6: Tool wear. Farmers, fishers, lumberjacks and masons wear out a tool on about 15% of
-  working days, and produce 25% less while the village has none. A tool shortage is recorded
-  in history ("Work slowed for lack of tools") and mentioned in dialogue, which gives TOOLS a
-  sink. Note: a new village starts with no tools, so its gatherers begin at 75% output until a
-  smith or a donor supplies some.
+- R3.6 (partial): Tool wear. Farmers, fishers, lumberjacks and masons wear out a tool on about
+  15% of working days, which gives TOOLS a sink. The slowdown and shortage record while a
+  village has no tools are built and tested but switched off until R2.3 gives METAL a source
+  (smiths need metal to make tools, so every village would otherwise stay toolless for good).
 - R3.7: Each settlement keeps a rolling 7-day total of what it produced and consumed per
   resource (work, inputs and eating), saved with the settlement (format 4) and shown in
   `/settlement` as e.g. "food +12/day made, -15/day eaten".
