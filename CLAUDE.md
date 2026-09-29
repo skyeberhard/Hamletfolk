@@ -49,9 +49,11 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   simulation tests with repeated `--rerun` runs, checking Gradle's own exit code.
 - **Save format changes need a migration.** Bump `SettlementCodec.FORMAT_VERSION` and add a
   step in `migrate()` with a test using a hand-built old-format map.
-- **`SettlementService.track()` overwrites occupations** from the villager's vanilla profession
-  on every tracking pass, which would reset non-vanilla jobs (`LUMBERJACK`, future `MINER`).
-  Must be fixed as part of R4.3.
+- **Occupations get overwritten** from the villager's vanilla profession in two places,
+  `SettlementService.track()` (every tracking pass) and the career-change handler in
+  `VillagerListener`, which would reset non-vanilla jobs (`LUMBERJACK`, future `MINER`).
+  The rule (R4.3): the simulation owns a resident's occupation; the vanilla profession only
+  seeds it the first time a villager is seen. Fix both places as part of R4.3.
 - **Resources with no sink yet:** STONE, GOODS and the treasury only accumulate until
   R3.9 (merchant), R4.8 (builder) and R5.1 (guards) land. TOOLS now wear out (R3.6).
 - **Tool wear penalty is off** (`SettlementSimulator.toollessPenalty`, false by default): no
