@@ -124,7 +124,9 @@ public final class SettlementSimulator {
         settlement.setThreat(settlement.threat() * THREAT_DECAY);
         for (Resident resident : settlement.residents()) {
             Needs needs = resident.needs();
-            needs.adjustFood(fedFraction >= 1.0 ? 10 : -(int) Math.ceil(25 * (1 - fedFraction)));
+            // R4.9: half-fed holds steady and better than that recovers, so a village that can feed
+            // itself at its worst output always climbs back instead of starving at half output for good.
+            needs.adjustFood(Math.min(10, (int) Math.round(20 * (fedFraction - 0.5))));
             double nerve = 1.5 - resident.traits().bravery() / 100.0;
             needs.setSafety((int) Math.round(100 - settlement.threat() * nerve));
         }

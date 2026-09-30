@@ -46,4 +46,29 @@ class NeedsOutputTest {
         assertTrue(miserable < content * 0.7, content + " content vs " + miserable + " miserable");
         assertTrue(miserable > 0, "output never falls to nothing");
     }
+
+    /** Ten farmers plus twelve children: demand 32 a day against roughly 40 made when content. */
+    private Settlement barelySelfSufficient() {
+        Settlement s = registry.found("world", 0, 0, 0);
+        for (int i = 0; i < 10; i++) {
+            registry.enroll(s, UUID.randomUUID(), Occupation.FARMER, true, 0, null, null);
+        }
+        for (int i = 0; i < 12; i++) {
+            registry.enroll(s, UUID.randomUUID(), Occupation.NITWIT, false, 0, null, null);
+        }
+        return s;
+    }
+
+    @Test
+    void aVillageThatCanFeedItselfClimbsBackFromStarvation() {
+        // Regression: while food need only recovered when everyone was fully fed, a village like
+        // this one, started hungry, stayed stuck at half output and never got there.
+        Settlement s = barelySelfSufficient();
+        for (Resident r : s.residents()) {
+            r.needs().adjustFood(20 - r.needs().food());
+        }
+        simulator.simulateTo(s, 80, 100);
+        int food = s.residents().iterator().next().needs().food();
+        assertTrue(food >= 50, "food need should have recovered, was " + food);
+    }
 }

@@ -53,11 +53,16 @@ class ToolWearTest {
         Settlement equipped = village(Occupation.MASON, 10);
         equipped.ledger().add(ResourceType.TOOLS, 1_000_000);
         Settlement bare = village(Occupation.MASON, 10);
-        simulator.simulateTo(equipped, 40, 100);
-        simulator.simulateTo(bare, 40, 100);
-        long dayNow = equipped.lastSimulatedDay();
-        int withTools = equipped.flow().produced(ResourceType.STONE, dayNow);
-        int without = bare.flow().produced(ResourceType.STONE, dayNow);
+        // Each flow figure covers a 7-day window, so add up five separate windows: one window
+        // of ten workers is small enough for the dice to hide a 25% penalty.
+        int withTools = 0;
+        int without = 0;
+        for (int day = 7; day <= 35; day += 7) {
+            simulator.simulateTo(equipped, day, 100);
+            simulator.simulateTo(bare, day, 100);
+            withTools += equipped.flow().produced(ResourceType.STONE, day);
+            without += bare.flow().produced(ResourceType.STONE, day);
+        }
         assertTrue(without < withTools, without + " should be below " + withTools);
     }
 
