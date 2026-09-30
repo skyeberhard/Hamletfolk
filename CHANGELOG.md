@@ -4,6 +4,9 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.28: Added a read-only `reviewer` subagent (Opus) in `.claude/agents/` that checks diffs
+  against this repo's known traps and labels findings verified or unverified. `CLAUDE.md` says
+  when to use it.
 - R3.8: Donations are credited by value: storage blocks count as their contents (iron, gold,
   copper and their raw blocks, hay, melon, dried kelp, emerald) and tools by material tier.
   `/settlement donate` now needs an amount or `all`; on its own it just says what you're holding

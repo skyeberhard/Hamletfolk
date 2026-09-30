@@ -39,6 +39,10 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
 - **"Done when" is the acceptance test**, checked by a unit test or a `docs/TESTING.md`
   scenario that names the ID.
 - Work on branch `claude/minecraft-npc-settlement-mod-h6nhem` (currently the default branch).
+- **Review risky changes.** For Paper-layer, save-format and simulation-rule changes, run the
+  `reviewer` subagent (`.claude/agents/reviewer.md`, runs on Opus) on the diff before committing.
+  Fix the findings you verify are correct and say why you set aside any you don't; don't apply
+  its suggestions blindly. Skip it for small core-only changes with clear tests.
 - Deploys follow `docs/DEPLOYING.md`; `PRODUCTION.md` records what's live vs. verified.
 
 ## Gotchas
