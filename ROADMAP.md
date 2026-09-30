@@ -98,6 +98,7 @@ Goal: trading with villagers is part of the village economy.
 | R3.8 | [#69](https://github.com/skyeberhard/Hamletfolk/issues/69) | Donations valued by what they're worth | Storage blocks count as their contents and tools by material tier; donating confirms (or takes a quantity) instead of silently taking the whole stack | Done |
 | R3.9 | [#70](https://github.com/skyeberhard/Hamletfolk/issues/70) | Merchant occupation | A MERCHANT sells surplus goods, stone and excess stock for emeralds into the treasury | Planned |
 | R3.10 | [#71](https://github.com/skyeberhard/Hamletfolk/issues/71) | Storage capacity and food spoilage | Each resource has a storage limit (a base amount, raised later by storage buildings from M2), production beyond it is wasted, and food slowly spoils. A surplus can end, and the "granaries full" milestone can clear and recur. | Done |
+| R3.11 | [#81](https://github.com/skyeberhard/Hamletfolk/issues/81) | Donations respect storage limits | `/settlement donate` tells a player how much room the settlement has for what they are holding, and credits only what fits, so a donation to a full store is never accepted and then silently wasted. | Planned |
 
 ## M4: Growth and migration (v0.5.0) · [#5](https://github.com/skyeberhard/Hamletfolk/issues/5)
 
