@@ -29,6 +29,10 @@ public final class SettlementSimulator {
     /** R4.3: stock per resident below which a resource counts as short. */
     static final int FOOD_WANTED_PER_HEAD = 10;
     static final int STOCK_WANTED_PER_HEAD = 3;
+    /** R4.9: a need at or above this costs no output; below it output falls off linearly. */
+    static final int NEED_COMFORTABLE = 50;
+    /** R4.9: the share of output a worker with a need at zero still manages. */
+    static final double MIN_NEEDS_OUTPUT = 0.5;
     /** R3.10: storage limit is a base amount plus room per resident (food needs more of it). */
     static final int BASE_STORAGE = 100;
     static final int FOOD_STORAGE_PER_RESIDENT = 40;
@@ -222,10 +226,21 @@ public final class SettlementSimulator {
             }
         }
         double diligence = 0.5 + resident.traits().workEthic() / 100.0;
-        int output = (int) Math.floor(occupation.baseOutput() * diligence * toolFactor + random.nextDouble());
+        int output = (int) Math.floor(occupation.baseOutput() * diligence * toolFactor * needsFactor(resident.needs())
+                + random.nextDouble());
         ledger.add(occupation.produces(), output);
         flow.recordProduced(occupation.produces(), day, output);
         resident.needs().adjustPurpose(4);
+    }
+
+    /**
+     * R4.9: how much of their normal output a worker manages given their needs. Set by their
+     * worst need: a starving or terrified worker produces noticeably less, down to
+     * {@link #MIN_NEEDS_OUTPUT} so a village can still climb out of trouble.
+     */
+    static double needsFactor(Needs needs) {
+        int worst = Math.min(needs.food(), Math.min(needs.safety(), needs.purpose()));
+        return MIN_NEEDS_OUTPUT + (1 - MIN_NEEDS_OUTPUT) * Math.min(1.0, (double) worst / NEED_COMFORTABLE);
     }
 
     /**

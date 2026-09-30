@@ -4,6 +4,9 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R4.9: A resident's worst need (food, safety or purpose) now scales their output: at or above 50 it
+  costs nothing, below that it falls linearly to half output at zero. A starving or terrified
+  workforce produces noticeably less, but never nothing, so a village can still recover.
 - R3.10: Each resource has a storage limit (100 plus 10 per resident, 40 per resident for food) and
   anything over it is wasted at the end of the day. Food also spoils, 2% of the stock a day. A
   surplus can now end, so the "granaries full" milestone can clear and recur. Nothing is saved for
