@@ -96,7 +96,8 @@ final class SettlementService {
         if (resident == null) {
             resident = enroll(villager);
         }
-        resident.setOccupation(occupationOf(villager));
+        // R4.3: the simulation owns the occupation; the vanilla profession only fills in a missing one.
+        resident.seedOccupation(occupationOf(villager));
         resident.setAdult(villager.isAdult());
         if (config.showNames() && villager.customName() == null) {
             villager.customName(Component.text(resident.fullName()));

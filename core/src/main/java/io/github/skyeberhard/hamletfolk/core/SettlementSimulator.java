@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.Predicate;
 
 /**
  * Advances a settlement one in-game day at a time. Runs purely on data, so it costs the
@@ -22,6 +23,12 @@ public final class SettlementSimulator {
     static final double TOOL_WEAR_CHANCE = 0.15;
     /** R3.6: output multiplier for gatherers while the village has no tools. */
     static final double TOOLLESS_OUTPUT = 0.75;
+    /** R4.3: occupations an unemployed resident can take up, in tie-break order. */
+    static final List<Occupation> JOB_CANDIDATES = List.of(
+            Occupation.FARMER, Occupation.LUMBERJACK, Occupation.MASON, Occupation.FISHERMAN);
+    /** R4.3: stock per resident below which a resource counts as short. */
+    static final int FOOD_WANTED_PER_HEAD = 10;
+    static final int STOCK_WANTED_PER_HEAD = 3;
     /** A shortage returning within this many days of its recorded end isn't recorded again. */
     static final int SHORTAGE_QUIET_DAYS = 7;
 
@@ -32,12 +39,23 @@ public final class SettlementSimulator {
      */
     private final boolean toollessPenalty;
 
+    /**
+     * R4.3: whether a workstation is free for an occupation. Until buildings exist (M2) only
+     * simulation-owned occupations, which need no vanilla workstation, can be handed out.
+     */
+    private final Predicate<Occupation> workstationFree;
+
     public SettlementSimulator() {
         this(false);
     }
 
     SettlementSimulator(boolean toollessPenalty) {
+        this(toollessPenalty, Occupation::simOwned);
+    }
+
+    SettlementSimulator(boolean toollessPenalty, Predicate<Occupation> workstationFree) {
         this.toollessPenalty = toollessPenalty;
+        this.workstationFree = workstationFree;
     }
 
     /**
@@ -72,6 +90,7 @@ public final class SettlementSimulator {
         if (updateAbandonment(settlement, day)) {
             return; // R1.5: no residents for ABANDONMENT_DAYS straight; nothing left to simulate.
         }
+        assignJob(settlement);
         Random random = new Random(settlement.id().getMostSignificantBits() ^ (day * 0x9E3779B97F4A7C15L));
         Ledger ledger = settlement.ledger();
 
@@ -101,6 +120,41 @@ public final class SettlementSimulator {
         updateFamine(settlement, day, shortfall);
         updateShortages(settlement, day, idleForLack);
         updateMilestones(settlement, day);
+    }
+
+    /**
+     * R4.3: one unemployed adult takes the occupation the village is shortest of, if a workstation
+     * is free for it. At most one a day, so a shortage draws people in gradually. The simulation
+     * owns the occupation from here on; the vanilla profession only seeds it (see the Paper layer).
+     */
+    private void assignJob(Settlement settlement) {
+        Resident jobless = null;
+        for (Resident resident : workOrder(settlement)) {
+            if (resident.adult() && resident.occupation() == Occupation.UNEMPLOYED) {
+                jobless = resident;
+                break;
+            }
+        }
+        if (jobless == null) {
+            return;
+        }
+        Occupation best = null;
+        double bestCover = Double.MAX_VALUE;
+        int population = settlement.population();
+        for (Occupation candidate : JOB_CANDIDATES) {
+            ResourceType resource = candidate.produces();
+            double wanted = (double) population * (resource == ResourceType.FOOD ? FOOD_WANTED_PER_HEAD : STOCK_WANTED_PER_HEAD);
+            double cover = settlement.ledger().get(resource) / wanted; // below 1 means short
+            if (cover < 1.0 && cover < bestCover) {
+                best = candidate;
+                bestCover = cover;
+            }
+        }
+        // Shortest over every candidate, then check its workstation: a village short of food but
+        // with no farm to staff doesn't send its forager off to cut wood instead.
+        if (best != null && workstationFree.test(best)) {
+            jobless.setOccupation(best);
+        }
     }
 
     /**

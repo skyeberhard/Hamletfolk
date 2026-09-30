@@ -58,6 +58,11 @@ public enum Occupation {
         return UNEMPLOYED;
     }
 
+    /** True for occupations no vanilla profession backs, so the simulation alone hands them out (R4.3). */
+    public boolean simOwned() {
+        return this == LUMBERJACK;
+    }
+
     public String title() {
         return title;
     }

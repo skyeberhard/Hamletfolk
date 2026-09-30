@@ -25,11 +25,11 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityBreedEvent;
+import org.bukkit.event.entity.VillagerCareerChangeEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityTransformEvent;
-import org.bukkit.event.entity.VillagerCareerChangeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
@@ -65,8 +65,9 @@ final class VillagerListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onCareerChange(VillagerCareerChangeEvent event) {
+        // R4.3: seeds an unemployed resident only; never replaces an occupation the simulation gave.
         service.registry().resident(event.getEntity().getUniqueId()).ifPresent(resident ->
-                resident.setOccupation(Occupation.fromVanillaKey(event.getProfession().getKey().getKey())));
+                resident.seedOccupation(Occupation.fromVanillaKey(event.getProfession().getKey().getKey())));
     }
 
     @EventHandler(ignoreCancelled = true)

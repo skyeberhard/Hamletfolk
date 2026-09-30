@@ -70,6 +70,13 @@ public final class Resident {
         this.occupation = occupation;
     }
 
+    /** R4.3: a vanilla profession fills in a missing occupation but never replaces one the resident has. */
+    public void seedOccupation(Occupation seed) {
+        if (occupation == Occupation.UNEMPLOYED) {
+            occupation = seed;
+        }
+    }
+
     public boolean adult() {
         return adult;
     }

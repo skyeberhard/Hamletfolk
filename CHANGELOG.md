@@ -4,6 +4,12 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R4.3: The simulation now owns a resident's occupation. An unemployed adult takes the occupation
+  the village is shortest of (at most one a day). Until buildings exist (M2) only occupations with
+  no vanilla profession (lumberjack) count as having a free workstation. A villager's vanilla
+  profession only fills in a missing occupation (`Resident.seedOccupation`), so newborns still pick
+  up a vanilla job, but `SettlementService.track()` and the career-change handler can no longer
+  overwrite an assigned one.
 - R1.28: Added a read-only `reviewer` subagent (Opus) in `.claude/agents/` that checks diffs
   against this repo's known traps and labels findings verified or unverified. `CLAUDE.md` says
   when to use it.
