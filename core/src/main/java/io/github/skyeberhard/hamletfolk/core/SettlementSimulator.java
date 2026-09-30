@@ -29,6 +29,12 @@ public final class SettlementSimulator {
     /** R4.3: stock per resident below which a resource counts as short. */
     static final int FOOD_WANTED_PER_HEAD = 10;
     static final int STOCK_WANTED_PER_HEAD = 3;
+    /** R3.10: storage limit is a base amount plus room per resident (food needs more of it). */
+    static final int BASE_STORAGE = 100;
+    static final int FOOD_STORAGE_PER_RESIDENT = 40;
+    static final int STORAGE_PER_RESIDENT = 10;
+    /** R3.10: percent of the food stock that spoils each day (whole units, so a small stock keeps). */
+    static final int FOOD_SPOILAGE_PERCENT = 2;
     /** A shortage returning within this many days of its recorded end isn't recorded again. */
     static final int SHORTAGE_QUIET_DAYS = 7;
 
@@ -109,6 +115,8 @@ public final class SettlementSimulator {
         int shortfall = demand - eaten;
         double fedFraction = demand == 0 ? 1.0 : (double) eaten / demand;
 
+        spoilAndCap(settlement);
+
         settlement.setThreat(settlement.threat() * THREAT_DECAY);
         for (Resident resident : settlement.residents()) {
             Needs needs = resident.needs();
@@ -120,6 +128,23 @@ public final class SettlementSimulator {
         updateFamine(settlement, day, shortfall);
         updateShortages(settlement, day, idleForLack);
         updateMilestones(settlement, day);
+    }
+
+    /**
+     * R3.10: the most of a resource the settlement can hold. M2 storage buildings will raise it.
+     */
+    static int capacity(Settlement settlement, ResourceType type) {
+        int perResident = type == ResourceType.FOOD ? FOOD_STORAGE_PER_RESIDENT : STORAGE_PER_RESIDENT;
+        return BASE_STORAGE + perResident * settlement.population();
+    }
+
+    /** R3.10: food spoils, then anything beyond a resource's storage limit is wasted. */
+    private static void spoilAndCap(Settlement settlement) {
+        Ledger ledger = settlement.ledger();
+        ledger.take(ResourceType.FOOD, ledger.get(ResourceType.FOOD) * FOOD_SPOILAGE_PERCENT / 100);
+        for (ResourceType type : ResourceType.values()) {
+            ledger.take(type, ledger.get(type) - capacity(settlement, type));
+        }
     }
 
     /**

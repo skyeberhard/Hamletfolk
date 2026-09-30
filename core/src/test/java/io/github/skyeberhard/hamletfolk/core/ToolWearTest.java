@@ -39,9 +39,10 @@ class ToolWearTest {
     @Test
     void gatherersConsumeToolsOverTime() {
         Settlement s = village(Occupation.MASON, 10);
-        s.ledger().add(ResourceType.TOOLS, 10_000);
+        int stocked = SettlementSimulator.capacity(s, ResourceType.TOOLS); // fill the storage limit (R3.10)
+        s.ledger().add(ResourceType.TOOLS, stocked);
         simulator.simulateTo(s, 7, 100); // within the 7-day flow window, so flow accounts for every worn tool
-        int worn = 10_000 - s.ledger().get(ResourceType.TOOLS);
+        int worn = stocked - s.ledger().get(ResourceType.TOOLS);
         // 10 masons x 7 days x 15% is about 10 tools; allow generous slack for the dice.
         assertTrue(worn > 0 && worn < 40, "worn tools: " + worn);
         assertEquals(worn, s.flow().consumed(ResourceType.TOOLS, s.lastSimulatedDay()));

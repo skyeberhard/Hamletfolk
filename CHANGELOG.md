@@ -4,6 +4,11 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R3.10: Each resource has a storage limit (100 plus 10 per resident, 40 per resident for food) and
+  anything over it is wasted at the end of the day. Food also spoils, 2% of the stock a day. A
+  surplus can now end, so the "granaries full" milestone can clear and recur. Nothing is saved for
+  this, so no format change; a stockpile above its limit (e.g. from an old save or a big donation)
+  is trimmed the next day it is simulated.
 - R4.3: The simulation now owns a resident's occupation. An unemployed adult takes the occupation
   the village is shortest of (at most one a day). Until buildings exist (M2) only occupations with
   no vanilla profession (lumberjack) count as having a free workstation. A villager's vanilla

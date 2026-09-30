@@ -97,7 +97,7 @@ Goal: trading with villagers is part of the village economy.
 | R3.7 | [#68](https://github.com/skyeberhard/Hamletfolk/issues/68) | Resource flow tracking | Each settlement keeps a rolling 7-day produced/consumed total per resource, shown in `/settlement` | Done |
 | R3.8 | [#69](https://github.com/skyeberhard/Hamletfolk/issues/69) | Donations valued by what they're worth | Storage blocks count as their contents and tools by material tier; donating confirms (or takes a quantity) instead of silently taking the whole stack | Done |
 | R3.9 | [#70](https://github.com/skyeberhard/Hamletfolk/issues/70) | Merchant occupation | A MERCHANT sells surplus goods, stone and excess stock for emeralds into the treasury | Planned |
-| R3.10 | [#71](https://github.com/skyeberhard/Hamletfolk/issues/71) | Storage capacity and food spoilage | Each resource has a storage limit (raised later by M2 storage buildings), excess is wasted, and food slowly spoils, so a surplus can end | Planned |
+| R3.10 | [#71](https://github.com/skyeberhard/Hamletfolk/issues/71) | Storage capacity and food spoilage | Each resource has a storage limit (a base amount, raised later by storage buildings from M2), production beyond it is wasted, and food slowly spoils. A surplus can end, and the "granaries full" milestone can clear and recur. | Done |
 
 ## M4: Growth and migration (v0.5.0) · [#5](https://github.com/skyeberhard/Hamletfolk/issues/5)
 

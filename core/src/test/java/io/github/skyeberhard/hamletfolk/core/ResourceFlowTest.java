@@ -37,16 +37,17 @@ class ResourceFlowTest {
     @Test
     void theSimulatorRecordsWhatWasMadeAndEaten() {
         Settlement s = farm(4);
-        s.ledger().add(ResourceType.FOOD, 1000);
+        s.ledger().add(ResourceType.FOOD, 100); // under the storage limit, so only spoilage (R3.10) trims it
         int before = s.ledger().get(ResourceType.FOOD);
-        simulator.simulateTo(s, 5, 100);
-        long today = s.lastSimulatedDay();
-        int made = s.flow().produced(ResourceType.FOOD, today);
-        int eaten = s.flow().consumed(ResourceType.FOOD, today);
+        simulator.simulateTo(s, 1, 100);
+        int made = s.flow().produced(ResourceType.FOOD, 1);
+        int eaten = s.flow().consumed(ResourceType.FOOD, 1);
         assertTrue(made > 0);
-        assertEquals(5 * 4 * SettlementSimulator.ADULT_FOOD_PER_DAY, eaten);
-        // The flow explains the change in stock exactly.
-        assertEquals(before + made - eaten, s.ledger().get(ResourceType.FOOD));
+        assertEquals(4 * SettlementSimulator.ADULT_FOOD_PER_DAY, eaten);
+        // The flow explains the change in stock exactly, less the day's spoilage.
+        int afterEating = before + made - eaten;
+        int spoiled = afterEating * SettlementSimulator.FOOD_SPOILAGE_PERCENT / 100;
+        assertEquals(afterEating - spoiled, s.ledger().get(ResourceType.FOOD));
     }
 
     @Test
