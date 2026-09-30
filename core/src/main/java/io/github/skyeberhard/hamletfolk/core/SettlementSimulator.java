@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 import java.util.function.Predicate;
 
 /**
@@ -100,7 +101,7 @@ public final class SettlementSimulator {
         if (updateAbandonment(settlement, day)) {
             return; // R1.5: no residents for ABANDONMENT_DAYS straight; nothing left to simulate.
         }
-        assignJob(settlement);
+        assignJob(settlement, day);
         Random random = new Random(settlement.id().getMostSignificantBits() ^ (day * 0x9E3779B97F4A7C15L));
         Ledger ledger = settlement.ledger();
 
@@ -158,7 +159,7 @@ public final class SettlementSimulator {
      * is free for it. At most one a day, so a shortage draws people in gradually. The simulation
      * owns the occupation from here on; the vanilla profession only seeds it (see the Paper layer).
      */
-    private void assignJob(Settlement settlement) {
+    private void assignJob(Settlement settlement, long day) {
         Resident jobless = null;
         for (Resident resident : workOrder(settlement)) {
             if (resident.adult() && resident.occupation() == Occupation.UNEMPLOYED) {
@@ -171,21 +172,50 @@ public final class SettlementSimulator {
         }
         Occupation best = null;
         double bestCover = Double.MAX_VALUE;
-        int population = settlement.population();
         for (Occupation candidate : JOB_CANDIDATES) {
-            ResourceType resource = candidate.produces();
-            double wanted = (double) population * (resource == ResourceType.FOOD ? FOOD_WANTED_PER_HEAD : STOCK_WANTED_PER_HEAD);
-            double cover = settlement.ledger().get(resource) / wanted; // below 1 means short
+            double cover = cover(settlement, candidate);
             if (cover < 1.0 && cover < bestCover) {
                 best = candidate;
                 bestCover = cover;
             }
         }
+        // R4.10: a grown child (one born to residents) follows a parent's trade when it is also needed.
+        Occupation parentTrade = parentTrade(settlement, jobless);
+        boolean apprentice = jobless.parentA() != null;
+        if (parentTrade != null && cover(settlement, parentTrade) < 1.0 && workstationFree.test(parentTrade)) {
+            best = parentTrade;
+        }
         // Shortest over every candidate, then check its workstation: a village short of food but
         // with no farm to staff doesn't send its forager off to cut wood instead.
         if (best != null && workstationFree.test(best)) {
             jobless.setOccupation(best);
+            if (apprentice) {
+                settlement.record(day, HistoryEvent.Kind.MILESTONE, jobless.fullName()
+                        + " was apprenticed as a " + best.title() + ".");
+            }
         }
+    }
+
+    /** How well stocked the settlement is with what an occupation makes; below 1 means short. */
+    private static double cover(Settlement settlement, Occupation occupation) {
+        ResourceType resource = occupation.produces();
+        if (resource == null) {
+            return Double.MAX_VALUE;
+        }
+        double wanted = (double) settlement.population()
+                * (resource == ResourceType.FOOD ? FOOD_WANTED_PER_HEAD : STOCK_WANTED_PER_HEAD);
+        return settlement.ledger().get(resource) / wanted;
+    }
+
+    private static Occupation parentTrade(Settlement settlement, Resident child) {
+        for (UUID parent : new UUID[] {child.parentA(), child.parentB()}) {
+            Occupation trade = parent == null ? null
+                    : settlement.resident(parent).map(Resident::occupation).orElse(null);
+            if (trade != null && JOB_CANDIDATES.contains(trade)) {
+                return trade;
+            }
+        }
+        return null;
     }
 
     /**

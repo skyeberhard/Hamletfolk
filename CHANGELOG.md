@@ -4,6 +4,11 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R4.10: A grown child (one with a parent on record) who is still unemployed takes the occupation
+  the village is shortest of, preferring a parent's trade when it is also short, and the history
+  records the apprenticeship. Uses R4.3's job assignment, so until M2 buildings exist only
+  occupations with no vanilla profession are open. A child who claims a vanilla workstation before
+  the simulation sees them grown keeps that job and is not apprenticed. (Scenario T21.)
 - R4.9: A resident's worst need (food, safety or purpose) now scales their output: at or above 50 it
   costs nothing, below that it falls linearly to half output at zero. A starving or terrified
   workforce produces noticeably less, but never nothing. Food need now holds steady while at
