@@ -57,6 +57,9 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   UNEMPLOYED resident (`Resident.seedOccupation`); never call `setOccupation` from `SettlementService`
   or `VillagerListener`. Vanilla-backed jobs get a free workstation from M2 (see
   `SettlementSimulator.workstationFree`).
+- **Adult enrollment draws an age** (R4.15, 12 to 51 days), so a test that enrolls adults and runs
+  past about 39 days can lose them to old age. Build residents with `new Resident(..., bornDay, ...)`
+  and `Settlement.addResident` to control age, or use `SettlementSimulator.withOldAgeDeaths(false)`.
 - **Resources with no sink yet:** STONE, GOODS and the treasury only accumulate (STONE and GOODS up to their storage limit, R3.10) until
   R3.9 (merchant), R4.8 (builder) and R5.1 (guards) land. TOOLS now wear out (R3.6).
 - **Tool wear penalty is off** (`SettlementSimulator.toollessPenalty`, false by default): no
@@ -72,10 +75,10 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
 ## Where things stand
 
 - Done: M0; M1 items R1.2, R1.3, R1.4, R1.5, R1.6, R1.9, R1.10, R1.13, R1.14, R1.16, R1.17,
-  R1.18, R1.19, R1.20, R1.21, R1.22, R1.23; M3 items R3.7, R3.10 (R3.6 partly, see above); M4 items R4.1, R4.3, R4.4, R4.5, R4.9, R4.10, R4.14.
-  Save format is 5 (R1.21 added event count/actor, R3.7 added flow, R4.14 added gender).
+  R1.18, R1.19, R1.20, R1.21, R1.22, R1.23; M3 items R3.7, R3.10 (R3.6 partly, see above); M4 items R4.1, R4.3, R4.4, R4.5, R4.9, R4.10, R4.14, R4.15.
+  Save format is 6 (R1.21 added event count/actor, R3.7 added flow, R4.14 added gender, R4.15 added departed ids).
 - **Next, highest value:** R1.1 (first playtest — the Paper layer has never run; scenarios
-  T1–T24 in docs/TESTING.md, of which T17 (admin), T18 (worlds) and T19 (backups) are new and
+  T1–T25 in docs/TESTING.md, of which T17 (admin), T18 (worlds) and T19 (backups) are new and
   Paper-only). After that R1.8, R1.24 (needs a decision), R1.7 and R1.12, then M2 buildings.
 - On a local machine, much of R1.1 can be driven from the server console (`/summon`, `/time add`,
   restarts, reading `plugins/Hamletfolk/settlements.json`); player-only steps (sneak +

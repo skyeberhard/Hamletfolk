@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 5;
+    public static final int FORMAT_VERSION = 6;
 
     private SettlementCodec() {
     }
@@ -72,6 +72,9 @@ public final class SettlementCodec {
             }
             history.add(event);
         }
+        Map<String, Object> departed = new LinkedHashMap<>();
+        s.departed().forEach((id, day) -> departed.put(id.toString(), day));
+        map.put("departed", departed);
         map.put("history", history);
         return map;
     }
@@ -141,6 +144,10 @@ public final class SettlementCodec {
             s.turned().put(UUID.fromString(entry.getKey().toString()), decodeResident(asMap(entry.getValue())));
         }
 
+        for (Map.Entry<?, ?> entry : asMap(map.get("departed")).entrySet()) {
+            s.departed().put(UUID.fromString(entry.getKey().toString()), ((Number) entry.getValue()).longValue());
+        }
+
         for (Object o : asList(map.get("history"))) {
             Map<?, ?> event = asMap(o);
             Object actor = event.get("actor");
@@ -183,8 +190,44 @@ public final class SettlementCodec {
                     turned.put(zombie.toString(), withGender(asMap(resident))));
             migrated.put("turned", turned);
         }
+        if (version < 6) {
+            // v5 -> v6: ages matter now (R4.15). "departed" is optional, so an old save has none, but
+            // residents whose birth day is the founding day would all be ancient: rebase them.
+            long today = num(raw, "lastSimulatedDay").longValue();
+            migrated.put("residents", withPlausibleAges(migrated.get("residents"), today));
+            Map<String, Object> turned = new LinkedHashMap<>();
+            asMap(migrated.get("turned")).forEach((zombie, resident) ->
+                    turned.put(zombie.toString(), withPlausibleAge(asMap(resident), today)));
+            migrated.put("turned", turned);
+        }
         migrated.put("format", FORMAT_VERSION);
         return migrated;
+    }
+
+    private static List<Object> withPlausibleAges(Object residents, long today) {
+        List<Object> out = new ArrayList<>();
+        for (Object resident : asList(residents)) {
+            out.add(withPlausibleAge(asMap(resident), today));
+        }
+        return out;
+    }
+
+    /**
+     * A resident whose recorded age is beyond what a newly seen adult could be is given a plausible
+     * one, derived from their id. Nobody is made older. The child flag is ignored: it is only
+     * refreshed when a villager loads, so a recorded "child" that old has long since grown up.
+     */
+    private static Map<String, Object> withPlausibleAge(Map<?, ?> resident, long today) {
+        Map<String, Object> copy = new LinkedHashMap<>();
+        resident.forEach((key, value) -> copy.put(key.toString(), value));
+        long born = num(resident, "bornDay").longValue();
+        if (today - born > Resident.ADULT_AGE_MAX) {
+            UUID id = UUID.fromString(str(resident, "id"));
+            long rebased = today - Resident.adultAgeFrom(
+                    new Random(id.getMostSignificantBits() ^ id.getLeastSignificantBits()));
+            copy.put("bornDay", Math.max(born, rebased));
+        }
+        return copy;
     }
 
     private static List<Object> withGenders(Object residents) {

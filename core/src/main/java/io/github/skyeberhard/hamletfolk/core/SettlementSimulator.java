@@ -30,6 +30,8 @@ public final class SettlementSimulator {
     /** R4.3: stock per resident below which a resource counts as short. */
     static final int FOOD_WANTED_PER_HEAD = 10;
     static final int STOCK_WANTED_PER_HEAD = 3;
+    /** R4.15: output multiplier for elders. */
+    static final double ELDER_OUTPUT = 0.6;
     /** R4.1: a newcomer needs this much food per resident in store, and at least this many days between arrivals. */
     static final int NEWCOMER_FOOD_PER_HEAD = 20;
     static final int NEWCOMER_COOLDOWN_DAYS = 3;
@@ -59,6 +61,12 @@ public final class SettlementSimulator {
      */
     private final Predicate<Occupation> workstationFree;
 
+    /**
+     * R4.15: whether residents die of old age. Elders slow down either way. The Paper layer turns
+     * this off by default until a playtest shows how villages hold up, since a death removes a villager.
+     */
+    private final boolean oldAgeDeaths;
+
     public SettlementSimulator() {
         this(false);
     }
@@ -68,8 +76,18 @@ public final class SettlementSimulator {
     }
 
     SettlementSimulator(boolean toollessPenalty, Predicate<Occupation> workstationFree) {
+        this(toollessPenalty, workstationFree, true);
+    }
+
+    public SettlementSimulator(boolean toollessPenalty, Predicate<Occupation> workstationFree, boolean oldAgeDeaths) {
         this.toollessPenalty = toollessPenalty;
         this.workstationFree = workstationFree;
+        this.oldAgeDeaths = oldAgeDeaths;
+    }
+
+    /** The simulator the Paper layer uses: no free workstations until M2, old-age deaths as configured. */
+    public static SettlementSimulator withOldAgeDeaths(boolean oldAgeDeaths) {
+        return new SettlementSimulator(false, Occupation::simOwned, oldAgeDeaths);
     }
 
     /**
@@ -104,6 +122,7 @@ public final class SettlementSimulator {
         if (updateAbandonment(settlement, day)) {
             return; // R1.5: no residents for ABANDONMENT_DAYS straight; nothing left to simulate.
         }
+        ageOut(settlement, day);
         assignJob(settlement, day);
         Random random = new Random(settlement.id().getMostSignificantBits() ^ (day * 0x9E3779B97F4A7C15L));
         Ledger ledger = settlement.ledger();
@@ -177,6 +196,28 @@ public final class SettlementSimulator {
         ledger.take(ResourceType.FOOD, ledger.get(ResourceType.FOOD) * FOOD_SPOILAGE_PERCENT / 100);
         for (ResourceType type : ResourceType.values()) {
             ledger.take(type, ledger.get(type) - capacity(settlement, type));
+        }
+    }
+
+    /**
+     * R4.15: residents past their own maximum age die of old age. They leave the population, the
+     * history records it, and their id is kept so the Minecraft layer can remove their villager.
+     */
+    private void ageOut(Settlement settlement, long day) {
+        if (!oldAgeDeaths) {
+            return;
+        }
+        List<Resident> old = new ArrayList<>();
+        for (Resident resident : settlement.residents()) {
+            if (resident.adult() && resident.age(day) >= resident.maxAge()) {
+                old.add(resident);
+            }
+        }
+        for (Resident resident : old) {
+            settlement.removeResident(resident.id());
+            settlement.markDeparted(resident.id(), day);
+            settlement.record(day, HistoryEvent.Kind.DEATH, resident.fullName() + " died of old age, at "
+                    + resident.age(day) + " days.");
         }
     }
 
@@ -284,8 +325,9 @@ public final class SettlementSimulator {
             }
         }
         double diligence = 0.5 + resident.traits().workEthic() / 100.0;
+        double ageFactor = resident.stage(day) == LifeStage.ELDER ? ELDER_OUTPUT : 1.0;
         int output = (int) Math.floor(occupation.baseOutput() * diligence * toolFactor * needsFactor(resident.needs())
-                + random.nextDouble());
+                * ageFactor + random.nextDouble());
         ledger.add(occupation.produces(), output);
         flow.recordProduced(occupation.produces(), day, output);
         resident.needs().adjustPurpose(4);

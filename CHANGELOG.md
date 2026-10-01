@@ -4,6 +4,19 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R4.15: Residents have an age in days and a life stage (child, adult, elder at 60 days). Elders
+  produce 60% of normal output. Each resident has their own maximum age (90 to 110 days) and, with
+  `aging.old-age-deaths: true` (off by default), dies of old age past it, recorded in history; the
+  Paper layer then removes their villager permanently, and if it was unloaded removes it when it
+  loads, so it isn't enrolled again as a stranger. It is off by default because villages no player
+  visits can empty out if nothing replaces the dead. A cured zombie keeps their lifespan and gets
+  at least 20 days. Anyone already grown
+  when first seen (founders, arrivals) is given an age of 12 to 51 days, so no one starts old.
+  `/settlement residents` shows age, and elders may talk about their years. Save format is now 6:
+  `departed` ids are saved, and residents in an older save whose recorded age is beyond
+  that range are rebased (never made older), so no one in an old save dies the moment it loads.
+  The ages are in-game days (about 20 real minutes each): lifespans are roughly a day and a half
+  of real time, set by constants in `Resident` that can be tuned.
 - R4.14: Residents have a gender (female, male or nonbinary), drawn when they are enrolled and
   saved. Given names come from per-gender lists (the old list split three ways, with more
   masculine names added), so name and gender agree; roughly 47% female, 47% male, 6% nonbinary.

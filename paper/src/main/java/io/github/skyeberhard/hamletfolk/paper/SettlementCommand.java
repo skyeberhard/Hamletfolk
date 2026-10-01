@@ -1,6 +1,7 @@
 package io.github.skyeberhard.hamletfolk.paper;
 
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
+import io.github.skyeberhard.hamletfolk.core.LifeStage;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.ResourceMapper;
 import io.github.skyeberhard.hamletfolk.core.ResourceType;
@@ -159,7 +160,9 @@ final class SettlementCommand implements TabExecutor {
                 player.sendMessage(Component.text("...and " + (s.population() - 20) + " more.", NamedTextColor.GRAY));
                 break;
             }
-            String role = r.adult() ? r.occupation().title() : "child";
+            String role = r.adult() ? r.occupation().title() + ", " + r.age(s.lastSimulatedDay()) + " days"
+                    + (r.stage(s.lastSimulatedDay()) == LifeStage.ELDER ? " (elder)" : "")
+                    : "child";
             player.sendMessage(Component.text(" " + r.fullName(), NamedTextColor.WHITE)
                     .append(Component.text(" — " + role + " (" + r.gender().pronouns() + ")", NamedTextColor.GRAY)));
         }

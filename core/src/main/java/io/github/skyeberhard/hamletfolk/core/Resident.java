@@ -2,6 +2,7 @@ package io.github.skyeberhard.hamletfolk.core;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 
 /**
@@ -9,6 +10,15 @@ import java.util.UUID;
  * resident exists as data whether or not its entity is loaded.
  */
 public final class Resident {
+    /** R4.15: ages are in in-game days. */
+    public static final int ELDER_AGE = 60;
+    public static final int MAX_AGE_MIN = 90;
+    public static final int MAX_AGE_MAX = 110;
+    /** A resident brought back by a cure has at least this many days left, however long they were a zombie. */
+    static final int CURE_GRACE_DAYS = 20;
+    static final int ADULT_AGE_MIN = 12;
+    static final int ADULT_AGE_MAX = 51;
+
     private final UUID id;
     private String givenName;
     private String familyName;
@@ -83,6 +93,32 @@ public final class Resident {
         }
     }
 
+    /** Age in days on {@code day}, never negative (a clock that went backwards, R1.23). */
+    public long age(long day) {
+        return Math.max(0, day - bornDay);
+    }
+
+    /** Children follow the villager (vanilla decides when they grow up); adults become elders with age. */
+    public LifeStage stage(long day) {
+        if (!adult) {
+            return LifeStage.CHILD;
+        }
+        return age(day) >= ELDER_AGE ? LifeStage.ELDER : LifeStage.ADULT;
+    }
+
+    /**
+     * The age, in days, at which this resident dies of old age, between MAX_AGE_MIN and MAX_AGE_MAX.
+     * Derived from their name, not their id, so it survives a cure (which gives them a new entity id).
+     */
+    public int maxAge() {
+        return MAX_AGE_MIN + Math.floorMod((givenName + "|" + familyName).hashCode(), MAX_AGE_MAX - MAX_AGE_MIN + 1);
+    }
+
+    /** A plausible age for an adult who was already grown when first seen: young enough never to arrive as an elder. */
+    static int adultAgeFrom(Random random) {
+        return ADULT_AGE_MIN + random.nextInt(ADULT_AGE_MAX - ADULT_AGE_MIN + 1);
+    }
+
     public boolean adult() {
         return adult;
     }
@@ -119,8 +155,10 @@ public final class Resident {
      * The same person under a new entity id. Converting a mob (e.g. curing a zombie villager)
      * creates a new entity, so the identity has to move to its UUID.
      */
-    Resident withId(UUID newId) {
-        Resident copy = new Resident(newId, givenName, familyName, gender, traits, occupation, adult, bornDay,
+    Resident withId(UUID newId, long today) {
+        // Years spent as a zombie shouldn't mean they die the moment they are cured (R4.15).
+        long rebased = Math.max(bornDay, today - (maxAge() - CURE_GRACE_DAYS));
+        Resident copy = new Resident(newId, givenName, familyName, gender, traits, occupation, adult, rebased,
                 parentA, parentB, new Needs(needs.food(), needs.safety(), needs.purpose()));
         copy.lastBlockedDay = lastBlockedDay;
         copy.familiarity.putAll(familiarity);

@@ -82,8 +82,14 @@ final class VillagerListener implements Listener {
         event.setCancelled(true);
 
         Resident resident = service.track(villager);
+        if (resident == null) {
+            return; // removed: they had died of old age (R4.15)
+        }
         Settlement settlement = service.registry().settlementOf(resident.id()).orElseThrow();
         service.simulate(settlement);
+        if (settlement.resident(resident.id()).isEmpty()) {
+            return; // simulating just now showed they died of old age (R4.15); their villager was removed
+        }
         long day = settlement.effectiveDay(SettlementService.day(villager.getWorld())); // R1.23
 
         String title = resident.adult() ? resident.occupation().title() : "child";

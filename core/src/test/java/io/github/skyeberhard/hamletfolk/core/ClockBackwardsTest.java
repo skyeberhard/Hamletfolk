@@ -22,8 +22,17 @@ class ClockBackwardsTest {
     void newcomersAreNotBornBeforeDaysAlreadySimulated() {
         Settlement s = villageSimulatedTo(50);
         // An admin ran /time set and the world is now on day 10.
-        Resident newcomer = registry.enroll(s, UUID.randomUUID(), Occupation.FARMER, true, 10, null, null);
+        // A child, whose birth day is the day they arrive (grown arrivals are given an age, R4.15).
+        Resident newcomer = registry.enroll(s, UUID.randomUUID(), Occupation.UNEMPLOYED, false, 10, null, null);
         assertEquals(50, newcomer.bornDay());
+    }
+
+    @Test
+    void aGrownNewcomerGetsAPlausibleAgeFromTheSettlementsDay() {
+        Settlement s = villageSimulatedTo(50);
+        Resident newcomer = registry.enroll(s, UUID.randomUUID(), Occupation.FARMER, true, 10, null, null);
+        assertTrue(newcomer.age(50) >= Resident.ADULT_AGE_MIN && newcomer.age(50) <= Resident.ADULT_AGE_MAX,
+                "age " + newcomer.age(50));
     }
 
     @Test
@@ -42,7 +51,7 @@ class ClockBackwardsTest {
     @Test
     void anAccurateWorldDayIsLeftAlone() {
         Settlement s = villageSimulatedTo(50);
-        Resident newcomer = registry.enroll(s, UUID.randomUUID(), Occupation.FARMER, true, 52, null, null);
+        Resident newcomer = registry.enroll(s, UUID.randomUUID(), Occupation.UNEMPLOYED, false, 52, null, null);
         assertEquals(52, newcomer.bornDay());
         s.record(52, HistoryEvent.Kind.BIRTH, "A child was born.");
         assertEquals(52, s.history().get(s.history().size() - 1).day());

@@ -26,7 +26,7 @@ final class SettlementService {
     private final HamletfolkPlugin plugin;
     private final SettlementRegistry registry;
     private final HamletfolkConfig config;
-    private final SettlementSimulator simulator = new SettlementSimulator();
+    private final SettlementSimulator simulator;
     /** Parents of villagers that were just bred but haven't been added to the world yet. */
     private final Map<UUID, UUID[]> pendingParents = new HashMap<>();
 
@@ -34,6 +34,7 @@ final class SettlementService {
         this.plugin = plugin;
         this.registry = registry;
         this.config = config;
+        this.simulator = SettlementSimulator.withOldAgeDeaths(config.oldAgeDeaths());
     }
 
     SettlementRegistry registry() {
@@ -66,6 +67,13 @@ final class SettlementService {
         World world = Bukkit.getWorld(settlement.world());
         if (world != null && inScope(world)) {
             simulator.simulateTo(settlement, day(world), config.maxCatchUpDays());
+            // R4.15: residents who died of old age leave the record; remove their villagers if loaded.
+            // Any that are unloaded are removed by track() when they load.
+            for (UUID id : registry.reapDeparted(settlement)) {
+                if (Bukkit.getEntity(id) instanceof Villager departed) {
+                    departed.remove();
+                }
+            }
         }
     }
 
@@ -149,6 +157,10 @@ final class SettlementService {
      */
     Resident track(Villager villager) {
         if (!inScope(villager.getWorld())) {
+            return null;
+        }
+        if (registry.isDeparted(villager.getUniqueId())) {
+            villager.remove(); // R4.15: died of old age while unloaded; don't enroll them again as a stranger
             return null;
         }
         Resident resident = registry.resident(villager.getUniqueId()).orElse(null);

@@ -69,7 +69,10 @@ public final class Dialogue {
         } else if (occupation == Occupation.NITWIT) {
             options.add("Work? No, no. I'm more of a thinker.");
         } else {
-            options.add("I've been the " + occupation.title() + " here for " + (day - resident.bornDay()) + " days now.");
+            options.add("I'm " + resident.age(day) + " days old, and the " + occupation.title() + "'s trade is all I know.");
+            if (resident.stage(day) == LifeStage.ELDER) {
+                options.add("I've lived " + resident.age(day) + " days, and my knees tell me I won't see many more.");
+            }
             if (traits.ambition() >= 65) {
                 options.add("One day I'll run the biggest " + occupation.title() + "'s shop in the land.");
             }

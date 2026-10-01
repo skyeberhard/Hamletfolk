@@ -30,3 +30,11 @@ autosave-minutes: 5
 backups:
   interval-hours: 24
   keep: 5
+
+# Residents get older: past 60 in-game days they are elders and produce less. With
+# old-age-deaths on, each also dies of old age somewhere between 90 and 110 days, is
+# recorded in the history, and their villager is removed from the world. That is permanent,
+# and villages no player visits can empty out if nothing replaces the dead, so it is off
+# until you have seen how your villages hold up.
+aging:
+  old-age-deaths: false

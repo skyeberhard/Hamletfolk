@@ -51,7 +51,9 @@ class NeedsOutputTest {
     private Settlement barelySelfSufficient() {
         Settlement s = registry.found("world", 0, 0, 0);
         for (int i = 0; i < 10; i++) {
-            registry.enroll(s, UUID.randomUUID(), Occupation.FARMER, true, 0, null, null);
+            // Born on day 40, so they stay in their prime for the whole run (R4.15 would age plain enrollees).
+            s.addResident(new Resident(UUID.randomUUID(), "Farmer" + i, "Test", Gender.MALE,
+                    new Traits(50, 50, 50, 50), Occupation.FARMER, true, 40, null, null, Needs.initial()));
         }
         for (int i = 0; i < 12; i++) {
             registry.enroll(s, UUID.randomUUID(), Occupation.NITWIT, false, 0, null, null);

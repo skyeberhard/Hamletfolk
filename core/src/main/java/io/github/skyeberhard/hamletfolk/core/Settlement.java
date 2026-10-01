@@ -31,6 +31,8 @@ public final class Settlement {
     private final ResourceFlow flow = new ResourceFlow();
     /** Residents turned into zombie villagers, keyed by the zombie's entity id. They can be cured. */
     private final Map<UUID, Resident> turned = new LinkedHashMap<>();
+    private final Map<UUID, Long> departed = new LinkedHashMap<>();
+    private final List<UUID> newlyDeparted = new ArrayList<>();
     /** Ongoing or one-time conditions, keyed by name, valued by the day they began. */
     private final Map<String, Long> conditions = new HashMap<>();
 
@@ -115,6 +117,31 @@ public final class Settlement {
 
     Resident removeResident(UUID id) {
         return residents.remove(id);
+    }
+
+    /**
+     * R4.15: residents who died of old age and the day they did, kept so their villager entity is
+     * removed when it next loads instead of being enrolled again as a stranger. Saved.
+     */
+    Map<UUID, Long> departed() {
+        return departed;
+    }
+
+    /** True if this id belonged to a resident who has died of old age. */
+    public boolean hasDeparted(UUID id) {
+        return departed.containsKey(id);
+    }
+
+    /** Ids that have died of old age since the last call, for the Minecraft layer to remove their entities. */
+    public List<UUID> drainNewlyDeparted() {
+        List<UUID> out = new ArrayList<>(newlyDeparted);
+        newlyDeparted.clear();
+        return out;
+    }
+
+    void markDeparted(UUID id, long day) {
+        departed.put(id, day);
+        newlyDeparted.add(id);
     }
 
     /** How many residents are currently zombie villagers who could still be cured. */

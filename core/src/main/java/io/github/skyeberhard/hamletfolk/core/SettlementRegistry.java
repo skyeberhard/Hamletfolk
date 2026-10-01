@@ -150,8 +150,13 @@ public final class SettlementRegistry {
                 ? Traits.inherit(mother.traits(), father.traits(), random)
                 : Traits.roll(random);
         Gender gender = NameGenerator.gender(random);
-        Resident resident = new Resident(residentId, NameGenerator.givenName(gender, random), familyName, gender,
-                traits, occupation, adult, settlement.effectiveDay(day), parentA, parentB, Needs.initial());
+        String givenName = NameGenerator.givenName(gender, random);
+        // R4.15: anyone already grown when first seen (founders, arrivals) gets a plausible age;
+        // a child's age starts today.
+        long entered = settlement.effectiveDay(day);
+        long bornDay = adult ? entered - Resident.adultAgeFrom(random) : entered;
+        Resident resident = new Resident(residentId, givenName, familyName, gender,
+                traits, occupation, adult, bornDay, parentA, parentB, Needs.initial());
         settlement.addResident(resident);
         residentIndex.put(residentId, settlement.id());
         return resident;
@@ -193,7 +198,7 @@ public final class SettlementRegistry {
             return Optional.empty();
         }
         Settlement settlement = settlements.get(settlementId);
-        Resident resident = settlement.turned().remove(zombieId).withId(villagerId);
+        Resident resident = settlement.turned().remove(zombieId).withId(villagerId, settlement.lastSimulatedDay());
         settlement.addResident(resident);
         residentIndex.put(villagerId, settlementId);
         return Optional.of(resident);
@@ -204,6 +209,23 @@ public final class SettlementRegistry {
         UUID settlementId = turnedIndex.remove(zombieId);
         return settlementId == null ? Optional.empty()
                 : Optional.ofNullable(settlements.get(settlementId).turned().remove(zombieId));
+    }
+
+    /** R4.15: whether this id belonged to a resident who died of old age, so their villager should be removed. */
+    public boolean isDeparted(UUID residentId) {
+        for (Settlement settlement : settlements.values()) {
+            if (settlement.hasDeparted(residentId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Drops index entries for residents the simulation removed (old age), and returns their ids. */
+    public List<UUID> reapDeparted(Settlement settlement) {
+        List<UUID> ids = settlement.drainNewlyDeparted();
+        ids.forEach(residentIndex::remove);
+        return ids;
     }
 
     /** Removes a resident from wherever they live and returns them. */
