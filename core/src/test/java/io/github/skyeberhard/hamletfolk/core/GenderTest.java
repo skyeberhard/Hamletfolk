@@ -25,15 +25,15 @@ class GenderTest {
     }
 
     @Test
-    void gendersAreMixedAndMostlyFemaleOrMale() {
+    void gendersAreEvenlyMixed() {
         Settlement s = registry.found("world", 0, 0, 0);
         int[] counts = new int[Gender.values().length];
         for (int i = 0; i < 600; i++) {
             counts[registry.enroll(s, UUID.randomUUID(), Occupation.FARMER, true, 0, null, null).gender().ordinal()]++;
         }
-        assertTrue(counts[Gender.FEMALE.ordinal()] > 200, "female " + counts[0]);
-        assertTrue(counts[Gender.MALE.ordinal()] > 200, "male " + counts[1]);
-        assertTrue(counts[Gender.NONBINARY.ordinal()] > 0, "nonbinary " + counts[2]);
+        assertEquals(2, Gender.values().length);
+        assertTrue(counts[Gender.FEMALE.ordinal()] > 230, "female " + counts[0]);
+        assertTrue(counts[Gender.MALE.ordinal()] > 230, "male " + counts[1]);
     }
 
     @Test
@@ -100,12 +100,12 @@ class GenderTest {
 
     @Test
     void aFormatFourSaveGainsGendersFromNamesAndKeepsEveryName() {
-        UUID neutral = UUID.randomUUID();
+        UUID unlisted = UUID.randomUUID();
         List<Object> residents = new ArrayList<>(List.of(
                 oldResident("Anya", UUID.randomUUID()),
                 oldResident("Harold", UUID.randomUUID()),
-                oldResident("Wren", neutral),
-                oldResident("Renamed By An Admin", UUID.randomUUID())));
+                oldResident("Wren", UUID.randomUUID()),
+                oldResident("Renamed By An Admin", unlisted)));
         Map<String, Object> turned = new LinkedHashMap<>();
         turned.put(UUID.randomUUID().toString(), oldResident("Greta", UUID.randomUUID()));
 
@@ -115,14 +115,14 @@ class GenderTest {
         loaded.residents().forEach(r -> byName.put(r.givenName(), r.gender()));
         assertEquals(Gender.FEMALE, byName.get("Anya"));
         assertEquals(Gender.MALE, byName.get("Harold"));
-        assertNotNull(byName.get("Wren"));
-        assertNotNull(byName.get("Renamed By An Admin"));
+        assertEquals(Gender.FEMALE, byName.get("Wren")); // a former neutral name, now on the feminine list
+        assertNotNull(byName.get("Renamed By An Admin")); // on no list: drawn from the id
         assertEquals(4, byName.size());
         assertEquals(Gender.FEMALE, loaded.turned().values().iterator().next().gender());
 
-        // Deterministic: loading the same old save again gives the neutral resident the same gender.
+        // Deterministic: loading the same old save again gives the unlisted name the same gender.
         Settlement again = SettlementCodec.decode(formatFourSave(residents, turned));
-        assertEquals(loaded.resident(neutral).orElseThrow().gender(), again.resident(neutral).orElseThrow().gender());
+        assertEquals(loaded.resident(unlisted).orElseThrow().gender(), again.resident(unlisted).orElseThrow().gender());
         assertEquals(SettlementCodec.FORMAT_VERSION, SettlementCodec.encode(loaded).get("format"));
     }
 
@@ -139,7 +139,7 @@ class GenderTest {
     @Test
     void dialogueAboutAParentUsesTheirGender() {
         Settlement s = registry.found("world", 0, 0, 0);
-        String[][] expected = {{"FEMALE", "mother", "her."}, {"MALE", "father", "him."}, {"NONBINARY", "parent", "them."}};
+        String[][] expected = {{"FEMALE", "mother", "her."}, {"MALE", "father", "him."}};
         for (String[] row : expected) {
             Resident parent = parentOf(s, Gender.valueOf(row[0]));
             Resident child = registry.enroll(s, UUID.randomUUID(), Occupation.UNEMPLOYED, false, 1, parent.id(), null);
@@ -154,5 +154,35 @@ class GenderTest {
             assertTrue(line.startsWith("My " + row[1] + ", " + parent.givenName()), line);
             assertTrue(line.endsWith("from " + row[2]), line);
         }
+    }
+
+    @Test
+    void aFormatSixSaveWithNonbinaryResidentsGetsTwoGenders() {
+        UUID byName = UUID.randomUUID();
+        UUID stranger = UUID.randomUUID();
+        Map<String, Object> wren = oldResident("Wren", byName); // a name now on the feminine list
+        wren.put("gender", "NONBINARY");
+        Map<String, Object> unknown = oldResident("Renamed By An Admin", stranger);
+        unknown.put("gender", "NONBINARY");
+        Map<String, Object> keep = oldResident("Harold", UUID.randomUUID());
+        keep.put("gender", "MALE");
+        Map<String, Object> zombie = oldResident("Greta", UUID.randomUUID());
+        zombie.put("gender", "NONBINARY");
+        Map<String, Object> turned = new LinkedHashMap<>();
+        turned.put(UUID.randomUUID().toString(), zombie);
+        Map<String, Object> save = formatFourSave(new ArrayList<>(List.of(wren, unknown, keep)), turned);
+        save.put("format", 6);
+
+        Settlement loaded = SettlementCodec.decode(save);
+        assertEquals(Gender.FEMALE, loaded.resident(byName).orElseThrow().gender());
+        assertEquals(Gender.MALE, loaded.resident(UUID.fromString((String) keep.get("id"))).orElseThrow().gender());
+        assertNotNull(loaded.resident(stranger).orElseThrow().gender());
+        assertEquals(Gender.FEMALE, loaded.turned().values().iterator().next().gender());
+        assertEquals("Renamed By An Admin", loaded.resident(stranger).orElseThrow().givenName());
+        assertEquals(SettlementCodec.FORMAT_VERSION, SettlementCodec.encode(loaded).get("format"));
+
+        // Deterministic: the unrecognised name gets the same gender every time the old save loads.
+        assertEquals(loaded.resident(stranger).orElseThrow().gender(),
+                SettlementCodec.decode(save).resident(stranger).orElseThrow().gender());
     }
 }

@@ -3,8 +3,7 @@ package io.github.skyeberhard.hamletfolk.core;
 /** A resident's gender (R4.14): decides which names they are drawn from and how they are referred to. */
 public enum Gender {
     FEMALE("she", "her", "her", "woman", "girl"),
-    MALE("he", "him", "his", "man", "boy"),
-    NONBINARY("they", "them", "their", "person", "child");
+    MALE("he", "him", "his", "man", "boy");
 
     private final String subject;
     private final String object;

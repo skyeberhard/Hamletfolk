@@ -21,8 +21,8 @@ public final class Appearance {
     public static final List<String> VANILLA_TYPES =
             List.of("desert", "jungle", "plains", "savanna", "snow", "swamp", "taiga");
 
-    /** The one type the mapping never uses, so a pack can leave it as the default look. */
-    public static final String UNUSED_TYPE = "savanna";
+    /** The types the mapping never uses, which a pack can leave as they are. */
+    public static final List<String> UNUSED_TYPES = List.of("jungle", "savanna", "swamp");
 
     private Appearance() {
     }
@@ -43,7 +43,6 @@ public final class Appearance {
      *            adult / child   elder
      * female     plains          snow
      * male       desert          taiga
-     * nonbinary  swamp           jungle
      * </pre>
      */
     public static String villagerType(Gender gender, LifeStage stage) {
@@ -51,7 +50,6 @@ public final class Appearance {
         return switch (gender) {
             case FEMALE -> elder ? "snow" : "plains";
             case MALE -> elder ? "taiga" : "desert";
-            case NONBINARY -> elder ? "jungle" : "swamp";
         };
     }
 }

@@ -46,14 +46,15 @@ class AppearanceTest {
                 assertTrue(seen.add(Appearance.villagerType(gender, stage)), "type reused: " + gender + "/" + stage);
             }
         }
-        assertEquals(6, seen.size());
-        assertFalse(seen.contains(Appearance.UNUSED_TYPE));
+        assertEquals(4, seen.size());
+        Appearance.UNUSED_TYPES.forEach(type -> assertFalse(seen.contains(type), type + " is meant to be left alone"));
+        assertEquals(Appearance.VANILLA_TYPES.size(), seen.size() + Appearance.UNUSED_TYPES.size());
     }
 
     @Test
     void tagsNameGenderOccupationAndStageInLowerCase() {
-        Resident elder = person(Gender.NONBINARY, Occupation.LUMBERJACK, true, 0);
-        assertEquals(Map.of("gender", "nonbinary", "occupation", "lumberjack", "life_stage", "elder"),
+        Resident elder = person(Gender.MALE, Occupation.LUMBERJACK, true, 0);
+        assertEquals(Map.of("gender", "male", "occupation", "lumberjack", "life_stage", "elder"),
                 Appearance.tags(elder, 100));
         Resident child = person(Gender.FEMALE, Occupation.UNEMPLOYED, false, 90);
         assertEquals("child", Appearance.tags(child, 100).get(Appearance.LIFE_STAGE));

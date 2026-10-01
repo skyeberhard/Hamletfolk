@@ -120,7 +120,6 @@ public final class Dialogue {
                 String word = switch (gender) {
                     case FEMALE -> "mother";
                     case MALE -> "father";
-                    case NONBINARY -> "parent";
                 };
                 return Optional.of("My " + word + ", " + parent.get().givenName() + ", raised me here. Everyone says I got my laugh from "
                         + gender.object() + ".");

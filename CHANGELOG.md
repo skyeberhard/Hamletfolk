@@ -7,8 +7,8 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 - R4.16: Every tracked villager now carries `hamletfolk:gender`, `hamletfolk:occupation` and
   `hamletfolk:life_stage` in its persistent data. That data stays on the server (datapacks, command
   selectors and other plugins can use it); clients never see it. New setting `appearance.villager-type` (off by default) also sets the villager's vanilla type
-  from gender and life stage (female plains/snow, male desert/taiga, nonbinary swamp/jungle;
-  children share the adult's, savanna is never used), so a plain resource pack that redraws those
+  from gender and life stage (female plains/snow, male desert/taiga;
+  children share the adult's, jungle, savanna and swamp are never used), so a plain resource pack that redraws those
   types can reskin villagers with no client mod; turning it off restores each villager's original type. The keys and mapping are in docs/APPEARANCE.md and
   the mapping is in core with a unit test. Unverified until a playtest (T26): how clients and
   Bedrock see it.
@@ -27,12 +27,14 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
   of real time at the base numbers. `aging.lifespan-scale` (default 20, about a month of real time
   for a life: elder at 1200 days, death at 1800 to 2200) multiplies every age together, including
   the starting ages of the first residents; it applies on restart and to existing residents.
-- R4.14: Residents have a gender (female, male or nonbinary), drawn when they are enrolled and
-  saved. Given names come from per-gender lists (the old list split three ways, with more
-  masculine names added), so name and gender agree; roughly 47% female, 47% male, 6% nonbinary.
-  `/settlement residents` shows pronouns, and a resident may mention a parent as mother, father or parent with matching pronouns. Save format is now 5: an old save's residents get the
-  gender their name belongs to, and neutral or renamed residents get one derived from their id.
-  No one is renamed.
+- R4.14: Residents have a gender (female or male), drawn when they are enrolled and saved. Given
+  names come from per-gender lists (the old list split in two, with more masculine names added),
+  so name and gender agree. `/settlement residents` shows pronouns, and a resident may mention a
+  parent as mother or father with matching pronouns. Save format is now 7: an old save's residents
+  get the gender their name belongs to, a name on no list gets one derived from their id, and a
+  resident an earlier build saved as nonbinary is given one the same way. No one is renamed.
+  (An earlier version of this item had a third, nonbinary gender; it was dropped as not fitting the
+  setting. Choosing not to marry is left to R6.1 households, as a choice any resident can make.)
 - R4.1: A settlement with a food surplus (20 food per resident in store) and a free bed gets a
   newcomer (never on the settlement's founding day), at most one every 3 days; the arrival is recorded in history like any other settler.
   The rule is in core (`SettlementSimulator.newcomerDue`, unit tested). The Paper layer counts

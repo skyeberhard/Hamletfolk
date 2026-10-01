@@ -21,7 +21,7 @@ Three strings in the villager's persistent data, under the plugin's namespace `h
 
 | Key | Values |
 |---|---|
-| `hamletfolk:gender` | `female`, `male`, `nonbinary` |
+| `hamletfolk:gender` | `female`, `male` |
 | `hamletfolk:occupation` | `unemployed`, `nitwit`, `farmer`, `fisherman`, `butcher`, `shepherd`, `leatherworker`, `fletcher`, `mason`, `lumberjack`, `armorer`, `weaponsmith`, `toolsmith`, `cartographer`, `cleric`, `librarian` |
 | `hamletfolk:life_stage` | `child`, `adult`, `elder` |
 
@@ -49,12 +49,12 @@ mod.
 |---|---|---|
 | female | `plains` | `snow` |
 | male | `desert` | `taiga` |
-| nonbinary | `swamp` | `jungle` |
 
 - **Children use the adult's type.** The game already draws a child with the baby model.
-- **`savanna` is never used.** A pack can leave that one type alone. Villagers the plugin does not
-  track (excluded worlds) keep their biome type, which can be any of the seven, so the pack's
-  gender looks will show on those too, wrongly. Only savanna ones look unchanged.
+- **`jungle`, `savanna` and `swamp` are never used.** A pack can leave those three alone. Villagers
+  the plugin does not track (excluded worlds) keep their biome type, which can be any of the
+  seven, so the pack's gender looks will show on those too, wrongly. Only the unused three look
+  unchanged.
 - **Profession still works as usual.** The profession is a separate overlay, so a pack can reskin
   by profession and by this type together.
 - The mapping lives in `core` (`Appearance.villagerType`) with a unit test, so this table and the
@@ -81,8 +81,8 @@ mod.
 The type and profession skins are in the vanilla client jar under
 `assets/minecraft/textures/entity/villager/`. Extract them from the client version your server
 targets rather than trusting a path from this page: the layout has changed between versions.
-Override the seven type skins with six looks (female / male / nonbinary, adult / elder) as in the
-table above, and leave `savanna` alone.
+Override the four type skins in the table above (female / male, adult / elder) and leave the
+other three alone.
 
 Offering the pack to players is done with the server's own resource-pack settings
 (`server.properties`), which Hamletfolk does not touch.

@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 6;
+    public static final int FORMAT_VERSION = 7;
 
     private SettlementCodec() {
     }
@@ -200,8 +200,36 @@ public final class SettlementCodec {
                     turned.put(zombie.toString(), withPlausibleAge(asMap(resident), today)));
             migrated.put("turned", turned);
         }
+        if (version < 7) {
+            // v6 -> v7: there are two genders (R4.14). A resident an earlier build saved as
+            // nonbinary gets one from their name, or from their id if the name is unrecognised.
+            List<Object> residents = new ArrayList<>();
+            for (Object resident : asList(migrated.get("residents"))) {
+                residents.add(withTwoGenders(asMap(resident)));
+            }
+            migrated.put("residents", residents);
+            Map<String, Object> turned = new LinkedHashMap<>();
+            asMap(migrated.get("turned")).forEach((zombie, resident) ->
+                    turned.put(zombie.toString(), withTwoGenders(asMap(resident))));
+            migrated.put("turned", turned);
+        }
         migrated.put("format", FORMAT_VERSION);
         return migrated;
+    }
+
+    private static Map<String, Object> withTwoGenders(Map<?, ?> resident) {
+        if (!"NONBINARY".equals(String.valueOf(resident.get("gender")))) {
+            return new LinkedHashMap<>(asStringKeyed(resident));
+        }
+        Map<String, Object> copy = new LinkedHashMap<>(asStringKeyed(resident));
+        copy.remove("gender");
+        return withGender(copy);
+    }
+
+    private static Map<String, Object> asStringKeyed(Map<?, ?> map) {
+        Map<String, Object> copy = new LinkedHashMap<>();
+        map.forEach((key, value) -> copy.put(key.toString(), value));
+        return copy;
     }
 
     private static List<Object> withPlausibleAges(Object residents, long today) {
@@ -240,14 +268,14 @@ public final class SettlementCodec {
 
     /**
      * A copy of an old resident with a gender: the one their given name belongs to, or, for a
-     * neutral or unrecognised name, one drawn deterministically from their id. Names are kept.
+     * unrecognised name, one drawn deterministically from their id. Names are kept.
      */
     private static Map<String, Object> withGender(Map<?, ?> resident) {
         Map<String, Object> copy = new LinkedHashMap<>();
         resident.forEach((key, value) -> copy.put(key.toString(), value));
         if (!copy.containsKey("gender")) {
             Gender named = NameGenerator.genderOf(str(resident, "givenName"));
-            if (named == null || named == Gender.NONBINARY) {
+            if (named == null) {
                 UUID id = UUID.fromString(str(resident, "id"));
                 named = NameGenerator.gender(new Random(id.getMostSignificantBits() ^ id.getLeastSignificantBits()));
             }

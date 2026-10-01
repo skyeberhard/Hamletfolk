@@ -8,16 +8,11 @@ public final class NameGenerator {
     private static final List<String> FEMININE = List.of(
             "Ada", "Anya", "Brenna", "Clara", "Dara", "Edda", "Elin", "Esme", "Greta", "Ines",
             "Juno", "Kaia", "Leda", "Linnea", "Mabel", "Mira", "Nell", "Oda", "Priya", "Rhea",
-            "Sunniva", "Tove", "Ulla", "Vesna", "Yara");
+            "Rowan", "Sable", "Sunniva", "Tove", "Ulla", "Vesna", "Wren", "Yara");
     private static final List<String> MASCULINE = List.of(
-            "Amos", "Bram", "Brant", "Cal", "Cormac", "Corin", "Dunstan", "Elias", "Ewan", "Finn",
-            "Gideon", "Hale", "Harold", "Hugo", "Ivo", "Jonas", "Lars", "Marek", "Nico", "Orrin",
-            "Osric", "Perrin", "Silas", "Tobias", "Wilf");
-    private static final List<String> NEUTRAL = List.of(
-            "Alder", "Fen", "Kestrel", "Pim", "Quill", "Rowan", "Sable", "Tam", "Wren");
-    /** R4.14: share of residents, out of 100, who are female and male; the rest are nonbinary. */
-    private static final int FEMALE_PERCENT = 47;
-    private static final int MALE_PERCENT = 47;
+            "Alder", "Amos", "Bram", "Brant", "Cal", "Cormac", "Corin", "Dunstan", "Elias", "Ewan",
+            "Fen", "Finn", "Gideon", "Hale", "Harold", "Hugo", "Ivo", "Jonas", "Kestrel", "Lars",
+            "Marek", "Nico", "Orrin", "Osric", "Perrin", "Pim", "Quill", "Silas", "Tam", "Tobias", "Wilf");
     private static final List<String> FAMILY = List.of(
             "Ashdown", "Barrow", "Birch", "Brightwater", "Carter", "Cobb", "Cooper", "Dunmore",
             "Fairweather", "Fletcher", "Flint", "Greenfield", "Hayward", "Hollis", "Ironside",
@@ -35,9 +30,7 @@ public final class NameGenerator {
 
     /** Draws a gender for a new resident. */
     public static Gender gender(Random random) {
-        int roll = random.nextInt(100);
-        return roll < FEMALE_PERCENT ? Gender.FEMALE
-                : roll < FEMALE_PERCENT + MALE_PERCENT ? Gender.MALE : Gender.NONBINARY;
+        return random.nextBoolean() ? Gender.FEMALE : Gender.MALE;
     }
 
     /** A given name that agrees with the gender. */
@@ -59,7 +52,6 @@ public final class NameGenerator {
         return switch (gender) {
             case FEMALE -> FEMININE;
             case MALE -> MASCULINE;
-            case NONBINARY -> NEUTRAL;
         };
     }
 
