@@ -4,6 +4,12 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R4.14: Residents have a gender (female, male or nonbinary), drawn when they are enrolled and
+  saved. Given names come from per-gender lists (the old list split three ways, with more
+  masculine names added), so name and gender agree; roughly 47% female, 47% male, 6% nonbinary.
+  `/settlement residents` shows pronouns, and a resident may mention a parent as mother, father or parent with matching pronouns. Save format is now 5: an old save's residents get the
+  gender their name belongs to, and neutral or renamed residents get one derived from their id.
+  No one is renamed.
 - R4.1: A settlement with a food surplus (20 food per resident in store) and a free bed gets a
   newcomer (never on the settlement's founding day), at most one every 3 days; the arrival is recorded in history like any other settler.
   The rule is in core (`SettlementSimulator.newcomerDue`, unit tested). The Paper layer counts

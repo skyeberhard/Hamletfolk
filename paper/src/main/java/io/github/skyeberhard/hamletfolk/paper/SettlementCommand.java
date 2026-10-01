@@ -161,7 +161,7 @@ final class SettlementCommand implements TabExecutor {
             }
             String role = r.adult() ? r.occupation().title() : "child";
             player.sendMessage(Component.text(" " + r.fullName(), NamedTextColor.WHITE)
-                    .append(Component.text(" — " + role, NamedTextColor.GRAY)));
+                    .append(Component.text(" — " + role + " (" + r.gender().pronouns() + ")", NamedTextColor.GRAY)));
         }
     }
 

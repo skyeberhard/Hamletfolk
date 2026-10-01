@@ -78,6 +78,8 @@ public final class Dialogue {
             }
         }
 
+        parentLine(resident, settlement).ifPresent(options::add);
+
         int food = settlement.ledger().get(ResourceType.FOOD);
         if (food < settlement.population() * 3) {
             options.add("Stores are running thin. A few more farmers wouldn't hurt.");
@@ -104,6 +106,24 @@ public final class Dialogue {
         }
 
         return options.get(random.nextInt(options.size()));
+    }
+
+    /** R4.14: a line about a parent still in the settlement, in the words their gender calls for. */
+    private static Optional<String> parentLine(Resident resident, Settlement settlement) {
+        for (UUID id : new UUID[] {resident.parentA(), resident.parentB()}) {
+            Optional<Resident> parent = id == null ? Optional.empty() : settlement.resident(id);
+            if (parent.isPresent()) {
+                Gender gender = parent.get().gender();
+                String word = switch (gender) {
+                    case FEMALE -> "mother";
+                    case MALE -> "father";
+                    case NONBINARY -> "parent";
+                };
+                return Optional.of("My " + word + ", " + parent.get().givenName() + ", raised me here. Everyone says I got my laugh from "
+                        + gender.object() + ".");
+            }
+        }
+        return Optional.empty();
     }
 
     private static String randomTrade(Random random) {

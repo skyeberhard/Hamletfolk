@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 
 /**
@@ -15,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 4;
+    public static final int FORMAT_VERSION = 5;
 
     private SettlementCodec() {
     }
@@ -80,6 +81,7 @@ public final class SettlementCodec {
         map.put("id", r.id().toString());
         map.put("givenName", r.givenName());
         map.put("familyName", r.familyName());
+        map.put("gender", r.gender().name());
         map.put("occupation", r.occupation().name());
         map.put("adult", r.adult());
         map.put("bornDay", r.bornDay());
@@ -173,8 +175,47 @@ public final class SettlementCodec {
         }
         // v2 -> v3: "count" and "actor" on history events are optional; old events read as count 1, no actor.
         // v3 -> v4: "flow" (R3.7) is optional; an old save simply starts with no flow history.
+        if (version < 5) {
+            // v4 -> v5: residents gain a gender (R4.14).
+            migrated.put("residents", withGenders(migrated.get("residents")));
+            Map<String, Object> turned = new LinkedHashMap<>();
+            asMap(migrated.get("turned")).forEach((zombie, resident) ->
+                    turned.put(zombie.toString(), withGender(asMap(resident))));
+            migrated.put("turned", turned);
+        }
         migrated.put("format", FORMAT_VERSION);
         return migrated;
+    }
+
+    private static List<Object> withGenders(Object residents) {
+        List<Object> out = new ArrayList<>();
+        for (Object resident : asList(residents)) {
+            out.add(withGender(asMap(resident)));
+        }
+        return out;
+    }
+
+    /**
+     * A copy of an old resident with a gender: the one their given name belongs to, or, for a
+     * neutral or unrecognised name, one drawn deterministically from their id. Names are kept.
+     */
+    private static Map<String, Object> withGender(Map<?, ?> resident) {
+        Map<String, Object> copy = new LinkedHashMap<>();
+        resident.forEach((key, value) -> copy.put(key.toString(), value));
+        if (!copy.containsKey("gender")) {
+            Gender named = NameGenerator.genderOf(str(resident, "givenName"));
+            if (named == null || named == Gender.NONBINARY) {
+                UUID id = UUID.fromString(str(resident, "id"));
+                named = NameGenerator.gender(new Random(id.getMostSignificantBits() ^ id.getLeastSignificantBits()));
+            }
+            copy.put("gender", named.name());
+        }
+        return copy;
+    }
+
+    /** R4.14: the saved gender; a missing one (a format-4 save) comes from the given name, see {@link #migrate}. */
+    private static Gender gender(Map<?, ?> map) {
+        return Gender.valueOf(str(map, "gender"));
     }
 
     private static Resident decodeResident(Map<?, ?> map) {
@@ -184,6 +225,7 @@ public final class SettlementCodec {
                 UUID.fromString(str(map, "id")),
                 str(map, "givenName"),
                 str(map, "familyName"),
+                gender(map),
                 new Traits(intAt(t, 0), intAt(t, 1), intAt(t, 2), intAt(t, 3)),
                 Occupation.valueOf(str(map, "occupation")),
                 Boolean.TRUE.equals(map.get("adult")),

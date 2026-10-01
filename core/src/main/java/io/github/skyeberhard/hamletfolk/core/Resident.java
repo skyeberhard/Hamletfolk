@@ -12,6 +12,7 @@ public final class Resident {
     private final UUID id;
     private String givenName;
     private String familyName;
+    private final Gender gender;
     private final Traits traits;
     private final long bornDay;
     private final UUID parentA;
@@ -23,11 +24,12 @@ public final class Resident {
     /** Day this resident last could not work because an input was missing, or -1. */
     private long lastBlockedDay = -1;
 
-    public Resident(UUID id, String givenName, String familyName, Traits traits, Occupation occupation,
-                    boolean adult, long bornDay, UUID parentA, UUID parentB, Needs needs) {
+    public Resident(UUID id, String givenName, String familyName, Gender gender, Traits traits,
+                    Occupation occupation, boolean adult, long bornDay, UUID parentA, UUID parentB, Needs needs) {
         this.id = id;
         this.givenName = givenName;
         this.familyName = familyName;
+        this.gender = gender;
         this.traits = traits;
         this.occupation = occupation;
         this.adult = adult;
@@ -56,6 +58,10 @@ public final class Resident {
     public void rename(String givenName, String familyName) {
         this.givenName = givenName;
         this.familyName = familyName;
+    }
+
+    public Gender gender() {
+        return gender;
     }
 
     public Traits traits() {
@@ -114,7 +120,7 @@ public final class Resident {
      * creates a new entity, so the identity has to move to its UUID.
      */
     Resident withId(UUID newId) {
-        Resident copy = new Resident(newId, givenName, familyName, traits, occupation, adult, bornDay,
+        Resident copy = new Resident(newId, givenName, familyName, gender, traits, occupation, adult, bornDay,
                 parentA, parentB, new Needs(needs.food(), needs.safety(), needs.purpose()));
         copy.lastBlockedDay = lastBlockedDay;
         copy.familiarity.putAll(familiarity);

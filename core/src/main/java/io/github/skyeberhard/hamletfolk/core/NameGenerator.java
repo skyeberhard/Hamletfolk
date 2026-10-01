@@ -5,12 +5,19 @@ import java.util.Random;
 
 /** Deterministic names for residents and settlements. */
 public final class NameGenerator {
-    private static final List<String> GIVEN = List.of(
-            "Ada", "Alder", "Amos", "Anya", "Bram", "Brenna", "Cal", "Clara", "Corin", "Dara",
-            "Edda", "Elias", "Elin", "Esme", "Fen", "Finn", "Greta", "Gideon", "Hale", "Harold",
-            "Ines", "Ivo", "Jonas", "Juno", "Kaia", "Kestrel", "Lars", "Leda", "Linnea", "Mabel",
-            "Marek", "Mira", "Nell", "Nico", "Oda", "Orrin", "Pim", "Priya", "Quill", "Rhea",
-            "Rowan", "Sable", "Silas", "Sunniva", "Tam", "Tove", "Ulla", "Vesna", "Wren", "Yara");
+    private static final List<String> FEMININE = List.of(
+            "Ada", "Anya", "Brenna", "Clara", "Dara", "Edda", "Elin", "Esme", "Greta", "Ines",
+            "Juno", "Kaia", "Leda", "Linnea", "Mabel", "Mira", "Nell", "Oda", "Priya", "Rhea",
+            "Sunniva", "Tove", "Ulla", "Vesna", "Yara");
+    private static final List<String> MASCULINE = List.of(
+            "Amos", "Bram", "Brant", "Cal", "Cormac", "Corin", "Dunstan", "Elias", "Ewan", "Finn",
+            "Gideon", "Hale", "Harold", "Hugo", "Ivo", "Jonas", "Lars", "Marek", "Nico", "Orrin",
+            "Osric", "Perrin", "Silas", "Tobias", "Wilf");
+    private static final List<String> NEUTRAL = List.of(
+            "Alder", "Fen", "Kestrel", "Pim", "Quill", "Rowan", "Sable", "Tam", "Wren");
+    /** R4.14: share of residents, out of 100, who are female and male; the rest are nonbinary. */
+    private static final int FEMALE_PERCENT = 47;
+    private static final int MALE_PERCENT = 47;
     private static final List<String> FAMILY = List.of(
             "Ashdown", "Barrow", "Birch", "Brightwater", "Carter", "Cobb", "Cooper", "Dunmore",
             "Fairweather", "Fletcher", "Flint", "Greenfield", "Hayward", "Hollis", "Ironside",
@@ -26,8 +33,34 @@ public final class NameGenerator {
     private NameGenerator() {
     }
 
-    public static String givenName(Random random) {
-        return pick(GIVEN, random);
+    /** Draws a gender for a new resident. */
+    public static Gender gender(Random random) {
+        int roll = random.nextInt(100);
+        return roll < FEMALE_PERCENT ? Gender.FEMALE
+                : roll < FEMALE_PERCENT + MALE_PERCENT ? Gender.MALE : Gender.NONBINARY;
+    }
+
+    /** A given name that agrees with the gender. */
+    public static String givenName(Gender gender, Random random) {
+        return pick(listFor(gender), random);
+    }
+
+    /** The gender a given name belongs to, or null for a name that isn't on any list (e.g. an admin's rename). */
+    public static Gender genderOf(String givenName) {
+        for (Gender gender : Gender.values()) {
+            if (listFor(gender).contains(givenName)) {
+                return gender;
+            }
+        }
+        return null;
+    }
+
+    private static List<String> listFor(Gender gender) {
+        return switch (gender) {
+            case FEMALE -> FEMININE;
+            case MALE -> MASCULINE;
+            case NONBINARY -> NEUTRAL;
+        };
     }
 
     public static String familyName(Random random) {
