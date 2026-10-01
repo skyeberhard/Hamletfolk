@@ -4,6 +4,11 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R4.1: A settlement with a food surplus (20 food per resident in store) and a free bed gets a
+  newcomer (never on the settlement's founding day), at most one every 3 days; the arrival is recorded in history like any other settler.
+  The rule is in core (`SettlementSimulator.newcomerDue`, unit tested). The Paper layer counts
+  beds in loaded chunks (R2.2 will replace this) and spawns the villager, so it is unverified
+  until a playtest (T22).
 - R4.10: A grown child (one with a parent on record) who is still unemployed takes the occupation
   the village is shortest of, preferring a parent's trade when it is also short, and the history
   records the apprenticeship. Uses R4.3's job assignment, so until M2 buildings exist only

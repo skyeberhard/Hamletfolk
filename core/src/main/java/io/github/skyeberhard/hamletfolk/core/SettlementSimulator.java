@@ -30,6 +30,9 @@ public final class SettlementSimulator {
     /** R4.3: stock per resident below which a resource counts as short. */
     static final int FOOD_WANTED_PER_HEAD = 10;
     static final int STOCK_WANTED_PER_HEAD = 3;
+    /** R4.1: a newcomer needs this much food per resident in store, and at least this many days between arrivals. */
+    static final int NEWCOMER_FOOD_PER_HEAD = 20;
+    static final int NEWCOMER_COOLDOWN_DAYS = 3;
     /** R4.9: a need at or above this costs no output; below it output falls off linearly. */
     static final int NEED_COMFORTABLE = 50;
     /** R4.9: the share of output a worker with a need at zero still manages. */
@@ -135,6 +138,29 @@ public final class SettlementSimulator {
         updateFamine(settlement, day, shortfall);
         updateShortages(settlement, day, idleForLack);
         updateMilestones(settlement, day);
+    }
+
+    /**
+     * R4.1: whether a new villager should arrive now: the food stores are well stocked, there is a
+     * free bed, and nobody has arrived in the last few days. The caller supplies the bed count
+     * (the Paper layer counts beds, R2.2 will replace that) and, if it does add a villager, must
+     * call {@link #newcomerArrived}. Arrival is recorded in history when that villager is enrolled.
+     */
+    public boolean newcomerDue(Settlement settlement, int freeBeds) {
+        int population = settlement.population();
+        // Not on the founding day: a villager enrolled then counts as a founder, with no arrival line.
+        if (population == 0 || settlement.isAbandoned() || freeBeds <= 0
+                || settlement.lastSimulatedDay() <= settlement.foundedDay()
+                || settlement.ledger().get(ResourceType.FOOD) < population * NEWCOMER_FOOD_PER_HEAD) {
+            return false;
+        }
+        Long last = settlement.conditions().get("newcomerAt");
+        return last == null || settlement.lastSimulatedDay() - last >= NEWCOMER_COOLDOWN_DAYS;
+    }
+
+    /** R4.1: starts the cooldown after a newcomer was added. */
+    public void newcomerArrived(Settlement settlement) {
+        settlement.conditions().put("newcomerAt", settlement.lastSimulatedDay());
     }
 
     /**

@@ -12,8 +12,11 @@ import java.util.Optional;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
+import org.bukkit.HeightMap;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.data.type.Bed;
 import org.bukkit.entity.Villager;
 
 /** Connects the simulation core to live villager entities. Main thread only. */
@@ -69,7 +72,63 @@ final class SettlementService {
     void simulateAll() {
         for (Settlement settlement : registry.settlements()) {
             simulate(settlement);
+            considerNewcomer(settlement);
         }
+    }
+
+    /**
+     * R4.1: with a food surplus and a free bed, a new villager turns up. Beds are counted in
+     * loaded chunks only, so this undercounts rather than overcounts. The arrival is recorded in
+     * history when the new villager is enrolled (see {@code enroll}).
+     */
+    private void considerNewcomer(Settlement settlement) {
+        World world = Bukkit.getWorld(settlement.world());
+        if (world == null || !inScope(world) || settlement.isAbandoned()) {
+            return;
+        }
+        // Cheap checks first: counting beds scans block entities in every loaded chunk nearby.
+        if (!simulator.newcomerDue(settlement, Integer.MAX_VALUE)) {
+            return;
+        }
+        int freeBeds = bedsNear(settlement, world) - settlement.population();
+        if (!simulator.newcomerDue(settlement, freeBeds)) {
+            return;
+        }
+        int x = settlement.centerX();
+        int z = settlement.centerZ();
+        if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+            return;
+        }
+        // Leaves are skipped so a settlement centre under a tree doesn't put the newcomer in the canopy.
+        int y = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES) + 1;
+        Villager newcomer = world.spawn(new Location(world, x + 0.5, y, z + 0.5), Villager.class);
+        simulator.newcomerArrived(settlement);
+        // Enroll now rather than wait for the add-to-world event, so the arrival is recorded and
+        // counted in the population before the next check can spawn another.
+        if (newcomer.isValid()) {
+            track(newcomer);
+        }
+    }
+
+    private int bedsNear(Settlement settlement, World world) {
+        int radius = config.settlementRadius();
+        long radiusSquared = (long) radius * radius;
+        int beds = 0;
+        for (int cx = (settlement.centerX() - radius) >> 4; cx <= (settlement.centerX() + radius) >> 4; cx++) {
+            for (int cz = (settlement.centerZ() - radius) >> 4; cz <= (settlement.centerZ() + radius) >> 4; cz++) {
+                if (!world.isChunkLoaded(cx, cz)) {
+                    continue;
+                }
+                // Each bed is two blocks; count only the head so a bed counts once.
+                for (BlockState state : world.getChunkAt(cx, cz).getTileEntities(
+                        block -> block.getBlockData() instanceof Bed bed && bed.getPart() == Bed.Part.HEAD, false)) {
+                    if (settlement.distanceSquared(state.getX(), state.getZ()) <= radiusSquared) {
+                        beds++;
+                    }
+                }
+            }
+        }
+        return beds;
     }
 
     void trackLoadedVillagers() {
