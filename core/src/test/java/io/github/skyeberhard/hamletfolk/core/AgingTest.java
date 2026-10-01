@@ -232,4 +232,32 @@ class AgingTest {
         }
         assertTrue(said);
     }
+
+    @Test
+    void lifespanScaleStretchesEveryAgeTogether() {
+        Resident.setLifespanScale(20);
+        try {
+            assertEquals(1200, Resident.elderAge());
+            Resident r = person(Occupation.FARMER, true, 0);
+            assertTrue(r.maxAge() >= 1800 && r.maxAge() <= 2200, "max age " + r.maxAge());
+            assertEquals(LifeStage.ADULT, r.stage(1199));
+            assertEquals(LifeStage.ELDER, r.stage(1200));
+
+            // First residents start with a scaled age, so they are not babies next to a long life.
+            Settlement s = registry.found("world", 0, 0, 5000);
+            for (int i = 0; i < 50; i++) {
+                Resident founder = registry.enroll(s, UUID.randomUUID(), Occupation.FARMER, true, 5000, null, null);
+                assertTrue(founder.age(5000) >= 240 && founder.age(5000) <= 1020, "age " + founder.age(5000));
+            }
+
+            // Nobody dies at the old, unscaled age.
+            Settlement old = registry.found("world", 100, 100, 0);
+            old.addResident(person(Occupation.FARMER, true, 0));
+            simulator.simulateTo(old, 150, 200);
+            assertEquals(1, old.population());
+        } finally {
+            Resident.setLifespanScale(1.0);
+        }
+        assertEquals(60, Resident.elderAge());
+    }
 }

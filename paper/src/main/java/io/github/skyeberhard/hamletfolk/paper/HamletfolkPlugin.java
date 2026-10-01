@@ -1,6 +1,7 @@
 package io.github.skyeberhard.hamletfolk.paper;
 
 import io.github.skyeberhard.hamletfolk.core.SaveBackups;
+import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.SettlementRegistry;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -25,6 +26,8 @@ public final class HamletfolkPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        // Before any save is loaded: ages only mean something against the lifespan in force (R4.15).
+        Resident.setLifespanScale(getConfig().getDouble("aging.lifespan-scale", HamletfolkConfig.DEFAULT_LIFESPAN_SCALE));
         saveFile = getDataFolder().toPath().resolve("settlements.json");
         backupDirectory = getDataFolder().toPath().resolve("backups");
         backupsKept = Math.max(1, getConfig().getInt("backups.keep", 5));

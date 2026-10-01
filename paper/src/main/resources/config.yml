@@ -31,12 +31,17 @@ backups:
   interval-hours: 24
   keep: 5
 
-# Residents get older: past 60 in-game days they are elders and produce less. With
-# old-age-deaths on, each also dies of old age somewhere between 90 and 110 days, is
-# recorded in the history, and their villager is removed from the world. That is permanent,
-# and villages no player visits can empty out if nothing replaces the dead, so it is off
-# until you have seen how your villages hold up.
+# Residents get older. At lifespan-scale 1 they become elders at 60 in-game days (and produce
+# less), and with old-age-deaths on each dies somewhere between 90 and 110 days. A Minecraft
+# day is 20 real minutes, so scale 1 is only about 20 hours to an elder, which is too short for
+# most servers. lifespan-scale multiplies all of those ages (and the starting ages of the first
+# residents) together: 20, the default, makes an elder at 1200 days and a death at 1800 to 2200,
+# roughly 17 and 25 to 30 days of real time. Sleeping through nights and /time add speed it up.
+# It takes effect on restart, and applies to existing residents too (nothing is saved for it).
+# old-age-deaths removes the villager from the world for good, and villages no player visits can
+# empty out if nothing replaces the dead, so it is off until you have seen how yours hold up.
 aging:
+  lifespan-scale: 20
   old-age-deaths: false
 
 # Every tracked villager always carries hamletfolk:gender, :occupation and :life_stage in its

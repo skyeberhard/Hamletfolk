@@ -221,7 +221,7 @@ public final class SettlementCodec {
         Map<String, Object> copy = new LinkedHashMap<>();
         resident.forEach((key, value) -> copy.put(key.toString(), value));
         long born = num(resident, "bornDay").longValue();
-        if (today - born > Resident.ADULT_AGE_MAX) {
+        if (today - born > Resident.adultAgeMax()) {
             UUID id = UUID.fromString(str(resident, "id"));
             long rebased = today - Resident.adultAgeFrom(
                     new Random(id.getMostSignificantBits() ^ id.getLeastSignificantBits()));

@@ -24,7 +24,9 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
   `departed` ids are saved, and residents in an older save whose recorded age is beyond
   that range are rebased (never made older), so no one in an old save dies the moment it loads.
   The ages are in-game days (about 20 real minutes each): lifespans are roughly a day and a half
-  of real time, set by constants in `Resident` that can be tuned.
+  of real time at the base numbers. `aging.lifespan-scale` (default 20, about a month of real time
+  for a life: elder at 1200 days, death at 1800 to 2200) multiplies every age together, including
+  the starting ages of the first residents; it applies on restart and to existing residents.
 - R4.14: Residents have a gender (female, male or nonbinary), drawn when they are enrolled and
   saved. Given names come from per-gender lists (the old list split three ways, with more
   masculine names added), so name and gender agree; roughly 47% female, 47% male, 6% nonbinary.

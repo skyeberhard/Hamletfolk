@@ -10,7 +10,10 @@ import java.util.UUID;
  * resident exists as data whether or not its entity is loaded.
  */
 public final class Resident {
-    /** R4.15: ages are in in-game days. */
+    /**
+     * R4.15: ages are in in-game days, and these are the values at a lifespan scale of 1. Use
+     * {@link #elderAge()} and the other accessors, which apply the scale.
+     */
     public static final int ELDER_AGE = 60;
     public static final int MAX_AGE_MIN = 90;
     public static final int MAX_AGE_MAX = 110;
@@ -18,6 +21,42 @@ public final class Resident {
     static final int CURE_GRACE_DAYS = 20;
     static final int ADULT_AGE_MIN = 12;
     static final int ADULT_AGE_MAX = 51;
+
+    /**
+     * How much longer than the base numbers a life lasts. One value for every resident, set once at
+     * startup before any save is loaded (a settlement's ages are only meaningful against it), so it
+     * is global; tests that change it must put it back.
+     */
+    private static volatile double lifespanScale = 1.0;
+
+    public static void setLifespanScale(double scale) {
+        lifespanScale = Math.max(0.1, scale);
+    }
+
+    public static double lifespanScale() {
+        return lifespanScale;
+    }
+
+    private static int scaled(int days) {
+        return (int) Math.round(days * lifespanScale);
+    }
+
+    /** The age at which an adult becomes an elder. */
+    public static int elderAge() {
+        return scaled(ELDER_AGE);
+    }
+
+    static int adultAgeMin() {
+        return scaled(ADULT_AGE_MIN);
+    }
+
+    static int adultAgeMax() {
+        return scaled(ADULT_AGE_MAX);
+    }
+
+    static int cureGraceDays() {
+        return scaled(CURE_GRACE_DAYS);
+    }
 
     private final UUID id;
     private String givenName;
@@ -103,7 +142,7 @@ public final class Resident {
         if (!adult) {
             return LifeStage.CHILD;
         }
-        return age(day) >= ELDER_AGE ? LifeStage.ELDER : LifeStage.ADULT;
+        return age(day) >= elderAge() ? LifeStage.ELDER : LifeStage.ADULT;
     }
 
     /**
@@ -111,12 +150,13 @@ public final class Resident {
      * Derived from their name, not their id, so it survives a cure (which gives them a new entity id).
      */
     public int maxAge() {
-        return MAX_AGE_MIN + Math.floorMod((givenName + "|" + familyName).hashCode(), MAX_AGE_MAX - MAX_AGE_MIN + 1);
+        int min = scaled(MAX_AGE_MIN);
+        return min + Math.floorMod((givenName + "|" + familyName).hashCode(), scaled(MAX_AGE_MAX) - min + 1);
     }
 
     /** A plausible age for an adult who was already grown when first seen: young enough never to arrive as an elder. */
     static int adultAgeFrom(Random random) {
-        return ADULT_AGE_MIN + random.nextInt(ADULT_AGE_MAX - ADULT_AGE_MIN + 1);
+        return adultAgeMin() + random.nextInt(adultAgeMax() - adultAgeMin() + 1);
     }
 
     public boolean adult() {
@@ -157,7 +197,7 @@ public final class Resident {
      */
     Resident withId(UUID newId, long today) {
         // Years spent as a zombie shouldn't mean they die the moment they are cured (R4.15).
-        long rebased = Math.max(bornDay, today - (maxAge() - CURE_GRACE_DAYS));
+        long rebased = Math.max(bornDay, today - (maxAge() - cureGraceDays()));
         Resident copy = new Resident(newId, givenName, familyName, gender, traits, occupation, adult, rebased,
                 parentA, parentB, new Needs(needs.food(), needs.safety(), needs.purpose()));
         copy.lastBlockedDay = lastBlockedDay;

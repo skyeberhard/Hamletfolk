@@ -59,7 +59,8 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   `SettlementSimulator.workstationFree`).
 - **Adult enrollment draws an age** (R4.15, 12 to 51 days), so a test that enrolls adults and runs
   past about 39 days can lose them to old age. Build residents with `new Resident(..., bornDay, ...)`
-  and `Settlement.addResident` to control age, or use `SettlementSimulator.withOldAgeDeaths(false)`.
+  and `Settlement.addResident` to control age, or use `SettlementSimulator.withOldAgeDeaths(false)`. The lifespan scale is a static
+  (`Resident.setLifespanScale`, 1 in core, 20 from the Paper config): a test that changes it must restore it.
 - **Resources with no sink yet:** STONE, GOODS and the treasury only accumulate (STONE and GOODS up to their storage limit, R3.10) until
   R3.9 (merchant), R4.8 (builder) and R5.1 (guards) land. TOOLS now wear out (R3.6).
 - **Tool wear penalty is off** (`SettlementSimulator.toollessPenalty`, false by default): no
