@@ -70,6 +70,9 @@ public final class Dialogue {
             options.add("Work? No, no. I'm more of a thinker.");
         } else {
             options.add("I'm " + resident.age(day) + " days old, and the " + occupation.title() + "'s trade is all I know.");
+            if (occupation == Occupation.MERCHANT) {
+                options.add("A spare plank or a block of stone is just clutter until someone buys it. I make sure someone does.");
+            }
             if (resident.stage(day) == LifeStage.ELDER) {
                 options.add("I've lived " + resident.age(day) + " days, and my knees tell me I won't see many more.");
             }

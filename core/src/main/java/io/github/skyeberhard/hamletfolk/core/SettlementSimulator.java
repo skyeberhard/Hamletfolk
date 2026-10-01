@@ -30,6 +30,19 @@ public final class SettlementSimulator {
     /** R4.3: stock per resident below which a resource counts as short. */
     static final int FOOD_WANTED_PER_HEAD = 10;
     static final int STOCK_WANTED_PER_HEAD = 3;
+    /**
+     * R3.9: a merchant sells stock above this many per resident, all well over what R4.3 counts as
+     * short so selling never starts a shortage. Food keeps 24: the newcomer rule (R4.1) needs 20 a
+     * head after the day's meal (2 a head) and spoilage, which happen after the merchant sells.
+     * Tools and metal keep more, since smiths and tool wear need them and neither has a source yet.
+     */
+    static final int FOOD_KEPT_PER_HEAD = 24;
+    static final int TOOLS_METAL_KEPT_PER_HEAD = 20;
+    static final int STOCK_KEPT_PER_HEAD = 6;
+    /** R3.9: whole batches a merchant sells in a day, each earning one emerald. */
+    static final int MERCHANT_BATCHES_PER_DAY = 4;
+    /** R3.9: one merchant for this many residents, and at least one once there is anything to sell. */
+    static final int RESIDENTS_PER_MERCHANT = 15;
     /** R4.15: output multiplier for elders. */
     static final double ELDER_OUTPUT = 0.6;
     /** R4.1: a newcomer needs this much food per resident in store, and at least this many days between arrivals. */
@@ -123,6 +136,7 @@ public final class SettlementSimulator {
             return; // R1.5: no residents for ABANDONMENT_DAYS straight; nothing left to simulate.
         }
         ageOut(settlement, day);
+        releaseMerchant(settlement);
         assignJob(settlement, day);
         Random random = new Random(settlement.id().getMostSignificantBits() ^ (day * 0x9E3779B97F4A7C15L));
         Ledger ledger = settlement.ledger();
@@ -130,6 +144,10 @@ public final class SettlementSimulator {
         Random wearRandom = new Random(settlement.id().getLeastSignificantBits() ^ (day * 0x9E3779B97F4A7C15L) ^ 0x700157L);
         Map<ResourceType, Integer> idleForLack = new EnumMap<>(ResourceType.class);
         for (Resident resident : workOrder(settlement)) {
+            if (resident.adult() && resident.occupation() == Occupation.MERCHANT) {
+                sell(settlement, resident, day);
+                continue;
+            }
             work(resident, settlement.flow(), ledger, day, random, wearRandom, idleForLack);
         }
 
@@ -246,10 +264,17 @@ public final class SettlementSimulator {
                 bestCover = cover;
             }
         }
+        // R3.9: with nothing short and goods to spare, someone takes up selling them.
+        if (best == null && merchantNeeded(settlement)) {
+            best = Occupation.MERCHANT;
+        }
         // R4.10: a grown child (one born to residents) follows a parent's trade when it is also needed.
         Occupation parentTrade = parentTrade(settlement, jobless);
         boolean apprentice = jobless.parentA() != null;
-        if (parentTrade != null && cover(settlement, parentTrade) < 1.0 && workstationFree.test(parentTrade)) {
+        boolean parentTradeNeeded = parentTrade == Occupation.MERCHANT
+                ? best == null && merchantNeeded(settlement)
+                : parentTrade != null && cover(settlement, parentTrade) < 1.0;
+        if (parentTradeNeeded && workstationFree.test(parentTrade)) {
             best = parentTrade;
         }
         // Shortest over every candidate, then check its workstation: a village short of food but
@@ -278,7 +303,7 @@ public final class SettlementSimulator {
         for (UUID parent : new UUID[] {child.parentA(), child.parentB()}) {
             Occupation trade = parent == null ? null
                     : settlement.resident(parent).map(Resident::occupation).orElse(null);
-            if (trade != null && JOB_CANDIDATES.contains(trade)) {
+            if (trade != null && (JOB_CANDIDATES.contains(trade) || trade == Occupation.MERCHANT)) {
                 return trade;
             }
         }
@@ -331,6 +356,106 @@ public final class SettlementSimulator {
         ledger.add(occupation.produces(), output);
         flow.recordProduced(occupation.produces(), day, output);
         resident.needs().adjustPurpose(4);
+    }
+
+    /** R3.9: units of a resource that make one emerald when sold. Tools are worth the most. */
+    static int unitsPerEmerald(ResourceType type) {
+        return switch (type) {
+            case FOOD -> 10;
+            case WOOD -> 6;
+            case STONE -> 5;
+            case METAL -> 2;
+            case GOODS -> 2;
+            case TOOLS -> 1;
+        };
+    }
+
+    /** R3.9: stock above what the village should keep, the most a merchant may sell of it. */
+    static int surplus(Settlement settlement, ResourceType type) {
+        int perHead = switch (type) {
+            case FOOD -> FOOD_KEPT_PER_HEAD;
+            case TOOLS, METAL -> TOOLS_METAL_KEPT_PER_HEAD;
+            default -> STOCK_KEPT_PER_HEAD;
+        };
+        int kept = settlement.population() * perHead;
+        return Math.max(0, settlement.ledger().get(type) - kept);
+    }
+
+    private static boolean hasSurplus(Settlement settlement) {
+        for (ResourceType type : ResourceType.values()) {
+            if (surplus(settlement, type) >= unitsPerEmerald(type)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean merchantNeeded(Settlement settlement) {
+        long merchants = settlement.residents().stream()
+                .filter(r -> r.adult() && r.occupation() == Occupation.MERCHANT).count();
+        long wanted = Math.max(1, (settlement.population() + RESIDENTS_PER_MERCHANT - 1) / RESIDENTS_PER_MERCHANT);
+        // Not while food is merely adequate: an unemployed resident forages, and a merchant doesn't.
+        return merchants < wanted && hasSurplus(settlement) && cover(settlement, Occupation.FARMER) >= 2.0;
+    }
+
+    /** True if a gathering resource is short (the same test assignJob uses to pick a job). */
+    private static boolean somethingShort(Settlement settlement) {
+        for (Occupation candidate : JOB_CANDIDATES) {
+            if (cover(settlement, candidate) < 1.0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * R3.9: nothing left to sell while something else is short, so one merchant goes back to being
+     * unemployed and the job assignment can send them where they are needed. At most one a day.
+     */
+    private static void releaseMerchant(Settlement settlement) {
+        if (hasSurplus(settlement) || !somethingShort(settlement)) {
+            return;
+        }
+        for (Resident resident : settlement.residents()) {
+            if (resident.adult() && resident.occupation() == Occupation.MERCHANT) {
+                resident.setOccupation(Occupation.UNEMPLOYED);
+                return;
+            }
+        }
+    }
+
+    /**
+     * R3.9: a merchant sells surplus for emeralds into the treasury. Each batch is a fixed number
+     * of units of whichever resource has the most surplus worth, so what is most plentiful goes first.
+     * Only whole batches are sold, and never stock the village needs to keep.
+     */
+    private static void sell(Settlement settlement, Resident merchant, long day) {
+        Ledger ledger = settlement.ledger();
+        double pace = (merchant.stage(day) == LifeStage.ELDER ? ELDER_OUTPUT : 1.0) * needsFactor(merchant.needs());
+        int batches = (int) Math.round(MERCHANT_BATCHES_PER_DAY * pace);
+        int sold = 0;
+        for (int batch = 0; batch < batches; batch++) {
+            ResourceType best = null;
+            double bestWorth = 0;
+            for (ResourceType type : ResourceType.values()) {
+                int each = unitsPerEmerald(type);
+                int available = surplus(settlement, type);
+                if (available >= each && (double) available / each > bestWorth) {
+                    best = type;
+                    bestWorth = (double) available / each;
+                }
+            }
+            if (best == null) {
+                break;
+            }
+            int units = unitsPerEmerald(best);
+            settlement.flow().recordConsumed(best, day, ledger.take(best, units));
+            ledger.addTreasury(1);
+            sold++;
+        }
+        if (sold > 0) {
+            merchant.needs().adjustPurpose(4);
+        }
     }
 
     /**

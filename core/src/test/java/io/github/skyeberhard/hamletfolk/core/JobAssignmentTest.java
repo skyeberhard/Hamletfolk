@@ -33,7 +33,8 @@ class JobAssignmentTest {
         Resident another = enroll(s, Occupation.UNEMPLOYED, true);
         s.ledger().add(ResourceType.STONE, 1000);
         new SettlementSimulator(false, o -> true).simulateTo(s, 6, 100);
-        assertEquals(Occupation.UNEMPLOYED, another.occupation());
+        // Nothing is short, so no gathering job; with plenty to spare (R3.9) they sell it instead.
+        assertEquals(Occupation.MERCHANT, another.occupation());
     }
 
     @Test

@@ -19,6 +19,8 @@ public enum Occupation {
     // No vanilla profession backs these; they're assigned directly by the simulation
     // (R4.3 "jobs follow need") rather than reached through fromVanillaKey.
     LUMBERJACK("lumberjack", "lumberjack", ResourceType.WOOD, 3, null),
+    // R3.9: makes nothing; sells surplus into the treasury (see SettlementSimulator.sell).
+    MERCHANT("merchant", "merchant", null, 0, null),
     ARMORER("armorer", "armorer", ResourceType.TOOLS, 1, ResourceType.METAL),
     WEAPONSMITH("weaponsmith", "weaponsmith", ResourceType.TOOLS, 1, ResourceType.METAL),
     TOOLSMITH("toolsmith", "toolsmith", ResourceType.TOOLS, 1, ResourceType.METAL),
@@ -60,7 +62,7 @@ public enum Occupation {
 
     /** True for occupations no vanilla profession backs, so the simulation alone hands them out (R4.3). */
     public boolean simOwned() {
-        return this == LUMBERJACK;
+        return this == LUMBERJACK || this == MERCHANT;
     }
 
     public String title() {

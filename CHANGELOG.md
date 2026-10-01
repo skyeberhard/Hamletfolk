@@ -4,6 +4,17 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R3.9: New MERCHANT occupation. A merchant makes nothing but sells the village's surplus for
+  emeralds into the treasury: up to 4 whole batches a day (fewer for an elder or an unhappy
+  merchant), each earning one emerald, always starting with whichever resource has the most
+  surplus worth. Rates are 10 food, 6 wood, 5 stone, 2 metal, 2 goods or 1 tool per emerald.
+  Stock is only sold above what the village keeps: 6 a resident of most things, 20 of tools and
+  metal (smiths and wear need them), and 24 of food, which leaves 20 a head after the day's meal
+  and spoilage so merchants never stop newcomers (R4.1). That is well above what R4.3 counts as
+  short. An unemployed resident becomes the merchant when something can be sold, food is
+  comfortable and nothing else is short, one merchant per 15 residents; a merchant with nothing
+  left to sell goes back to unemployed when something is short. A merchant's child follows the
+  trade only when nothing is short. The treasury has no spending yet (R3.3, R4.8, R5.1).
 - R4.16: Every tracked villager now carries `hamletfolk:gender`, `hamletfolk:occupation` and
   `hamletfolk:life_stage` in its persistent data. That data stays on the server (datapacks, command
   selectors and other plugins can use it); clients never see it. New setting `appearance.villager-type` (off by default) also sets the villager's vanilla type

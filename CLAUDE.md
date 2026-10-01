@@ -61,8 +61,9 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   past about 39 days can lose them to old age. Build residents with `new Resident(..., bornDay, ...)`
   and `Settlement.addResident` to control age, or use `SettlementSimulator.withOldAgeDeaths(false)`. The lifespan scale is a static
   (`Resident.setLifespanScale`, 1 in core, 20 from the Paper config): a test that changes it must restore it.
-- **Resources with no sink yet:** STONE, GOODS and the treasury only accumulate (STONE and GOODS up to their storage limit, R3.10) until
-  R3.9 (merchant), R4.8 (builder) and R5.1 (guards) land. TOOLS now wear out (R3.6).
+- **The treasury has no spending yet:** merchants (R3.9) fill it, but nothing spends it until R3.3
+  (requests), R4.8 (builder) and R5.1 (guards) land. STONE and GOODS now have an outlet in the
+  merchant. TOOLS wear out (R3.6).
 - **Tool wear penalty is off** (`SettlementSimulator.toollessPenalty`, false by default): no
   occupation produces METAL until R2.3, so smiths can't make tools and a penalty would starve
   every village. Turn it on as part of R2.3; then R3.6 can be marked Done.
@@ -76,7 +77,7 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
 ## Where things stand
 
 - Done: M0; M1 items R1.2, R1.3, R1.4, R1.5, R1.6, R1.9, R1.10, R1.13, R1.14, R1.16, R1.17,
-  R1.18, R1.19, R1.20, R1.21, R1.22, R1.23; M3 items R3.7, R3.10 (R3.6 partly, see above); M4 items R4.1, R4.3, R4.4, R4.5, R4.9, R4.10, R4.14, R4.15, R4.16.
+  R1.18, R1.19, R1.20, R1.21, R1.22, R1.23; M3 items R3.7, R3.9, R3.10 (R3.6 partly, see above); M4 items R4.1, R4.3, R4.4, R4.5, R4.9, R4.10, R4.14, R4.15, R4.16.
   Save format is 7 (R1.21 added event count/actor, R3.7 added flow, R4.14 added gender, R4.15 added departed ids; 7 dropped the nonbinary gender).
 - **Next, highest value:** R1.1 (first playtest — the Paper layer has never run; scenarios
   T1–T26 in docs/TESTING.md, of which T17 (admin), T18 (worlds), T19 (backups) and T26 (appearance) are

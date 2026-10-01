@@ -22,7 +22,7 @@ Three strings in the villager's persistent data, under the plugin's namespace `h
 | Key | Values |
 |---|---|
 | `hamletfolk:gender` | `female`, `male` |
-| `hamletfolk:occupation` | `unemployed`, `nitwit`, `farmer`, `fisherman`, `butcher`, `shepherd`, `leatherworker`, `fletcher`, `mason`, `lumberjack`, `armorer`, `weaponsmith`, `toolsmith`, `cartographer`, `cleric`, `librarian` |
+| `hamletfolk:occupation` | `unemployed`, `nitwit`, `farmer`, `fisherman`, `butcher`, `shepherd`, `leatherworker`, `fletcher`, `mason`, `lumberjack`, `merchant`, `armorer`, `weaponsmith`, `toolsmith`, `cartographer`, `cleric`, `librarian` |
 | `hamletfolk:life_stage` | `child`, `adult`, `elder` |
 
 - The occupation is the **simulation's**, not the vanilla profession. They differ for jobs with no
