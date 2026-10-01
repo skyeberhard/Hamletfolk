@@ -4,6 +4,14 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R4.16: Every tracked villager now carries `hamletfolk:gender`, `hamletfolk:occupation` and
+  `hamletfolk:life_stage` in its persistent data. That data stays on the server (datapacks, command
+  selectors and other plugins can use it); clients never see it. New setting `appearance.villager-type` (off by default) also sets the villager's vanilla type
+  from gender and life stage (female plains/snow, male desert/taiga, nonbinary swamp/jungle;
+  children share the adult's, savanna is never used), so a plain resource pack that redraws those
+  types can reskin villagers with no client mod; turning it off restores each villager's original type. The keys and mapping are in docs/APPEARANCE.md and
+  the mapping is in core with a unit test. Unverified until a playtest (T26): how clients and
+  Bedrock see it.
 - R4.15: Residents have an age in days and a life stage (child, adult, elder at 60 days). Elders
   produce 60% of normal output. Each resident has their own maximum age (90 to 110 days) and, with
   `aging.old-age-deaths: true` (off by default), dies of old age past it, recorded in history; the

@@ -38,3 +38,13 @@ backups:
 # until you have seen how your villages hold up.
 aging:
   old-age-deaths: false
+
+# Every tracked villager always carries hamletfolk:gender, :occupation and :life_stage in its
+# persistent data. That stays on the server (datapacks, command selectors, other plugins can
+# read it); clients never see it. See docs/APPEARANCE.md.
+# villager-type also sets the villager's vanilla type (plains, desert, ...) from its gender and
+# life stage, and that does reach clients, so a plain resource pack that redraws those types can
+# show it with no client mod. It replaces the biome look of tracked villagers (the original is
+# remembered and put back if you turn this off again), so leave it off unless you ship such a pack.
+appearance:
+  villager-type: false

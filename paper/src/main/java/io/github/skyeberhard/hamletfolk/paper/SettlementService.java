@@ -1,5 +1,6 @@
 package io.github.skyeberhard.hamletfolk.paper;
 
+import io.github.skyeberhard.hamletfolk.core.Appearance;
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
 import io.github.skyeberhard.hamletfolk.core.Occupation;
 import io.github.skyeberhard.hamletfolk.core.Resident;
@@ -14,10 +15,13 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.HeightMap;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.entity.Villager;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 
 /** Connects the simulation core to live villager entities. Main thread only. */
 final class SettlementService {
@@ -81,6 +85,10 @@ final class SettlementService {
         for (Settlement settlement : registry.settlements()) {
             simulate(settlement);
             considerNewcomer(settlement);
+            World world = Bukkit.getWorld(settlement.world());
+            if (world != null && inScope(world)) {
+                refreshAppearance(settlement, world);
+            }
         }
     }
 
@@ -174,7 +182,63 @@ final class SettlementService {
             villager.customName(Component.text(resident.fullName()));
             villager.setCustomNameVisible(false);
         }
+        long today = registry.settlementOf(resident.id()).map(s -> s.effectiveDay(day(villager.getWorld())))
+                .orElse(day(villager.getWorld()));
+        applyAppearance(villager, resident, today);
         return resident;
+    }
+
+    /**
+     * R4.16: stores the resident's gender, occupation and life stage on the villager for resource
+     * packs and client mods, and, if configured, sets the vanilla villager type that stands for
+     * gender and life stage. Only writes what changed.
+     */
+    void applyAppearance(Villager villager, Resident resident, long day) {
+        PersistentDataContainer data = villager.getPersistentDataContainer();
+        Appearance.tags(resident, day).forEach((name, value) -> {
+            NamespacedKey key = new NamespacedKey(plugin, name);
+            if (!value.equals(data.get(key, PersistentDataType.STRING))) {
+                data.set(key, PersistentDataType.STRING, value);
+            }
+        });
+        NamespacedKey originalKey = new NamespacedKey(plugin, "original_type");
+        String original = data.get(originalKey, PersistentDataType.STRING);
+        if (config.appearanceTypes()) {
+            if (original == null) {
+                // Remember the biome look once, so turning the setting off can put it back.
+                data.set(originalKey, PersistentDataType.STRING, villager.getVillagerType().getKey().getKey());
+            }
+            Villager.Type type = villagerType(Appearance.villagerType(resident.gender(), resident.stage(day)));
+            if (!type.equals(villager.getVillagerType())) {
+                villager.setVillagerType(type);
+            }
+        } else if (original != null) {
+            villager.setVillagerType(villagerType(original));
+            data.remove(originalKey);
+        }
+    }
+
+    private static Villager.Type villagerType(String key) {
+        return switch (key) {
+            case "desert" -> Villager.Type.DESERT;
+            case "jungle" -> Villager.Type.JUNGLE;
+            case "snow" -> Villager.Type.SNOW;
+            case "swamp" -> Villager.Type.SWAMP;
+            case "taiga" -> Villager.Type.TAIGA;
+            case "savanna" -> Villager.Type.SAVANNA;
+            default -> Villager.Type.PLAINS;
+        };
+    }
+
+    /** Brings loaded residents' appearance up to date: a resident may have become an elder since last tracked. */
+    private void refreshAppearance(Settlement settlement, World world) {
+        long day = settlement.effectiveDay(day(world));
+        for (Resident resident : settlement.residents()) {
+            if (Bukkit.getEntity(resident.id()) instanceof Villager villager) {
+                resident.setAdult(villager.isAdult()); // a child may have grown up since last tracked
+                applyAppearance(villager, resident, day);
+            }
+        }
     }
 
     private Resident enroll(Villager villager) {
