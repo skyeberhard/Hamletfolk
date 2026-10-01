@@ -11,13 +11,19 @@ class SettlementSimulatorTest {
     private final SettlementRegistry registry = new SettlementRegistry();
     private final SettlementSimulator simulator = new SettlementSimulator();
 
+    /** An adult who stays in their prime for these tests: R4.15 would otherwise age plain enrollees into elders. */
+    private static Resident primeOfLife(Occupation job) {
+        return new Resident(UUID.randomUUID(), "Test", "Person", Gender.MALE, new Traits(50, 50, 50, 50),
+                job, true, 10_000, null, null, Needs.initial());
+    }
+
     private Settlement village(int farmers, int others, Occupation otherJob) {
         Settlement s = registry.found("world", 0, 0, 0);
         for (int i = 0; i < farmers; i++) {
-            registry.enroll(s, UUID.randomUUID(), Occupation.FARMER, true, 0, null, null);
+            s.addResident(primeOfLife(Occupation.FARMER));
         }
         for (int i = 0; i < others; i++) {
-            registry.enroll(s, UUID.randomUUID(), otherJob, true, 0, null, null);
+            s.addResident(primeOfLife(otherJob));
         }
         return s;
     }
