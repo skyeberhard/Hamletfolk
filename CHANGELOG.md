@@ -4,6 +4,8 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.15: Confirmed that the admin commands (R1.4) and abandoned settlements (R1.5) were merged before
+  any M2 item began (no M2 item has started). Bookkeeping only.
 - R1.24: Unemployed foraging is now documented as intended. An unemployed adult gathers about 1 food
   a day, the floor under a small village with no farmer; it is described in the README and
   `docs/DESIGN.md`, unemployed residents mention it in conversation, and tests pin the behaviour
