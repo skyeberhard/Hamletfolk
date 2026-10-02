@@ -4,6 +4,17 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R3.12: Donations are valued by what the item is made of. Wood counts in planks: a log, wood
+  block or stem is 4, a plank 1, a stick half and a bamboo stalk a quarter, so the same timber is
+  worth the same in any form and a request (R3.3) pays the same for a log, four planks or eight
+  sticks. A stack is valued as a whole and rounded down, so splitting a donation gains nothing.
+  A tool is worth its tier in proportion to its remaining durability, down to nothing when worn
+  out. `/settlement donate` no longer takes a donation worth less than one unit (a lone stick, a
+  worn-out tool): it says so and keeps the items. Logs are now worth four times what they were,
+  so wood donations count for more than before, and a big stack can overflow a small
+  village's storage limit and be wasted (R3.11). A mushroom stem is no longer counted as timber,
+  and `/settlement donate` only takes the items its credit pays for, so an odd leftover stick
+  stays with the player. Reading a tool's wear is Paper-only and unverified until a playtest (T28).
 - R3.3: Village requests. When a resource (food, wood, stone, metal or tools) runs short and the
   treasury can pay for it, the village posts a request for it (at least 8 units, up to double what
   it wants), shown in `/settlement` and mentioned by residents, and the history records it. The

@@ -42,8 +42,31 @@ public final class ResourceMapper {
     private ResourceMapper() {
     }
 
-    /** What a donated item is worth to a settlement: which resource, and how many units each. */
-    public record Value(ResourceType type, int unitsPerItem) {
+    /**
+     * What a donated item is worth to a settlement: which resource, and how many units each, as a
+     * fraction ({@code numerator / denominator}) so a stick can be worth half a plank. A whole stack
+     * is valued at once and rounded down, so splitting a donation into single items gains nothing.
+     */
+    public record Value(ResourceType type, int numerator, int denominator) {
+        public Value {
+            if (denominator < 1) {
+                throw new IllegalArgumentException("denominator must be positive");
+            }
+        }
+
+        public Value(ResourceType type, int unitsPerItem) {
+            this(type, unitsPerItem, 1);
+        }
+
+        /** Whole units a stack of {@code count} is worth, rounded down. */
+        public int unitsFor(int count) {
+            return (int) ((long) Math.max(0, count) * numerator / denominator);
+        }
+
+        /** Whole units one item is worth: 0 for something worth less than one unit (a stick, a worn tool). */
+        public int unitsPerItem() {
+            return numerator / denominator;
+        }
     }
 
     /** True for items that go into the treasury as emeralds. */
@@ -62,15 +85,42 @@ public final class ResourceMapper {
 
     /** R3.8: the ledger resource and per-item value of a donated item, if the village can use it. */
     public static Optional<Value> value(String material) {
+        return value(material, 1.0);
+    }
+
+    /**
+     * R3.12: as {@link #value(String)}, for an item in the given {@code condition} (1.0 is new, 0.0 is
+     * about to break). Only tools lose value with wear. Wood is worth what it is made of: a log is
+     * four planks and a plank is two sticks, so the same timber is worth the same in any form.
+     */
+    public static Optional<Value> value(String material, double condition) {
         String name = normalize(material);
         Optional<ResourceType> type = classify(name);
         if (type.isEmpty()) {
             return Optional.empty();
         }
         if (type.get() == ResourceType.TOOLS) {
-            return Optional.of(new Value(ResourceType.TOOLS, toolTier(name)));
+            double kept = Math.max(0.0, Math.min(1.0, condition));
+            return Optional.of(new Value(ResourceType.TOOLS, (int) Math.floor(toolTier(name) * kept + 1e-9)));
+        }
+        if (type.get() == ResourceType.WOOD) {
+            return Optional.of(woodValue(name));
         }
         return Optional.of(new Value(type.get(), STORAGE_BLOCKS.getOrDefault(name, 1)));
+    }
+
+    /** Wood in planks: a log, wood block or stem is 4, a plank 1, a stick half, a bamboo stalk a quarter. */
+    private static Value woodValue(String name) {
+        if (name.endsWith("_PLANKS")) {
+            return new Value(ResourceType.WOOD, 1, 1);
+        }
+        if (name.equals("STICK")) {
+            return new Value(ResourceType.WOOD, 1, 2);
+        }
+        if (name.equals("BAMBOO")) {
+            return new Value(ResourceType.WOOD, 1, 4);
+        }
+        return new Value(ResourceType.WOOD, 4, 1); // _LOG, _WOOD, _STEM
     }
 
     /**
@@ -102,7 +152,9 @@ public final class ResourceMapper {
         if (FOOD.contains(name) || name.startsWith("COOKED_")) {
             return Optional.of(ResourceType.FOOD);
         }
-        if (name.endsWith("_LOG") || name.endsWith("_PLANKS") || name.endsWith("_WOOD") || name.endsWith("_STEM")
+        // (a huge mushroom's stem is a silk-touch block that crafts into nothing, so it is not timber)
+        if (name.endsWith("_LOG") || name.endsWith("_PLANKS") || name.endsWith("_WOOD")
+                || (name.endsWith("_STEM") && !name.equals("MUSHROOM_STEM"))
                 || name.equals("STICK") || name.equals("BAMBOO")) {
             return Optional.of(ResourceType.WOOD);
         }

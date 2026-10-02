@@ -10,6 +10,7 @@ import io.github.skyeberhard.hamletfolk.core.Settlement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.IntUnaryOperator;
 import java.util.Optional;
 import java.util.OptionalInt;
 import net.kyori.adventure.inventory.Book;
@@ -21,6 +22,7 @@ import org.bukkit.command.TabExecutor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.Damageable;
 
 /** /settlement [info|history|residents|donate [amount|all]] — about the settlement you're standing in; admin works anywhere. */
 final class SettlementCommand implements TabExecutor {
@@ -190,17 +192,19 @@ final class SettlementCommand implements TabExecutor {
         String itemName = material.replace('_', ' ');
 
         int emeralds = ResourceMapper.currencyValue(material);
-        Optional<ResourceMapper.Value> value = emeralds > 0 ? Optional.empty() : ResourceMapper.value(material);
+        Optional<ResourceMapper.Value> value = emeralds > 0 ? Optional.empty()
+                : ResourceMapper.value(material, condition(item));
         if (emeralds == 0 && value.isEmpty()) {
             player.sendMessage(Component.text(s.name() + " has no use for " + itemName + ".", NamedTextColor.GRAY));
             return;
         }
-        int unitsPerItem = emeralds > 0 ? emeralds : value.get().unitsPerItem();
+        // Worth of a stack of n: emeralds by count, anything else by its valuation (R3.12), rounded down.
+        IntUnaryOperator worth = n -> emeralds > 0 ? n * emeralds : value.get().unitsFor(n);
         String unitName = emeralds > 0 ? "emeralds" : value.get().type().name().toLowerCase(Locale.ROOT);
 
         if (args.length < 2) {
             player.sendMessage(Component.text("You're holding " + held + " " + itemName + ", worth "
-                    + (held * unitsPerItem) + " " + unitName + " to " + s.name() + ". Use ", NamedTextColor.GRAY)
+                    + worth.applyAsInt(held) + " " + unitName + " to " + s.name() + ". Use ", NamedTextColor.GRAY)
                     .append(Component.text("/settlement donate <amount>", NamedTextColor.YELLOW))
                     .append(Component.text(" or ", NamedTextColor.GRAY))
                     .append(Component.text("/settlement donate all", NamedTextColor.YELLOW))
@@ -214,7 +218,18 @@ final class SettlementCommand implements TabExecutor {
             return;
         }
         int amount = quantity.getAsInt();
-        int credited = amount * unitsPerItem;
+        int credited = worth.applyAsInt(amount);
+        if (emeralds == 0 && credited > 0) {
+            // Take only the items the credit pays for: an odd stick or bamboo stalk left over stays with the player.
+            ResourceMapper.Value v = value.get();
+            amount = Math.min(amount, (int) Math.ceil((double) credited * v.denominator() / v.numerator()));
+        }
+        if (credited == 0) {
+            // Not taken: a lone stick, or a tool worn to nothing, is worth less than one unit.
+            player.sendMessage(Component.text(amount + " " + itemName + " is worth nothing to " + s.name()
+                    + (amount < held ? "; try giving more at once." : " as it is."), NamedTextColor.GRAY));
+            return;
+        }
 
         if (emeralds > 0) {
             s.ledger().addTreasury(credited);
@@ -240,6 +255,21 @@ final class SettlementCommand implements TabExecutor {
         player.sendMessage(Component.text("The people of " + s.name() + " thank you. (+" + credited + " "
                 + unitName + (paid > 0 ? "; they pay you " + paid + " emeralds for it" : "") + ")", NamedTextColor.GREEN));
         service.plugin().requestSave();
+    }
+
+    /** 1.0 for a new item, falling to 0.0 as a tool wears out; anything that does not wear counts as new. */
+    private static double condition(ItemStack item) {
+        int max = item.getType().getMaxDurability();
+        if (item.getItemMeta() instanceof Damageable damageable) {
+            // An item can carry its own maximum durability, which is what its wear is measured against.
+            if (damageable.hasMaxDamage()) {
+                max = damageable.getMaxDamage();
+            }
+            if (max > 0) {
+                return 1.0 - (double) damageable.getDamage() / max;
+            }
+        }
+        return 1.0;
     }
 
     /** R3.7: per-day production and use over the recent window, e.g. "food +12/day made, -15/day eaten". */
