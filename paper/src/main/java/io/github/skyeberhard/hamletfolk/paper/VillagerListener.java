@@ -30,8 +30,10 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityTransformEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.MerchantInventory;
 
 /** Keeps resident records in step with villager entities, and lets players talk to them. */
 final class VillagerListener implements Listener {
@@ -70,6 +72,15 @@ final class VillagerListener implements Listener {
                 resident.seedOccupation(Occupation.fromVanillaKey(event.getProfession().getKey().getKey())));
     }
 
+    /** R3.1: a villager's trade window is opening; set its prices from the settlement's stores. */
+    @EventHandler(ignoreCancelled = true)
+    public void onOpenTrade(InventoryOpenEvent event) {
+        if (event.getInventory() instanceof MerchantInventory trade && trade.getMerchant() instanceof Villager villager
+                && service.inScope(villager.getWorld())) {
+            service.applyTradePrices(villager);
+        }
+    }
+
     @EventHandler(ignoreCancelled = true)
     public void onTalk(PlayerInteractEntityEvent event) {
         if (event.getHand() != EquipmentSlot.HAND || !(event.getRightClicked() instanceof Villager villager)) {
@@ -77,7 +88,7 @@ final class VillagerListener implements Listener {
         }
         Player player = event.getPlayer();
         if (!player.isSneaking() || !player.hasPermission("hamletfolk.use") || !service.inScope(villager.getWorld())) {
-            return; // A normal right-click still opens trading.
+            return; // A normal right-click still opens trading (its prices are set when the window opens, below).
         }
         event.setCancelled(true);
 

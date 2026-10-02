@@ -92,7 +92,7 @@ Goal: trading with villagers is part of the village economy.
 
 | ID | Issue | Item | Done when | Status |
 |---|---|---|---|---|
-| R3.1 | [#28](https://github.com/skyeberhard/Hamletfolk/issues/28) | Prices follow supply | Villager trade prices rise when the ledger is short of that resource and fall when it has a surplus | Planned |
+| R3.1 | [#28](https://github.com/skyeberhard/Hamletfolk/issues/28) | Prices follow supply | Villager trade prices rise when the ledger is short of that resource and fall when it has a surplus. | Done |
 | R3.2 | [#29](https://github.com/skyeberhard/Hamletfolk/issues/29) | Trades feed the ledger | Selling food to a farmer adds it to the village's stores | Planned |
 | R3.3 | [#30](https://github.com/skyeberhard/Hamletfolk/issues/30) | Village requests | When a resource runs short, the village posts a request (e.g. "32 iron"), and fulfilling it pays emeralds from the treasury. | Done |
 | R3.4 | [#31](https://github.com/skyeberhard/Hamletfolk/issues/31) | Player reputation | Each settlement tracks reputation per player from donations, requests and harm; dialogue and prices reflect it | Planned |

@@ -53,3 +53,13 @@ aging:
 # remembered and put back if you turn this off again), so leave it off unless you ship such a pack.
 appearance:
   villager-type: false
+
+# Villager trade prices follow the settlement's stores (R3.1). A villager selling something the
+# village is short of charges up to half as much again, and one buying it asks for fewer of them;
+# when the village has plenty, prices fall by up to a quarter. Prices move by whole emeralds towards
+# the base price, so a 1-emerald trade (bread, apples) never changes and the effect is clearest on
+# trades that ask for many items (a farmer's 20 wheat). Only trades that are emeralds for food, wood,
+# stone, metal or tools (or the reverse) are touched, and only for villagers that belong to a
+# settlement. Turn it off to leave vanilla prices alone.
+prices:
+  follow-supply: true

@@ -4,6 +4,17 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R3.1: Villager trade prices follow the settlement's stores. A villager selling food, wood, stone,
+  metal or tools charges up to half as much again when the village is short of it (at an empty
+  store) and up to a quarter less when it has four times what it wants; one buying it asks for
+  fewer or more of the item the other way. Prices are untouched between what the village wants and
+  twice that, and goods (wool, paper, glass) are left alone. A price moves by whole emeralds towards
+  the base, so most real trades move by at most 1 or 2 and a 1-emerald trade (bread, apples) never
+  changes; the trades that move most are the ones that ask for many items, like a farmer's 20 wheat
+  for an emerald. Only emerald-for-resource trades in a settlement are touched, and the game's own
+  reputation and Hero of the Village discounts still apply. It is set when a trade window opens, so
+  it never sticks. The model is in core (`PriceModel`, unit tested); the Paper layer is unverified
+  until a playtest (T30). Turn it off with `prices.follow-supply: false`.
 - R3.13: A request never pays more for a crafted tool than its raw materials would on requests
   of their own, at the same rates. A tool is valued from its recipe (a pickaxe or axe is 3 head
   material and 2 sticks, a hoe or sword 2 head, a shovel 1 head; the head is planks, cobblestone

@@ -3,11 +3,14 @@ package io.github.skyeberhard.hamletfolk.paper;
 import io.github.skyeberhard.hamletfolk.core.Appearance;
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
 import io.github.skyeberhard.hamletfolk.core.Occupation;
+import io.github.skyeberhard.hamletfolk.core.PriceModel;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.ResourceType;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.SettlementRegistry;
 import io.github.skyeberhard.hamletfolk.core.SettlementSimulator;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -21,6 +24,8 @@ import org.bukkit.World;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.entity.Villager;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
@@ -65,6 +70,43 @@ final class SettlementService {
         }
         return registry.nearest(location.getWorld().getName(), location.getBlockX(), location.getBlockZ(),
                 config.settlementRadius());
+    }
+
+    /**
+     * R3.1: as a trade window opens, adds to each trade's price a change from the settlement's stores
+     * (see {@code PriceModel}). The game has already added its reputation and Hero of the Village
+     * discounts, and clears the lot when the window closes, so this never compounds. Does nothing
+     * for a villager outside any settlement.
+     */
+    void applyTradePrices(Villager villager) {
+        if (!config.pricesFollowSupply()) {
+            return;
+        }
+        Resident resident = track(villager);
+        if (resident == null) {
+            return;
+        }
+        Settlement settlement = registry.settlementOf(resident.id()).orElse(null);
+        if (settlement == null) {
+            return;
+        }
+        simulate(settlement);
+        if (settlement.resident(resident.id()).isEmpty()) {
+            return; // they died of old age just now (R4.15)
+        }
+        // getRecipes() wraps the villager's live offers, so changing a recipe changes the trade the player sees.
+        for (MerchantRecipe recipe : villager.getRecipes()) {
+            List<ItemStack> ingredients = recipe.getIngredients();
+            if (ingredients.isEmpty()) {
+                continue;
+            }
+            ItemStack cost = ingredients.get(0);
+            int delta = PriceModel.specialPriceDelta(settlement, recipe.getResult().getType().getKey().getKey(),
+                    cost.getType().getKey().getKey(), cost.getAmount());
+            if (delta != 0) {
+                recipe.setSpecialPrice(recipe.getSpecialPrice() + delta);
+            }
+        }
     }
 
     /** R3.3: counts donated units toward the settlement's open request and returns the emeralds owed. */
