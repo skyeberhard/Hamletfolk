@@ -37,6 +37,10 @@ SettlementRegistry
 - A resident's id is its villager entity's UUID.
 - A villager belongs to the nearest settlement within `settlement-radius` blocks.
   If there's none, it founds one.
+- **Foraging is intended.** An unemployed adult produces about 1 food a day (`Occupation.UNEMPLOYED`).
+  It is the floor under a small village: without it a village with no farmer would starve to zero
+  while waiting for a job, and job assignment (R4.3) deliberately leaves foragers foraging while
+  food is the scarcest resource. Real food comes from farms.
 - The simulator advances one day at a time: work → eat → threat decays → needs update →
   conditions change, and each condition change writes one history entry.
 

@@ -29,6 +29,11 @@ the villager's own trade screen.
 - Once per in-game day, each working adult produces for the village: farmers, fishers and
   butchers make food, masons stone, fletchers wood, smiths tools. Output scales with the
   resident's work ethic.
+- **Unemployed adults forage.** A resident with no job gathers about 1 food a day from the
+  edges of the village, so a small village short of farmers does not starve outright while it
+  waits for work. It is deliberate, not a loophole: it is why a village in famine keeps its
+  foragers foraging instead of sending them elsewhere, and unemployed residents say so when
+  you talk to them. It is far less than a farmer makes (about 4 a day).
 - **Smiths need metal**, and no vanilla profession produces it. Without player donations
   the forges go cold, the village records a shortage, and the smith will tell you so.
 - Everyone eats. When the stores run out, famine starts and goes into the history, and

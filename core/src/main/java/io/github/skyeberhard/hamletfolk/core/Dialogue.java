@@ -66,6 +66,8 @@ public final class Dialogue {
             options.add("When I grow up I want to be the best " + randomTrade(random) + " in " + settlement.name() + "!");
         } else if (occupation == Occupation.UNEMPLOYED) {
             options.add("There's not enough work around here. I might have to move on.");
+            options.add("No trade of my own yet, so I forage what I can along the edges of the fields. It keeps "
+                    + "the larder from running bare while I wait for work.");
         } else if (occupation == Occupation.NITWIT) {
             options.add("Work? No, no. I'm more of a thinker.");
         } else {

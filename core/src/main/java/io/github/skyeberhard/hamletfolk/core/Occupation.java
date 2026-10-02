@@ -7,6 +7,8 @@ import java.util.Locale;
  * Minecraft layer can map a villager's profession key straight onto it.
  */
 public enum Occupation {
+    // Foraging (R1.24): an unemployed adult gathers about 1 food a day. Intended: the floor under a small
+    // village, documented in the README and DESIGN.md, and acknowledged in dialogue.
     UNEMPLOYED("none", "unemployed", ResourceType.FOOD, 1, null),
     NITWIT("nitwit", "idler", null, 0, null),
     FARMER("farmer", "farmer", ResourceType.FOOD, 4, null),

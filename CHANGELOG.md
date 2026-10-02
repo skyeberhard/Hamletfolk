@@ -4,6 +4,11 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.24: Unemployed foraging is now documented as intended. An unemployed adult gathers about 1 food
+  a day, the floor under a small village with no farmer; it is described in the README and
+  `docs/DESIGN.md`, unemployed residents mention it in conversation, and tests pin the behaviour
+  (ten foragers make about 70 food a week, and a forager village stays fed longer than an idle one).
+  No behaviour changed.
 - R3.1: Villager trade prices follow the settlement's stores. A villager selling food, wood, stone,
   metal or tools charges up to half as much again when the village is short of it (at an empty
   store) and up to a quarter less when it has four times what it wants; one buying it asks for

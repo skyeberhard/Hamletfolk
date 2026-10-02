@@ -88,13 +88,14 @@ Write the core part and the thin wiring now; each needs a `docs/TESTING.md` scen
 - **R1.7** Match the server's version (#22): `minecraftVersion` now matches 26.2; the remaining
   condition is one session on a copy of the server world.
 
-## Decisions waiting on you
+## Decisions
 
-| Question | My recommendation |
-|---|---|
-| **R1.24** (#66): unemployed foraging 1 food a day. Intended or removed? | Document it as intended: it is what keeps a famine village from going to zero, and R4.3 already keeps foragers foraging while food is short. |
-| Default for `aging.old-age-deaths` (off) | Keep off until a playtest shows how villages hold up with a ~month-long life. |
-| R2.3: turn the toolless penalty on once mines exist | Yes, in the same item, as `CLAUDE.md` already says. |
+Settled on 2026-10-02:
+
+- **R1.24:** unemployed foraging (1 food a day) is **intended** and documented (README, DESIGN.md, dialogue).
+- **`aging.old-age-deaths`** stays **off** until a playtest shows how villages hold up with a
+  month-long life.
+- **R2.3** turns the toolless penalty on once mines exist, in the same item, and finishes R3.6.
 
 ## Log
 
