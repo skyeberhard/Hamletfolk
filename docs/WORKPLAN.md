@@ -63,7 +63,7 @@ Dependency-ordered. `Next` is where to start.
 | 18 | **R5.2** Defenses reduce threat (#37), **R5.4** Vault break-ins (#89) | Needs registered buildings and a treasury building | R2.1, R2.6 | Planned |
 | 19 | **R7.1** Pluggable dialogue provider (#44) | A core interface; the template provider stays the default | none | Planned |
 | 20 | **R1.27** Settlements anchored to a village's area (#76), core merge | Merging overlapping settlements is core; detecting generated villages is Tier 2 | none | Planned |
-| 21 | **R4.6** Building templates with tiers (#56), core diff | Choosing the best affordable tier and the block diff is core | R2.1 | Planned |
+| 21 | **R4.6** Building templates with tiers (#56), core catalog and diff | The catalog, tier choice, materials from a block palette and the block diff are core (see "Template library" below) | R2.1 | Planned |
 
 ## Tier 2: Paper-heavy (write without a playtest, verify in game)
 
@@ -87,6 +87,29 @@ Write the core part and the thin wiring now; each needs a `docs/TESTING.md` scen
 - **R1.11** Bedrock (Geyser) playtest (#48).
 - **R1.7** Match the server's version (#22): `minecraftVersion` now matches 26.2; the remaining
   condition is one session on a copy of the server world.
+
+## Template library (R4.6, R4.7, R4.8)
+
+Settled 2026-10-02. The village structure library is mostly already in the game.
+
+- **Source of templates.** The 26.2 server jar ships about 480 village structure files across five
+  biomes (plains, desert, savanna, snowy, taiga), by role (armorer, butcher, cartographer, fisher,
+  fletcher, library, mason, shepherd, farms, animal pens, small/medium/big houses, streets, town
+  centers) plus ruined "zombie" variants. The catalog reuses these; only gaps are authored.
+- **Catalog (core, tested).** Building type × biome × tier → template key, an ordered ladder per type
+  (for example small house → medium house → big house, farm → large farm). A biome with no big house
+  has a shorter ladder, written down as a documented gap, not an error. The catalog lives as data in
+  `core` resources so it can be validated without a server.
+- **Cost.** A tier's materials come from the blocks in its template (a block palette mapped to ledger
+  resources with `ResourceMapper`); the build diff is template blocks minus what is already placed.
+- **Biome.** A settlement's biome is its village's type, plains when unknown.
+- **Gaps are authored.** Mine, guard post, shop, bank/treasury, storage, and any tier vanilla lacks.
+  Author once in the plains palette; each other biome gets its materials by block substitution at
+  placement (oak→acacia/spruce/sandstone/snow), so it is one authoring job, not five.
+- **Paper side (Tier 2, unverified).** A startup check that every catalog key exists on the server
+  (log the missing ones), and placing a template through the server's structure manager over time (R4.8).
+- **Ruined variants** (the "zombie" pieces) are reserved for abandonment and disaster states.
+- v1 scope: a house ladder from vanilla pieces, to prove that path, and one authored building (mine).
 
 ## Decisions
 
