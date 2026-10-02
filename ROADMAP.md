@@ -83,6 +83,7 @@ Goal: what players build shapes what the village can do.
 | R2.4 | [#27](https://github.com/skyeberhard/Hamletfolk/issues/27) | Buildings inferred from blocks | Placing a workstation, bed and roof is recognized without a sign; analysis runs only when blocks in the area change | Planned |
 | R2.5 | [#85](https://github.com/skyeberhard/Hamletfolk/issues/85) | Storefront for merchants | A `[Shop]` sign inside a settlement registers a storefront; breaking the sign removes it, and `/settlement buildings` lists it. A MERCHANT needs a free storefront to work, one merchant per storefront, so a settlement with no storefront has no merchant selling (a merchant without one is released back to unemployed), and building a second storefront lets a second merchant work. | Planned |
 | R2.6 | [#86](https://github.com/skyeberhard/Hamletfolk/issues/86) | Treasury building | Without a treasury building a settlement can bank only a small base amount of emeralds (a number in config), and income beyond it (merchant sales, donations) is wasted as it is for goods over a storage limit (R3.10). A `[Treasury]` sign on a counting house inside the settlement registers a treasury building, and each registered one raises the limit by a fixed amount; breaking the sign lowers it again. `/settlement` shows the treasury and its limit. | Planned |
+| R2.7 | [#88](https://github.com/skyeberhard/Hamletfolk/issues/88) | Bank counter for donations and exchange | Donating resources and exchanging them for emeralds (`/settlement donate`, and the payout for a request, R3.3) can only be done at a registered treasury building (R2.6), not anywhere in the settlement. Away from one, the command says where the nearest is. A settlement with no treasury building keeps the current anywhere-in-the-settlement rule, so existing villages still work. | Planned |
 
 ## M3: Economy (v0.4.0) · [#4](https://github.com/skyeberhard/Hamletfolk/issues/4)
 
@@ -135,6 +136,7 @@ Goal: danger creates demand, and the village responds.
 | R5.1 | [#36](https://github.com/skyeberhard/Hamletfolk/issues/36) | Guards | Sustained high threat turns a resident into a guard who consumes tools and food | Planned |
 | R5.2 | [#37](https://github.com/skyeberhard/Hamletfolk/issues/37) | Defenses reduce threat | Recognized walls, lighting and towers lower how much threat each attack adds | Planned |
 | R5.3 | [#38](https://github.com/skyeberhard/Hamletfolk/issues/38) | Calls for help | When threat is high, residents ask nearby players for help, and defending the village raises reputation | Planned |
+| R5.4 | [#89](https://github.com/skyeberhard/Hamletfolk/issues/89) | Vault break-ins and their consequences | Taking items from a registered vault (the treasury building, R2.6) or breaking its protected blocks without the settlement's leave counts as a break-in. The stores fall by what was actually taken, the history records a major event naming who did it, residents' mood and the settlement's threat worsen, and a player's reputation (R3.4) falls. Mobs or raiders that break in have the same effects without a reputation penalty. | Planned |
 
 ## M6: Society (v0.7.0+) · [#7](https://github.com/skyeberhard/Hamletfolk/issues/7)
 
@@ -145,6 +147,7 @@ Goal: danger creates demand, and the village responds.
 | R6.3 | [#41](https://github.com/skyeberhard/Hamletfolk/issues/41) | Player investment | Players can fund a business or building and receive a share of its output | Planned |
 | R6.4 | [#42](https://github.com/skyeberhard/Hamletfolk/issues/42) | Village leadership | Each settlement has an elder chosen from its residents, who sets one policy (e.g. tax rate) | Planned |
 | R6.5 | [#43](https://github.com/skyeberhard/Hamletfolk/issues/43) | Trade between settlements | Settlements exchange surplus for shortage along recorded trade routes | Planned |
+| R6.6 | [#90](https://github.com/skyeberhard/Hamletfolk/issues/90) | Steward occupation | Once a settlement is large enough that its elder (R6.4) cannot also run it, an unemployed resident becomes its STEWARD, one per 40 residents. The steward keeps the stores, sets the exchange rates (replacing the fixed ones; they follow supply, R3.1) and staffs the bank counter (R2.7), where players trade resources for emeralds. A settlement below the size threshold has no steward and its elder does that work. | Planned |
 
 ## M7: Optional AI dialogue · [#8](https://github.com/skyeberhard/Hamletfolk/issues/8)
 
