@@ -63,6 +63,9 @@ Dependency-ordered. `Next` is where to start.
 | 18 | **R5.2** Defenses reduce threat (#37), **R5.4** Vault break-ins (#89) | Needs registered buildings and a treasury building | R2.1, R2.6 | Planned |
 | 19 | **R7.1** Pluggable dialogue provider (#44) | A core interface; the template provider stays the default | none | Planned |
 | 20 | **R1.27** Settlements anchored to a village's area (#76), core merge | Merging overlapping settlements is core; detecting generated villages is Tier 2 | none | Planned |
+| 19b | **R8.1** Village planner and decision log (#94) | The decision layer; works on today's adopted villages and unblocks the rest of M8 | R2.3 | Planned |
+| 19c | **R8.2** Site scoring (#95), **R8.3** Road graph and lots (#96), **R8.4** Terrain pads (#97) | Pure functions on sampled grids and heightmaps, fully testable without a server | none | Planned |
+| 19d | **R8.5** Players found villages (#98), core rules; **R8.9** Stages and failure (#102) | Founding rules (cap, spacing, kit, validation) and the stall-decline-abandon path | R8.1, R2.1 | Planned |
 | 21 | **R4.6** Building templates with tiers (#56), core catalog and diff | The catalog, tier choice, materials from a block palette and the block diff are core (see "Template library" below) | R2.1 | Planned |
 
 ## Tier 2: Paper-heavy (write without a playtest, verify in game)
@@ -79,6 +82,9 @@ Write the core part and the thin wiring now; each needs a `docs/TESTING.md` scen
 | **R1.27** (detection half) | locating a village's real area |
 | **R5.3** Calls for help (#38) | chat and player interaction |
 | **R7.2** Local model provider (#45) | an optional HTTP provider, off by default |
+| **R8.6** Place planned buildings over time (#99) | structure placement in slices, async chunk loading |
+| **R8.7** Village mode switch and vanilla suppression (#100) | the datapack and site picking; verify the portal path first |
+| **R8.8** Ruins instead of vanishing (#101) | swapping buildings for ruined pieces; the decay choice itself is core |
 
 ## Tier 3: needs a person in game
 
@@ -87,6 +93,12 @@ Write the core part and the thin wiring now; each needs a `docs/TESTING.md` scen
 - **R1.11** Bedrock (Geyser) playtest (#48).
 - **R1.7** Match the server's version (#22): `minecraftVersion` now matches 26.2; the remaining
   condition is one session on a copy of the server world.
+
+## Village planning (M8)
+
+The design is in [VILLAGE_PLANNING.md](VILLAGE_PLANNING.md). Build the core pieces first (planner,
+site scoring, road graph and lots, terrain pads, founding rules), one biome set and two stages, behind
+`village-mode`; the Paper placement and the datapack come last.
 
 ## Template library (R4.6, R4.7, R4.8)
 
@@ -125,4 +137,6 @@ Settled on 2026-10-02:
 - 2026-10-02: plan written. Decisions recorded (foraging intended, old-age deaths off, toolless penalty with
   mines). R3.13 (`c86a28a`), R3.1 (`46a5841`), R1.24 (`22bd114`) committed. The "1-in-300" test failure
   was `toollessGatherersProduceLess` comparing two independently random villages: fixed (`3af668e`).
-  R1.15 closed (bookkeeping). Next: R3.11.
+  R1.15 closed. R4.6 reworded for per-biome template sets (`1182f81`). R3.11 (`ab82bb6`) and R2.1
+  (`2d5af13`) committed. M8 (plan-owned villages, #93, R8.1 to R8.9) added from the design notes.
+  Next: R2.2 housing capacity, then R2.3.
