@@ -64,6 +64,9 @@ class AdminToolsTest {
     void renameRefusesBlankLongAndDuplicateNames() {
         Settlement a = registry.found("world", 0, 0, 0);
         Settlement b = registry.found("world", 500, 500, 0);
+        // Generated names come from a short list, so two settlements share one about 1 time in 270.
+        // Give b a name no generator produces, so a's own name can never collide with it.
+        registry.rename(b, "Test Town", 1);
         assertThrows(IllegalArgumentException.class, () -> registry.rename(a, "   ", 1));
         assertThrows(IllegalArgumentException.class, () -> registry.rename(a, "x".repeat(33), 1));
         assertThrows(IllegalArgumentException.class, () -> registry.rename(a, b.name().toUpperCase(), 1));
