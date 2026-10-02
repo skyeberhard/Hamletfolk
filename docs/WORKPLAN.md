@@ -122,6 +122,8 @@ Settled 2026-10-02. The village structure library is mostly already in the game.
   (log the missing ones), and placing a template through the server's structure manager over time (R4.8).
 - **Ruined variants** (the "zombie" pieces) are reserved for abandonment and disaster states.
 - v1 scope: a house ladder from vanilla pieces, to prove that path, and one authored building (mine).
+- The checklist of what vanilla ships per biome and what still has to be built is
+  [BUILDING_LIBRARY.md](BUILDING_LIBRARY.md): tick items off there as templates are authored.
 
 ## Decisions
 
