@@ -30,6 +30,17 @@ public final class SettlementSimulator {
     /** R4.3: stock per resident below which a resource counts as short. */
     static final int FOOD_WANTED_PER_HEAD = 10;
     static final int STOCK_WANTED_PER_HEAD = 3;
+    /** R3.3: the resources the village posts requests for when short, in the order it tries. */
+    static final List<ResourceType> REQUESTABLE = List.of(
+            ResourceType.FOOD, ResourceType.WOOD, ResourceType.STONE, ResourceType.METAL, ResourceType.TOOLS);
+    /** R3.3: a request asks for at least this many units, and pays this many times the merchant's rate. */
+    static final int REQUEST_MIN_UNITS = 8;
+    static final int REQUEST_PREMIUM = 2;
+    /** R3.3: a request lapses (and its unpaid reward returns to the treasury) after this many days. */
+    static final int REQUEST_EXPIRY_DAYS = 30;
+    /** R3.3: after a request closes, the same resource waits this long before asking again. */
+    static final int REQUEST_COOLDOWN_DAYS = 7;
+    static final int MAX_OPEN_REQUESTS = 3;
     /**
      * R3.9: a merchant sells stock above this many per resident, all well over what R4.3 counts as
      * short so selling never starts a shortage. Food keeps 24: the newcomer rule (R4.1) needs 20 a
@@ -161,6 +172,7 @@ public final class SettlementSimulator {
         double fedFraction = demand == 0 ? 1.0 : (double) eaten / demand;
 
         spoilAndCap(settlement);
+        updateRequests(settlement, day);
 
         settlement.setThreat(settlement.threat() * THREAT_DECAY);
         for (Resident resident : settlement.residents()) {
@@ -356,6 +368,82 @@ public final class SettlementSimulator {
         ledger.add(occupation.produces(), output);
         flow.recordProduced(occupation.produces(), day, output);
         resident.needs().adjustPurpose(4);
+    }
+
+    /** The stock per resident below which a resource counts as short (the same test R4.3 uses). */
+    private static int wantedLevel(Settlement settlement, ResourceType type) {
+        return settlement.population() * (type == ResourceType.FOOD ? FOOD_WANTED_PER_HEAD : STOCK_WANTED_PER_HEAD);
+    }
+
+    private static String closedKey(ResourceType type) {
+        return "requestClosed:" + type.name().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /**
+     * R3.3: closes requests that are no longer needed or have lapsed, and posts one for each
+     * resource that has run short, if the treasury can fund the reward. The reward is taken out
+     * of the treasury at once and held, so a request is never a promise the village can't keep.
+     */
+    private static void updateRequests(Settlement settlement, long day) {
+        for (Request request : new ArrayList<>(settlement.requests())) {
+            boolean emptied = settlement.population() == 0;
+            boolean covered = !emptied && settlement.ledger().get(request.type()) >= wantedLevel(settlement, request.type());
+            if (emptied || covered || day - request.postedDay() >= REQUEST_EXPIRY_DAYS) {
+                settlement.requestMap().remove(request.type());
+                settlement.ledger().addTreasury(request.unpaid());
+                settlement.conditions().put(closedKey(request.type()), day);
+                settlement.record(day, HistoryEvent.Kind.MILESTONE, "The request for " + request.describe()
+                        + (emptied ? " was withdrawn: no one is left in " + settlement.name()
+                        : covered ? " was withdrawn: the stores recovered" : " lapsed")
+                        + (request.unpaid() > 0 ? ", and " + request.unpaid() + " emeralds went back to the treasury." : "."));
+            }
+        }
+        if (settlement.population() == 0) {
+            return;
+        }
+        for (ResourceType type : REQUESTABLE) {
+            if (settlement.requestMap().size() >= MAX_OPEN_REQUESTS) {
+                return;
+            }
+            int wanted = wantedLevel(settlement, type);
+            int stock = settlement.ledger().get(type);
+            Long closed = settlement.conditions().get(closedKey(type));
+            if (settlement.requestMap().containsKey(type) || stock >= wanted
+                    || (closed != null && day - closed < REQUEST_COOLDOWN_DAYS)) {
+                continue;
+            }
+            int units = Math.max(REQUEST_MIN_UNITS, 2 * wanted - stock);
+            int reward = (int) Math.ceil((double) units * REQUEST_PREMIUM / unitsPerEmerald(type));
+            if (!settlement.ledger().spendTreasury(reward)) {
+                continue; // the village can't afford to pay for it
+            }
+            Request request = new Request(type, units, 0, reward, 0, day);
+            settlement.requestMap().put(type, request);
+            settlement.record(day, HistoryEvent.Kind.MILESTONE, settlement.name() + " is asking for "
+                    + request.describe() + " and will pay " + reward + " emeralds for it.");
+        }
+    }
+
+    /**
+     * R3.3: a visitor hands over {@code units} of a resource. If the village has an open request for
+     * it, the units count toward it and the emeralds now owed are returned; the Minecraft layer
+     * hands them over. The units themselves are credited to the stores by the caller either way.
+     * Units beyond what the request needs are an ordinary donation and pay nothing.
+     */
+    public int fulfil(Settlement settlement, ResourceType type, int units, long day, String donor) {
+        Request request = settlement.requestMap().get(type);
+        if (request == null || units <= 0) {
+            return 0;
+        }
+        request.fill(units);
+        int owed = request.settle();
+        if (request.remaining() == 0) {
+            settlement.requestMap().remove(type);
+            settlement.conditions().put(closedKey(type), day);
+            settlement.record(day, HistoryEvent.Kind.MILESTONE, donor + " filled " + settlement.name()
+                    + "'s request for " + request.describe() + ".");
+        }
+        return owed;
     }
 
     /** R3.9: units of a resource that make one emerald when sold. Tools are worth the most. */

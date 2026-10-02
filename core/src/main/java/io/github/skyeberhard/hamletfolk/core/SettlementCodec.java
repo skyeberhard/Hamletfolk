@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 7;
+    public static final int FORMAT_VERSION = 8;
 
     private SettlementCodec() {
     }
@@ -75,6 +75,18 @@ public final class SettlementCodec {
         Map<String, Object> departed = new LinkedHashMap<>();
         s.departed().forEach((id, day) -> departed.put(id.toString(), day));
         map.put("departed", departed);
+        List<Object> requests = new ArrayList<>();
+        for (Request r : s.requests()) {
+            Map<String, Object> request = new LinkedHashMap<>();
+            request.put("type", r.type().name());
+            request.put("wanted", r.wanted());
+            request.put("filled", r.filled());
+            request.put("reward", r.reward());
+            request.put("paid", r.paid());
+            request.put("postedDay", r.postedDay());
+            requests.add(request);
+        }
+        map.put("requests", requests);
         map.put("history", history);
         return map;
     }
@@ -144,6 +156,23 @@ public final class SettlementCodec {
             s.turned().put(UUID.fromString(entry.getKey().toString()), decodeResident(asMap(entry.getValue())));
         }
 
+        // v7 -> v8: "requests" (R3.3) is optional, so an old save simply has none open.
+        for (Object o : asList(map.get("requests"))) {
+            Map<?, ?> r = asMap(o);
+            ResourceType type = ResourceType.valueOf(str(r, "type"));
+            // A damaged file must not mint or destroy emeralds: keep the numbers consistent, and if the
+            // same resource appears twice, give the earlier one's unpaid reward back to the treasury.
+            int wanted = Math.max(1, num(r, "wanted").intValue());
+            int filled = Math.max(0, Math.min(wanted, num(r, "filled").intValue()));
+            int reward = Math.max(0, num(r, "reward").intValue());
+            int paid = Math.max(0, Math.min(reward, num(r, "paid").intValue()));
+            Request earlier = s.requestMap().put(type,
+                    new Request(type, wanted, filled, reward, paid, num(r, "postedDay").longValue()));
+            if (earlier != null) {
+                s.ledger().addTreasury(earlier.unpaid());
+            }
+        }
+
         for (Map.Entry<?, ?> entry : asMap(map.get("departed")).entrySet()) {
             s.departed().put(UUID.fromString(entry.getKey().toString()), ((Number) entry.getValue()).longValue());
         }
@@ -200,6 +229,7 @@ public final class SettlementCodec {
                     turned.put(zombie.toString(), withPlausibleAge(asMap(resident), today)));
             migrated.put("turned", turned);
         }
+        // v7 -> v8: "requests" (R3.3) is optional, so an old save simply has none open.
         if (version < 7) {
             // v6 -> v7: there are two genders (R4.14). A resident an earlier build saved as
             // nonbinary gets one from their name, or from their id if the name is unrecognised.

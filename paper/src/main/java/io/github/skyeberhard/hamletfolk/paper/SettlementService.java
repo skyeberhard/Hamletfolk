@@ -4,6 +4,7 @@ import io.github.skyeberhard.hamletfolk.core.Appearance;
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
 import io.github.skyeberhard.hamletfolk.core.Occupation;
 import io.github.skyeberhard.hamletfolk.core.Resident;
+import io.github.skyeberhard.hamletfolk.core.ResourceType;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.SettlementRegistry;
 import io.github.skyeberhard.hamletfolk.core.SettlementSimulator;
@@ -64,6 +65,11 @@ final class SettlementService {
         }
         return registry.nearest(location.getWorld().getName(), location.getBlockX(), location.getBlockZ(),
                 config.settlementRadius());
+    }
+
+    /** R3.3: counts donated units toward the settlement's open request and returns the emeralds owed. */
+    int fulfilRequest(Settlement settlement, ResourceType type, int units, long day, String donor) {
+        return simulator.fulfil(settlement, type, units, day, donor);
     }
 
     /** Brings a settlement's simulation up to the current day of its world. */

@@ -4,6 +4,16 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R3.3: Village requests. When a resource (food, wood, stone, metal or tools) runs short and the
+  treasury can pay for it, the village posts a request for it (at least 8 units, up to double what
+  it wants), shown in `/settlement` and mentioned by residents, and the history records it. The
+  reward is taken out of the treasury and held when the request is posted, at twice the
+  merchant's rate, so it can always be paid. `/settlement donate` of the requested resource pays
+  the donor in emeralds in proportion to what they hand over, to the last one, and anything beyond
+  what is asked for is an ordinary donation. A request closes when the stores recover or after
+  30 days and the unpaid reward goes back to the treasury; the same resource then waits 7 days
+  before asking again. At most 3 are open. Save format is now 8 (open requests); an older save
+  has none. Paying the donor is Paper-only and unverified until a playtest (T27).
 - R3.9: New MERCHANT occupation. A merchant makes nothing but sells the village's surplus for
   emeralds into the treasury: up to 4 whole batches a day (fewer for an elder or an unhappy
   merchant), each earning one emerald, always starting with whichever resource has the most

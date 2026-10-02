@@ -15,7 +15,9 @@ class StorageTest {
     private Settlement village(int librarians) {
         Settlement s = registry.found("world", 0, 0, 0);
         for (int i = 0; i < librarians; i++) {
-            registry.enroll(s, UUID.randomUUID(), Occupation.LIBRARIAN, true, 0, null, null);
+            // Born in the far future of this run: aging (R4.15) would otherwise kill some off by day 60.
+            s.addResident(new Resident(UUID.randomUUID(), "Test", "Person", Gender.FEMALE, new Traits(50, 50, 50, 50),
+                    Occupation.LIBRARIAN, true, 10_000, null, null, Needs.initial()));
         }
         return s;
     }

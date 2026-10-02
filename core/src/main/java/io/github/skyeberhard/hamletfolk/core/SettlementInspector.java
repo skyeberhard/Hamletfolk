@@ -52,6 +52,13 @@ public final class SettlementInspector {
         }
         lines.add("Flow, last " + ResourceFlow.WINDOW_DAYS + " days: " + (flow.isEmpty() ? "none" : flow));
 
+        StringBuilder requests = new StringBuilder();
+        for (Request r : s.requests()) {
+            requests.append(requests.isEmpty() ? "" : ", ").append(r.filled()).append('/').append(r.describe())
+                    .append(" for ").append(r.reward()).append(" emeralds");
+        }
+        lines.add("Requests: " + (requests.isEmpty() ? "none" : requests));
+
         lines.add("Threat: " + Math.round(s.threat()));
         Map<String, Long> conditions = new TreeMap<>(s.conditions());
         lines.add("Conditions: " + (conditions.isEmpty() ? "none" : conditions.toString()));

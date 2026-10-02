@@ -32,6 +32,7 @@ public final class Settlement {
     /** Residents turned into zombie villagers, keyed by the zombie's entity id. They can be cured. */
     private final Map<UUID, Resident> turned = new LinkedHashMap<>();
     private final Map<UUID, Long> departed = new LinkedHashMap<>();
+    private final Map<ResourceType, Request> requests = new LinkedHashMap<>();
     private final List<UUID> newlyDeparted = new ArrayList<>();
     /** Ongoing or one-time conditions, keyed by name, valued by the day they began. */
     private final Map<String, Long> conditions = new HashMap<>();
@@ -117,6 +118,15 @@ public final class Settlement {
 
     Resident removeResident(UUID id) {
         return residents.remove(id);
+    }
+
+    /** R3.3: what the village is asking for right now, at most one request per resource. */
+    public Collection<Request> requests() {
+        return Collections.unmodifiableCollection(requests.values());
+    }
+
+    Map<ResourceType, Request> requestMap() {
+        return requests;
     }
 
     /**

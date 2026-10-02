@@ -85,7 +85,9 @@ class AdminToolsTest {
         assertTrue(report.contains(s.id().toString()), report);
         assertTrue(report.contains("world at 12, -34"), report);
         assertTrue(report.contains("Population: 2 (1 children"), report);
-        assertTrue(report.contains("treasury 7"), report);
+        // The village short of wood and stone has spent some of its 7 emeralds on requests (R3.3).
+        assertTrue(report.contains("treasury " + s.ledger().treasury()), report);
+        assertTrue(report.contains("Requests: ") && !report.contains("Requests: none"), report);
         assertTrue(report.contains("simulated through 3"), report);
         assertTrue(report.contains("Flow, last 7 days: food"), report);
         assertTrue(report.contains("FOUNDED"), report);

@@ -17,6 +17,11 @@ class MerchantTest {
                 job, true, 10_000, null, null, Needs.initial());
     }
 
+    /** Emeralds the merchant has earned: the treasury plus what the village has put aside for requests (R3.3). */
+    private static int earned(Settlement s) {
+        return s.ledger().treasury() + s.requests().stream().mapToInt(Request::reward).sum();
+    }
+
     /** Four residents (a storage limit of 140 for stone, 24 of it kept) with one merchant. */
     private Settlement village() {
         Settlement s = registry.found("world", 0, 0, 0);
@@ -37,7 +42,7 @@ class MerchantTest {
         int sold = 120 - s.ledger().get(ResourceType.STONE);
         assertTrue(sold > 0, "something should have sold");
         assertEquals(0, sold % SettlementSimulator.unitsPerEmerald(ResourceType.STONE), "whole batches only");
-        assertEquals(sold / SettlementSimulator.unitsPerEmerald(ResourceType.STONE), s.ledger().treasury());
+        assertEquals(sold / SettlementSimulator.unitsPerEmerald(ResourceType.STONE), earned(s));
         assertEquals(sold, s.flow().consumed(ResourceType.STONE, 1));
         assertTrue(s.ledger().get(ResourceType.STONE) >= kept);
     }
@@ -51,7 +56,8 @@ class MerchantTest {
         int each = SettlementSimulator.unitsPerEmerald(ResourceType.STONE);
         assertTrue(s.ledger().get(ResourceType.STONE) >= kept, "sold into the reserve");
         assertTrue(s.ledger().get(ResourceType.STONE) < kept + each, "left a whole batch of surplus unsold");
-        assertEquals((120 - s.ledger().get(ResourceType.STONE)) / each, s.ledger().treasury());
+        // Earnings may have gone to requests for what the village lacks (R3.3), so count both.
+        assertEquals((120 - s.ledger().get(ResourceType.STONE)) / each, earned(s));
     }
 
     @Test
@@ -72,7 +78,7 @@ class MerchantTest {
             simulator.simulateTo(s, day, 100);
             assertTrue(simulator.newcomerDue(s, 5), "no newcomer due on day " + day + ", food " + s.ledger().get(ResourceType.FOOD));
         }
-        assertTrue(s.ledger().treasury() > 0, "the merchant should still have sold the surplus");
+        assertTrue(earned(s) > 0, "the merchant should still have sold the surplus");
     }
 
     @Test

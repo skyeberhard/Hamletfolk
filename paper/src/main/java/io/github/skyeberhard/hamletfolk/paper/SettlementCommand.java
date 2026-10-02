@@ -2,6 +2,7 @@ package io.github.skyeberhard.hamletfolk.paper;
 
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
 import io.github.skyeberhard.hamletfolk.core.LifeStage;
+import io.github.skyeberhard.hamletfolk.core.Request;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.ResourceMapper;
 import io.github.skyeberhard.hamletfolk.core.ResourceType;
@@ -17,6 +18,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -106,6 +108,10 @@ final class SettlementCommand implements TabExecutor {
         }
         line(player, "Stores", stock.toString());
         line(player, "Treasury", s.ledger().treasury() + " emeralds");
+        for (Request request : s.requests()) {
+            line(player, "Wanted", request.remaining() + " more " + request.type().name().toLowerCase(Locale.ROOT)
+                    + " (" + request.unpaid() + " emeralds on offer), /settlement donate");
+        }
         String flow = flowSummary(s);
         if (!flow.isEmpty()) {
             line(player, "Last " + s.flowDays() + " days", flow);
@@ -222,9 +228,17 @@ final class SettlementCommand implements TabExecutor {
             rest.setAmount(held - amount);
             player.getInventory().setItemInMainHand(rest);
         }
-        s.recordDonation(SettlementService.day(player.getWorld()), player.getName(), amount, itemName);
+        long today = SettlementService.day(player.getWorld());
+        s.recordDonation(today, player.getName(), amount, itemName);
+        // R3.3: a donation of something the village asked for is paid for out of the request.
+        int paid = emeralds > 0 ? 0 : service.fulfilRequest(s, value.get().type(), credited, today, player.getName());
+        // In stacks of at most 64: a big request can pay more than a stack, and an oversized item is not safe to drop.
+        for (int left = paid; left > 0; left -= 64) {
+            player.getInventory().addItem(new ItemStack(Material.EMERALD, Math.min(64, left)))
+                    .values().forEach(over -> player.getWorld().dropItem(player.getLocation(), over));
+        }
         player.sendMessage(Component.text("The people of " + s.name() + " thank you. (+" + credited + " "
-                + unitName + ")", NamedTextColor.GREEN));
+                + unitName + (paid > 0 ? "; they pay you " + paid + " emeralds for it" : "") + ")", NamedTextColor.GREEN));
         service.plugin().requestSave();
     }
 

@@ -86,6 +86,11 @@ public final class Dialogue {
 
         parentLine(resident, settlement).ifPresent(options::add);
 
+        settlement.requests().stream().findFirst().ifPresent(request -> options.add("We're short of "
+                + request.type().name().toLowerCase(Locale.ROOT) + ". " + settlement.name() + " will pay "
+                + request.unpaid() + " emeralds for " + request.remaining()
+                + " more, if a traveller can spare some."));
+
         int food = settlement.ledger().get(ResourceType.FOOD);
         if (food < settlement.population() * 3) {
             options.add("Stores are running thin. A few more farmers wouldn't hurt.");

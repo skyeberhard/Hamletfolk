@@ -34,6 +34,15 @@ public final class Ledger {
         treasury += emeralds;
     }
 
+    /** Takes {@code emeralds} out of the treasury if it holds that many; returns whether it did. */
+    boolean spendTreasury(int emeralds) {
+        if (emeralds < 0 || emeralds > treasury) {
+            return false;
+        }
+        treasury -= emeralds;
+        return true;
+    }
+
     Map<ResourceType, Integer> stock() {
         return stock;
     }
