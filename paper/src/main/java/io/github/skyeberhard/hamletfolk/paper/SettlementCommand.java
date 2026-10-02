@@ -1,5 +1,6 @@
 package io.github.skyeberhard.hamletfolk.paper;
 
+import io.github.skyeberhard.hamletfolk.core.Building;
 import io.github.skyeberhard.hamletfolk.core.Donation;
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
 import io.github.skyeberhard.hamletfolk.core.LifeStage;
@@ -28,7 +29,7 @@ import org.bukkit.inventory.meta.Damageable;
 
 /** /settlement [info|history|residents|donate [amount|all]] — about the settlement you're standing in; admin works anywhere. */
 final class SettlementCommand implements TabExecutor {
-    private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate");
+    private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate", "buildings");
     private static final int EVENTS_PER_PAGE = 3;
     /** Vanilla's limit for a written book; more and the client refuses it. */
     private static final int MAX_BOOK_PAGES = 100;
@@ -65,6 +66,7 @@ final class SettlementCommand implements TabExecutor {
             case "history" -> history(player, settlement);
             case "residents" -> residents(player, settlement);
             case "donate" -> donate(player, settlement, args);
+            case "buildings" -> buildings(player, settlement);
             default -> {
                 return false;
             }
@@ -175,6 +177,26 @@ final class SettlementCommand implements TabExecutor {
                     : "child";
             player.sendMessage(Component.text(" " + r.fullName(), NamedTextColor.WHITE)
                     .append(Component.text(" — " + role + " (" + r.gender().pronouns() + ")", NamedTextColor.GRAY)));
+        }
+    }
+
+    /** R2.1: /settlement buildings lists what players have registered with signs. */
+    private void buildings(Player player, Settlement s) {
+        if (s.buildings().isEmpty()) {
+            player.sendMessage(Component.text("No buildings are registered in " + s.name() + ". Place a sign reading "
+                    + "[Farm], [Smithy], [Mine], [House] or [Guard Post] inside the village to register one.", NamedTextColor.GRAY));
+            return;
+        }
+        player.sendMessage(Component.text("Buildings of " + s.name() + ":", NamedTextColor.GOLD));
+        int shown = 0;
+        for (Building b : s.buildings()) {
+            if (shown++ == 25) {
+                player.sendMessage(Component.text("...and " + (s.buildings().size() - 25) + " more.", NamedTextColor.GRAY));
+                break;
+            }
+            player.sendMessage(Component.text(" " + b.type().label(), NamedTextColor.WHITE)
+                    .append(Component.text(" at " + b.x() + ", " + b.y() + ", " + b.z() + " (day " + b.registeredDay()
+                            + ", " + b.registeredBy() + ")", NamedTextColor.GRAY)));
         }
     }
 

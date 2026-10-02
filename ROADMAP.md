@@ -78,7 +78,7 @@ Goal: what players build shapes what the village can do.
 
 | ID | Issue | Item | Done when | Status |
 |---|---|---|---|---|
-| R2.1 | [#24](https://github.com/skyeberhard/Hamletfolk/issues/24) | Sign registration | A `[Farm]`, `[Smithy]`, `[Mine]`, `[House]` or `[Guard Post]` sign inside a settlement registers a building; breaking it removes it; `/settlement buildings` lists them | Planned |
+| R2.1 | [#24](https://github.com/skyeberhard/Hamletfolk/issues/24) | Sign registration | A `[Farm]`, `[Smithy]`, `[Mine]`, `[House]` or `[Guard Post]` sign inside a settlement registers a building, breaking the sign removes it, and `/settlement buildings` lists them. | Done |
 | R2.2 | [#25](https://github.com/skyeberhard/Hamletfolk/issues/25) | Housing capacity | Beds within the settlement set a housing capacity shown in `/settlement` | Planned |
 | R2.3 | [#26](https://github.com/skyeberhard/Hamletfolk/issues/26) | Buildings affect output | A registered mine lets an unemployed resident become a miner who produces stone and metal, so smiths can work without donations | Planned |
 | R2.4 | [#27](https://github.com/skyeberhard/Hamletfolk/issues/27) | Buildings inferred from blocks | Placing a workstation, bed and roof is recognized without a sign; analysis runs only when blocks in the area change | Planned |

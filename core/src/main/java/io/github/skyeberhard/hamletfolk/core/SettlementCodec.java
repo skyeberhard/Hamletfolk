@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 8;
+    public static final int FORMAT_VERSION = 9;
 
     private SettlementCodec() {
     }
@@ -87,6 +87,18 @@ public final class SettlementCodec {
             requests.add(request);
         }
         map.put("requests", requests);
+        List<Object> buildings = new ArrayList<>();
+        for (Building b : s.buildings()) {
+            Map<String, Object> building = new LinkedHashMap<>();
+            building.put("type", b.type().name());
+            building.put("x", b.x());
+            building.put("y", b.y());
+            building.put("z", b.z());
+            building.put("day", b.registeredDay());
+            building.put("by", b.registeredBy());
+            buildings.add(building);
+        }
+        map.put("buildings", buildings);
         map.put("history", history);
         return map;
     }
@@ -156,6 +168,13 @@ public final class SettlementCodec {
             s.turned().put(UUID.fromString(entry.getKey().toString()), decodeResident(asMap(entry.getValue())));
         }
 
+        // v8 -> v9: "buildings" (R2.1) is optional, so an old save simply has none registered.
+        for (Object o : asList(map.get("buildings"))) {
+            Map<?, ?> b = asMap(o);
+            s.addBuilding(new Building(BuildingType.valueOf(str(b, "type")), num(b, "x").intValue(),
+                    num(b, "y").intValue(), num(b, "z").intValue(), num(b, "day").longValue(), str(b, "by")));
+        }
+
         // v7 -> v8: "requests" (R3.3) is optional, so an old save simply has none open.
         for (Object o : asList(map.get("requests"))) {
             Map<?, ?> r = asMap(o);
@@ -211,6 +230,7 @@ public final class SettlementCodec {
         }
         // v2 -> v3: "count" and "actor" on history events are optional; old events read as count 1, no actor.
         // v3 -> v4: "flow" (R3.7) is optional; an old save simply starts with no flow history.
+        // v8 -> v9: "buildings" (R2.1) is optional, so an old save simply has none registered.
         if (version < 5) {
             // v4 -> v5: residents gain a gender (R4.14).
             migrated.put("residents", withGenders(migrated.get("residents")));

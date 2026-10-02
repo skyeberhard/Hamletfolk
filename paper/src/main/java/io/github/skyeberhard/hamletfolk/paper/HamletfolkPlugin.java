@@ -54,6 +54,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
         service = new SettlementService(this, registry, HamletfolkConfig.from(getConfig()));
         getServer().getPluginManager().registerEvents(new VillagerListener(this, service), this);
         getServer().getPluginManager().registerEvents(new RaidListener(service), this);
+        getServer().getPluginManager().registerEvents(new BuildingListener(service), this);
 
         SettlementCommand command = new SettlementCommand(service);
         PluginCommand settlement = Objects.requireNonNull(getCommand("settlement"));

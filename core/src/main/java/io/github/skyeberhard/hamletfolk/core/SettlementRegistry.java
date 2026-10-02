@@ -211,6 +211,16 @@ public final class SettlementRegistry {
                 : Optional.ofNullable(settlements.get(settlementId).turned().remove(zombieId));
     }
 
+    /** R2.1: the settlement that has a building registered at a sign position, if any. */
+    public Optional<Settlement> settlementWithBuildingAt(String world, int x, int y, int z) {
+        for (Settlement settlement : settlements.values()) {
+            if (settlement.world().equals(world) && settlement.hasBuildingAt(x, y, z)) {
+                return Optional.of(settlement);
+            }
+        }
+        return Optional.empty();
+    }
+
     /** R4.15: whether this id belonged to a resident who died of old age, so their villager should be removed. */
     public boolean isDeparted(UUID residentId) {
         for (Settlement settlement : settlements.values()) {

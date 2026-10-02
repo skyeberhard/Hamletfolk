@@ -1,6 +1,8 @@
 package io.github.skyeberhard.hamletfolk.paper;
 
 import io.github.skyeberhard.hamletfolk.core.Appearance;
+import io.github.skyeberhard.hamletfolk.core.Building;
+import io.github.skyeberhard.hamletfolk.core.BuildingType;
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
 import io.github.skyeberhard.hamletfolk.core.Occupation;
 import io.github.skyeberhard.hamletfolk.core.PriceModel;
@@ -20,6 +22,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.HeightMap;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.type.Bed;
@@ -109,6 +112,42 @@ final class SettlementService {
         }
     }
 
+    /** R2.1: registers the building a sign marks. */
+    Settlement.Registration registerBuilding(Settlement settlement, BuildingType type, Location sign, String by) {
+        long day = settlement.effectiveDay(day(sign.getWorld()));
+        // A sign belongs to one settlement: if another one (an older one, say) has it registered, that is dropped.
+        registry.settlementWithBuildingAt(sign.getWorld().getName(), sign.getBlockX(), sign.getBlockY(), sign.getBlockZ())
+                .filter(other -> other != settlement)
+                .ifPresent(other -> other.removeBuilding(sign.getBlockX(), sign.getBlockY(), sign.getBlockZ(), day));
+        return settlement.registerBuilding(new Building(type, sign.getBlockX(), sign.getBlockY(), sign.getBlockZ(), day, by));
+    }
+
+    /** R2.1: removes whatever building is registered at a sign position, from whichever settlement has it. */
+    Optional<Building> removeBuildingAt(World world, int x, int y, int z) {
+        return registry.settlementWithBuildingAt(world.getName(), x, y, z)
+                .flatMap(s -> s.removeBuilding(x, y, z, s.effectiveDay(day(world))));
+    }
+
+    /**
+     * R2.1: drops registered buildings whose sign is gone (destroyed by physics, an explosion, a piston or an
+     * editing tool, none of which fire a break event). Only looks in chunks that are loaded.
+     */
+    private void pruneBuildings(Settlement settlement, World world) {
+        boolean pruned = false;
+        for (Building building : new ArrayList<>(settlement.buildings())) {
+            if (!world.isChunkLoaded(building.x() >> 4, building.z() >> 4)) {
+                continue;
+            }
+            if (!Tag.ALL_SIGNS.isTagged(world.getBlockAt(building.x(), building.y(), building.z()).getType())) {
+                settlement.removeBuilding(building.x(), building.y(), building.z(), settlement.effectiveDay(day(world)));
+                pruned = true;
+            }
+        }
+        if (pruned) {
+            plugin.requestSave();
+        }
+    }
+
     /** R3.3: counts donated units toward the settlement's open request and returns the emeralds owed. */
     int fulfilRequest(Settlement settlement, ResourceType type, int units, long day, String donor, int maxPayout) {
         return simulator.fulfil(settlement, type, units, day, donor, maxPayout);
@@ -136,6 +175,7 @@ final class SettlementService {
             World world = Bukkit.getWorld(settlement.world());
             if (world != null && inScope(world)) {
                 refreshAppearance(settlement, world);
+                pruneBuildings(settlement, world);
             }
         }
     }

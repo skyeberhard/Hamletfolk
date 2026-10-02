@@ -22,6 +22,7 @@ public record HistoryEvent(long day, Kind kind, String text, int count, String a
         SHORTAGE(false),
         MILESTONE(false),
         DONATION(false),
+        BUILDING(false),
         ABANDONED(true);
 
         private final boolean major;

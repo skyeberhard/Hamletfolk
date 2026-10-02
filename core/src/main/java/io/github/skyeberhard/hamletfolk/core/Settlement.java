@@ -33,6 +33,7 @@ public final class Settlement {
     private final Map<UUID, Resident> turned = new LinkedHashMap<>();
     private final Map<UUID, Long> departed = new LinkedHashMap<>();
     private final Map<ResourceType, Request> requests = new LinkedHashMap<>();
+    private final Map<String, Building> buildings = new LinkedHashMap<>();
     private final List<UUID> newlyDeparted = new ArrayList<>();
     /** Ongoing or one-time conditions, keyed by name, valued by the day they began. */
     private final Map<String, Long> conditions = new HashMap<>();
@@ -118,6 +119,88 @@ public final class Settlement {
 
     Resident removeResident(UUID id) {
         return residents.remove(id);
+    }
+
+    /** Most buildings one settlement can have registered, so a sign-spamming player cannot bloat the save. */
+    public static final int MAX_BUILDINGS = 200;
+
+    /** What registering a building did. */
+    public enum Registration {
+        /** A new building, or a different kind of building replacing one at the same sign. */
+        REGISTERED,
+        /** The same kind of building was already registered at that sign. */
+        ALREADY_REGISTERED,
+        /** The settlement already has {@link #MAX_BUILDINGS}. */
+        TOO_MANY
+    }
+
+    /**
+     * R2.1: registers a building at its sign, and writes it into the history. A second registration at
+     * the same sign replaces the first if it names a different kind of building, and is ignored if not.
+     */
+    public Registration registerBuilding(Building building) {
+        Building existing = buildings.get(building.key());
+        if (existing != null && existing.type() == building.type()) {
+            return Registration.ALREADY_REGISTERED;
+        }
+        if (existing == null && buildings.size() >= MAX_BUILDINGS) {
+            return Registration.TOO_MANY;
+        }
+        buildings.put(building.key(), building);
+        recordBuildingChange(building.registeredDay(), building.registeredBy(), building.registeredBy() + " registered a "
+                + building.type().label().toLowerCase(java.util.Locale.ROOT) + " in " + name + ".");
+        return Registration.REGISTERED;
+    }
+
+    /** R2.1: removes the building whose sign is at a position (it was broken or changed), and notes it in the history. */
+    public Optional<Building> removeBuilding(int x, int y, int z, long day) {
+        Building removed = buildings.remove(Building.key(x, y, z));
+        if (removed != null) {
+            recordBuildingChange(day, removed.registeredBy(), "The " + removed.type().label().toLowerCase(java.util.Locale.ROOT)
+                    + " registered by " + removed.registeredBy() + " in " + name + " was taken down.");
+        }
+        return Optional.ofNullable(removed);
+    }
+
+    /**
+     * Writes a building change into the history, merging it into the same player's earlier building
+     * change from the last {@code DONATION_MERGE_DAYS} days ("Skye changed 14 buildings this week"), so a
+     * player toggling signs cannot push everything else out of the bounded history.
+     */
+    private void recordBuildingChange(long day, String actor, String text) {
+        day = effectiveDay(day);
+        for (int i = history.size() - 1; i >= 0; i--) {
+            HistoryEvent event = history.get(i);
+            if (event.day() <= day - DONATION_MERGE_DAYS) {
+                break;
+            }
+            if (event.kind() == HistoryEvent.Kind.BUILDING && actor.equals(event.actor())) {
+                int count = event.count() + 1;
+                history.set(i, new HistoryEvent(event.day(), event.kind(),
+                        actor + " changed " + count + " buildings this week.", count, actor));
+                return;
+            }
+        }
+        add(new HistoryEvent(day, HistoryEvent.Kind.BUILDING, text, 1, actor));
+    }
+
+    /** Every registered building, in the order they were registered. */
+    public Collection<Building> buildings() {
+        return Collections.unmodifiableCollection(buildings.values());
+    }
+
+    /** How many buildings of a kind are registered. */
+    public int buildingCount(BuildingType type) {
+        return (int) buildings.values().stream().filter(b -> b.type() == type).count();
+    }
+
+    public boolean hasBuildingAt(int x, int y, int z) {
+        return buildings.containsKey(Building.key(x, y, z));
+    }
+
+    /** Loads a saved building without writing history. */
+    void addBuilding(Building building) {
+        buildings.put(building.key(), building);
     }
 
     /** R3.3: what the village is asking for right now, at most one request per resource. */

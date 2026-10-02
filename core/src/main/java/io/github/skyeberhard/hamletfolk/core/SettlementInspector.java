@@ -59,6 +59,15 @@ public final class SettlementInspector {
         }
         lines.add("Requests: " + (requests.isEmpty() ? "none" : requests));
 
+        StringBuilder buildings = new StringBuilder();
+        for (BuildingType type : BuildingType.values()) {
+            int count = s.buildingCount(type);
+            if (count > 0) {
+                buildings.append(buildings.isEmpty() ? "" : ", ").append(count).append(' ').append(type.label().toLowerCase(Locale.ROOT));
+            }
+        }
+        lines.add("Buildings: " + (buildings.isEmpty() ? "none" : buildings));
+
         lines.add("Threat: " + Math.round(s.threat()));
         Map<String, Long> conditions = new TreeMap<>(s.conditions());
         lines.add("Conditions: " + (conditions.isEmpty() ? "none" : conditions.toString()));

@@ -4,6 +4,19 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R2.1: Players can now register buildings with signs. A sign reading `[Farm]`, `[Smithy]`, `[Mine]`,
+  `[House]` or `[Guard Post]` (any capitalisation, brackets required) inside a settlement registers that
+  building at the sign, the sign is tidied to the standard text, and the history records it (one
+  player's building changes in a week are merged into a single line, so signs cannot flood the
+  history). A sign has two sides and the front wins if both name a building. Breaking the sign
+  removes the building, and so does editing it so that neither side names one. A sign destroyed any
+  other way (physics, an explosion) is dropped within a few seconds, in loaded chunks. Registering the
+  same sign twice does nothing, changing its kind replaces the building, and a settlement holds at most
+  200. `/settlement buildings` lists them and `/settlement admin inspect` counts them. Nothing yet checks
+  that a registered "farm" is really one (R2.4), and nothing yet uses them (R2.2, R2.3). Save format is
+  now 9 (the buildings); an older save has none. The rules are in core (`BuildingType`, `Building`,
+  `Settlement.registerBuilding`, tested); the sign listener and command are unverified until a
+  playtest (T32).
 - R3.11: `/settlement donate` now respects the storage limits (R3.10). On its own it says how much
   room the stores have for what you are holding. When you donate, it only takes the items that fit
   and are worth something; the rest stay with you, and it says so. A donation to a full store is
