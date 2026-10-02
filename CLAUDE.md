@@ -64,10 +64,6 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
 - **The treasury has one spending so far:** merchants (R3.9) fill it and requests (R3.3) spend it
   (the reward is held aside when a request is posted); R4.8 (builder) and R5.1 (guards) are next. STONE and GOODS now have an outlet in the
   merchant. TOOLS wear out (R3.6).
-- **Request payouts can still be farmed across resources** (R3.13). R3.12 makes one material worth the
-  same in any form, but a TOOLS request pays 2 emeralds per tool tier while wood pays a third of an
-  emerald a unit, so crafting raw wood or stone into tools pays far more than donating it raw. The
-  treasury caps the total, so no emeralds are created. Metal and tools are short everywhere until R2.3.
 - **Tool wear penalty is off** (`SettlementSimulator.toollessPenalty`, false by default): no
   occupation produces METAL until R2.3, so smiths can't make tools and a penalty would starve
   every village. Turn it on as part of R2.3; then R3.6 can be marked Done.
@@ -75,16 +71,17 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   (R1.10); callers must handle it.
 - **Line endings:** working copies are CRLF (autocrlf) while the repo stores LF, so git warns
   about "LF will be replaced by CRLF". Harmless.
-- The Paper module now compiles on the local machine (the Paper repo is reachable), but it has
-  **still never actually run**; everything in it is untested until R1.1.
+- The Paper module compiles on the local machine and has been run (playtest 2026-10-01: the server
+  loads the plugin, a format-4 save migrated to 8, `/settlement`, talking, requests and donation
+  payouts work). Most of it is still unplaytested: see docs/TESTING.md T1-T29.
 
 ## Where things stand
 
 - Done: M0; M1 items R1.2, R1.3, R1.4, R1.5, R1.6, R1.9, R1.10, R1.13, R1.14, R1.16, R1.17,
-  R1.18, R1.19, R1.20, R1.21, R1.22, R1.23; M3 items R3.3, R3.7, R3.9, R3.10, R3.12 (R3.6 partly, see above); M4 items R4.1, R4.3, R4.4, R4.5, R4.9, R4.10, R4.14, R4.15, R4.16.
+  R1.18, R1.19, R1.20, R1.21, R1.22, R1.23; M3 items R3.3, R3.7, R3.9, R3.10, R3.12, R3.13 (R3.6 partly, see above); M4 items R4.1, R4.3, R4.4, R4.5, R4.9, R4.10, R4.14, R4.15, R4.16.
   Save format is 8 (R3.3 added requests; R1.21 added event count/actor, R3.7 added flow, R4.14 added gender, R4.15 added departed ids; 7 dropped the nonbinary gender).
 - **Next, highest value:** R1.1 (first playtest — the Paper layer has never run; scenarios
-  T1–T28 in docs/TESTING.md, of which T17 (admin), T18 (worlds), T19 (backups), T26 (appearance), T27 (requests) and T28 (donation values) are
+  T1–T29 in docs/TESTING.md, of which T17 (admin), T18 (worlds), T19 (backups), T26 (appearance), T27 (requests) and T28 (donation values) and T29 (tool requests) are
   Paper-only). After that R1.8, R1.24 (needs a decision), R1.7 and R1.12, then M2 buildings.
 - On a local machine, much of R1.1 can be driven from the server console (`/summon`, `/time add`,
   restarts, reading `plugins/Hamletfolk/settlements.json`); player-only steps (sneak +

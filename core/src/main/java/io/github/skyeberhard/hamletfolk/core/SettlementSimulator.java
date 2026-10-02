@@ -431,11 +431,24 @@ public final class SettlementSimulator {
      * Units beyond what the request needs are an ordinary donation and pay nothing.
      */
     public int fulfil(Settlement settlement, ResourceType type, int units, long day, String donor) {
+        return fulfil(settlement, type, units, day, donor, Integer.MAX_VALUE);
+    }
+
+    /**
+     * R3.13: as above, but never paying more than {@code maxPayout} emeralds for this delivery. When
+     * the cap binds, the delivery only counts for as many units as it can pay for, so what is
+     * left stays in the request and nothing is lost or carried over. The units still reach the stores.
+     */
+    public int fulfil(Settlement settlement, ResourceType type, int units, long day, String donor, int maxPayout) {
         Request request = settlement.requestMap().get(type);
         if (request == null || units <= 0) {
             return 0;
         }
-        request.fill(units);
+        int counted = Math.min(units, request.remaining());
+        while (counted > 0 && request.owedWith(counted) > maxPayout) {
+            counted--;
+        }
+        request.fill(counted);
         int owed = request.settle();
         if (request.remaining() == 0) {
             settlement.requestMap().remove(type);
@@ -444,6 +457,25 @@ public final class SettlementSimulator {
                     + "'s request for " + request.describe() + ".");
         }
         return owed;
+    }
+
+    /**
+     * R3.13: the most a request may pay for a crafted tool in the given condition: what the raw
+     * materials in it would pay on a request of their own at the same rates, in whole emeralds. So
+     * crafting cheap materials into a tool never pays more than handing them in as they are. Anything
+     * that is not a tool has no cap.
+     */
+    public static int maxPayout(String material, double condition) {
+        java.util.List<ResourceMapper.Value> parts = ResourceMapper.toolMaterials(material);
+        if (parts.isEmpty()) {
+            return Integer.MAX_VALUE;
+        }
+        double emeralds = 0;
+        for (ResourceMapper.Value part : parts) {
+            double units = (double) part.numerator() / part.denominator();
+            emeralds += units * REQUEST_PREMIUM / unitsPerEmerald(part.type());
+        }
+        return (int) Math.floor(emeralds * Math.max(0.0, Math.min(1.0, condition)) + 1e-9);
     }
 
     /** R3.9: units of a resource that make one emerald when sold. Tools are worth the most. */

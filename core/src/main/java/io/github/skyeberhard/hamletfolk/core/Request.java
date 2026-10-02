@@ -71,6 +71,13 @@ public final class Request {
         return taken;
     }
 
+    /** The emeralds that would be owed if {@code extraUnits} more were delivered now, without delivering them. */
+    int owedWith(int extraUnits) {
+        int total = filled + Math.min(Math.max(0, extraUnits), remaining());
+        int due = total == wanted ? reward : (int) ((long) reward * total / wanted);
+        return due - paid;
+    }
+
     /**
      * The emeralds now owed for what has been filled, marked as paid: the share of the reward
      * matching the share delivered, rounded down, with the last delivery taking the remainder.

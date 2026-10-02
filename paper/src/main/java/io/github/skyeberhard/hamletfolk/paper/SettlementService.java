@@ -68,8 +68,8 @@ final class SettlementService {
     }
 
     /** R3.3: counts donated units toward the settlement's open request and returns the emeralds owed. */
-    int fulfilRequest(Settlement settlement, ResourceType type, int units, long day, String donor) {
-        return simulator.fulfil(settlement, type, units, day, donor);
+    int fulfilRequest(Settlement settlement, ResourceType type, int units, long day, String donor, int maxPayout) {
+        return simulator.fulfil(settlement, type, units, day, donor, maxPayout);
     }
 
     /** Brings a settlement's simulation up to the current day of its world. */

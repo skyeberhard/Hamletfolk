@@ -4,6 +4,15 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R3.13: A request never pays more for a crafted tool than its raw materials would on requests
+  of their own, at the same rates. A tool is valued from its recipe (a pickaxe or axe is 3 head
+  material and 2 sticks, a hoe or sword 2 head, a shovel 1 head; the head is planks, cobblestone
+  or ingots by tier), worn tools in proportion to their wear, and diamond or netherite heads count
+  as nothing because villages don't accept diamonds raw. When that cap is below what the tier
+  alone would pay, the delivery only counts for as many tool units as it can pay for, so the
+  rest stays on the request and no emeralds are lost or carried over; the tool still goes into
+  the stores. A tool pays at most its materials' value in whole tool units: a wooden or stone tool
+  pays nothing, and an iron pickaxe 2 emeralds against 6 before. Reading the tool's wear is Paper-only and unverified until a playtest (T29).
 - R3.12: Donations are valued by what the item is made of. Wood counts in planks: a log, wood
   block or stem is 4, a plank 1, a stick half and a bamboo stalk a quarter, so the same timber is
   worth the same in any form and a request (R3.3) pays the same for a log, four planks or eight

@@ -142,6 +142,38 @@ public final class ResourceMapper {
         }
     }
 
+    /**
+     * R3.13: the raw materials in a crafted tool, as whole-recipe totals: the head (3 for a pickaxe or
+     * axe, 2 for a hoe or sword, 1 for a shovel) of the tier's material, and the sticks (2, or 1 for a
+     * sword). Diamond and netherite heads are not raw materials a village accepts, so they count as
+     * nothing. Empty for anything that is not a tool.
+     */
+    public static java.util.List<Value> toolMaterials(String material) {
+        String name = normalize(material);
+        if (classify(name).orElse(null) != ResourceType.TOOLS) {
+            return java.util.List.of();
+        }
+        String kind = name.substring(name.indexOf('_') + 1);
+        int head = switch (kind) {
+            case "PICKAXE", "AXE" -> 3;
+            case "HOE", "SWORD" -> 2;
+            default -> 1; // shovel
+        };
+        int sticks = "SWORD".equals(kind) ? 1 : 2;
+        ResourceType headType = switch (name.substring(0, Math.max(0, name.indexOf('_')))) {
+            case "WOODEN" -> ResourceType.WOOD;
+            case "STONE" -> ResourceType.STONE;
+            case "IRON", "GOLDEN", "COPPER" -> ResourceType.METAL;
+            default -> null;
+        };
+        java.util.List<Value> parts = new java.util.ArrayList<>();
+        if (headType != null) {
+            parts.add(new Value(headType, head, 1));
+        }
+        parts.add(new Value(ResourceType.WOOD, sticks, 2)); // a stick is half a plank
+        return parts;
+    }
+
     private static int toolTier(String name) {
         int underscore = name.indexOf('_');
         return underscore < 0 ? 1 : TOOL_TIERS.getOrDefault(name.substring(0, underscore), 1);

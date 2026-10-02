@@ -7,6 +7,7 @@ import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.ResourceMapper;
 import io.github.skyeberhard.hamletfolk.core.ResourceType;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
+import io.github.skyeberhard.hamletfolk.core.SettlementSimulator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -192,8 +193,10 @@ final class SettlementCommand implements TabExecutor {
         String itemName = material.replace('_', ' ');
 
         int emeralds = ResourceMapper.currencyValue(material);
+        // Read the item's wear once, before anything is taken from the hand.
+        double wear = condition(item);
         Optional<ResourceMapper.Value> value = emeralds > 0 ? Optional.empty()
-                : ResourceMapper.value(material, condition(item));
+                : ResourceMapper.value(material, wear);
         if (emeralds == 0 && value.isEmpty()) {
             player.sendMessage(Component.text(s.name() + " has no use for " + itemName + ".", NamedTextColor.GRAY));
             return;
@@ -246,7 +249,13 @@ final class SettlementCommand implements TabExecutor {
         long today = SettlementService.day(player.getWorld());
         s.recordDonation(today, player.getName(), amount, itemName);
         // R3.3: a donation of something the village asked for is paid for out of the request.
-        int paid = emeralds > 0 ? 0 : service.fulfilRequest(s, value.get().type(), credited, today, player.getName());
+        // R3.13: a crafted tool never pays more than the raw materials in it would.
+        int toolCap = SettlementSimulator.maxPayout(material, wear);
+        if (toolCap != Integer.MAX_VALUE) {
+            toolCap = (int) Math.min(Integer.MAX_VALUE, (long) toolCap * amount); // the cap is per tool; a stack is several
+        }
+        int paid = emeralds > 0 ? 0 : service.fulfilRequest(s, value.get().type(), credited, today, player.getName(),
+                toolCap);
         // In stacks of at most 64: a big request can pay more than a stack, and an oversized item is not safe to drop.
         for (int left = paid; left > 0; left -= 64) {
             player.getInventory().addItem(new ItemStack(Material.EMERALD, Math.min(64, left)))
