@@ -50,9 +50,11 @@ class ToolWearTest {
 
     @Test
     void toollessGatherersProduceLess() {
-        Settlement equipped = village(Occupation.MASON, 10);
-        equipped.ledger().add(ResourceType.TOOLS, 1_000_000);
+        // The same ten people and the same dice in both villages, so only the tools differ. Two independently
+        // random villages differ in average work ethic by about 9%, which hid a 25% penalty about 1 run in 300.
         Settlement bare = village(Occupation.MASON, 10);
+        Settlement equipped = SettlementCodec.decode(SettlementCodec.encode(bare));
+        equipped.ledger().add(ResourceType.TOOLS, 1_000_000);
         // Each flow figure covers a 7-day window, so add up five separate windows: one window
         // of ten workers is small enough for the dice to hide a 25% penalty.
         int withTools = 0;

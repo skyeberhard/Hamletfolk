@@ -35,7 +35,9 @@ class SimulationPerformanceTest {
             }
             settlements.add(settlement);
         }
-        SettlementSimulator simulator = new SettlementSimulator();
+        // Old-age deaths off: with them on (R4.15) these residents are all dead within ~100 days and the
+        // measured days would be empty, abandoned villages.
+        SettlementSimulator simulator = SettlementSimulator.withOldAgeDeaths(false);
 
         long day = 0;
         for (int warmup = 0; warmup < 200; warmup++) {
