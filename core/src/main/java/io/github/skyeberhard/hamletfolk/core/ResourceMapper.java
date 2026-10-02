@@ -63,6 +63,22 @@ public final class ResourceMapper {
             return (int) ((long) Math.max(0, count) * numerator / denominator);
         }
 
+        /** The fewest items worth at least {@code units} (rounding up): what a donation needs to give to earn them. */
+        public int itemsFor(int units) {
+            if (units <= 0 || numerator <= 0) {
+                return 0;
+            }
+            return (int) Math.min(Integer.MAX_VALUE, ((long) units * denominator + numerator - 1) / numerator);
+        }
+
+        /** The most items worth no more than {@code units} (rounding down): what fits in that much room. */
+        public int itemsThatFit(int units) {
+            if (units <= 0 || numerator <= 0) {
+                return 0;
+            }
+            return (int) Math.min(Integer.MAX_VALUE, (long) units * denominator / numerator);
+        }
+
         /** Whole units one item is worth: 0 for something worth less than one unit (a stick, a worn tool). */
         public int unitsPerItem() {
             return numerator / denominator;

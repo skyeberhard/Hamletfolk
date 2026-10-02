@@ -78,10 +78,10 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
 ## Where things stand
 
 - Done: M0; M1 items R1.2, R1.3, R1.4, R1.5, R1.6, R1.9, R1.10, R1.13, R1.14, R1.16, R1.17,
-  R1.18, R1.19, R1.20, R1.21, R1.22, R1.23; M3 items R3.1, R3.3, R3.7, R3.9, R3.10, R3.12, R3.13 (R3.6 partly, see above); M4 items R4.1, R4.3, R4.4, R4.5, R4.9, R4.10, R4.14, R4.15, R4.16.
+  R1.18, R1.19, R1.20, R1.21, R1.22, R1.23; M3 items R3.1, R3.3, R3.7, R3.9, R3.10, R3.11, R3.12, R3.13 (R3.6 partly, see above); M4 items R4.1, R4.3, R4.4, R4.5, R4.9, R4.10, R4.14, R4.15, R4.16.
   Save format is 8 (R3.3 added requests; R1.21 added event count/actor, R3.7 added flow, R4.14 added gender, R4.15 added departed ids; 7 dropped the nonbinary gender).
 - **Next, highest value:** R1.1 (first playtest — the Paper layer has never run; scenarios
-  T1–T30 in docs/TESTING.md, of which T17 (admin), T18 (worlds), T19 (backups), T26 (appearance), T27 (requests) and T28 (donation values) and T29 (tool requests) and T30 (trade prices) are
+  T1–T31 in docs/TESTING.md, of which T17 (admin), T18 (worlds), T19 (backups), T26 (appearance), T27 (requests) and T28 (donation values) and T29 (tool requests) and T30 (trade prices) and T31 (donation room) are
   Paper-only). After that R1.8, R1.24 (needs a decision), R1.7 and R1.12, then M2 buildings.
 - On a local machine, much of R1.1 can be driven from the server console (`/summon`, `/time add`,
   restarts, reading `plugins/Hamletfolk/settlements.json`); player-only steps (sneak +

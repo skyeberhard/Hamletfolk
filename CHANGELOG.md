@@ -4,6 +4,13 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R3.11: `/settlement donate` now respects the storage limits (R3.10). On its own it says how much
+  room the stores have for what you are holding. When you donate, it only takes the items that fit
+  and are worth something; the rest stay with you, and it says so. A donation to a full store is
+  refused ("Nothing taken") instead of being accepted and wasted the next day. The rule is in core
+  (`Donation.plan`, `SettlementSimulator.room`, tested); the command is Paper-only and unverified
+  until a playtest (T31). Emerald donations are unchanged: the treasury has no limit until R2.6. (A limit rises and falls with the
+  population, so a store filled to the brim can still lose a few units when a resident dies.)
 - R1.15: Confirmed that the admin commands (R1.4) and abandoned settlements (R1.5) were merged before
   any M2 item began (no M2 item has started). Bookkeeping only.
 - R1.24: Unemployed foraging is now documented as intended. An unemployed adult gathers about 1 food

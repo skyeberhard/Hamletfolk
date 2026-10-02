@@ -45,8 +45,8 @@ Dependency-ordered. `Next` is where to start.
 |---|---|---|---|---|
 | 1 | **R3.1** Prices follow supply (#28) | Committed `46a5841`; unplaytested (T30) | none | Done |
 | 2 | **R1.15** Admin and abandonment land before M2 (#52) | R1.4 and R1.5 are Done, so the condition is already met: bookkeeping only | none | Done |
-| 3 | **R3.11** Donations respect storage limits (#81) | A 64-log stack is now 256 units and is mostly wasted in a small village | none | Next |
-| 4 | **R2.1** Sign registration (#24) | Core `Building` model + registry + save (format 9); a thin sign listener. Everything in M2 builds on it | none | Planned |
+| 3 | **R3.11** Donations respect storage limits (#81) | A 64-log stack is now 256 units and is mostly wasted in a small village | none | Done |
+| 4 | **R2.1** Sign registration (#24) | Core `Building` model + registry + save (format 9); a thin sign listener. Everything in M2 builds on it | none | Next |
 | 5 | **R2.2** Housing capacity (#25) | Replaces the Paper bed count R4.1 uses with a core capacity | R2.1 | Planned |
 | 6 | **R2.3** Buildings affect output (#26) | Drives `SettlementSimulator.workstationFree` from registered buildings, adds MINER, so R4.3 job assignment stops being dormant; turn on `toollessPenalty` and finish **R3.6** (#67) | R2.1 | Planned |
 | 7 | **R3.4** Player reputation (#31) | Per-player standing from donations, requests and harm; feeds prices and dialogue | none | Planned |

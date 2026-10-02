@@ -215,9 +215,14 @@ public final class SettlementSimulator {
     /**
      * R3.10: the most of a resource the settlement can hold. M2 storage buildings will raise it.
      */
-    static int capacity(Settlement settlement, ResourceType type) {
+    public static int capacity(Settlement settlement, ResourceType type) {
         int perResident = type == ResourceType.FOOD ? FOOD_STORAGE_PER_RESIDENT : STORAGE_PER_RESIDENT;
         return BASE_STORAGE + perResident * settlement.population();
+    }
+
+    /** R3.11: how much more of a resource the stores can take before the limit; 0 if already at or over it. */
+    public static int room(Settlement settlement, ResourceType type) {
+        return Math.max(0, capacity(settlement, type) - settlement.ledger().get(type));
     }
 
     /** R3.10: food spoils, then anything beyond a resource's storage limit is wasted. */

@@ -1,5 +1,6 @@
 package io.github.skyeberhard.hamletfolk.paper;
 
+import io.github.skyeberhard.hamletfolk.core.Donation;
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
 import io.github.skyeberhard.hamletfolk.core.LifeStage;
 import io.github.skyeberhard.hamletfolk.core.Request;
@@ -205,9 +206,12 @@ final class SettlementCommand implements TabExecutor {
         IntUnaryOperator worth = n -> emeralds > 0 ? n * emeralds : value.get().unitsFor(n);
         String unitName = emeralds > 0 ? "emeralds" : value.get().type().name().toLowerCase(Locale.ROOT);
 
+        // R3.11: how much the stores can still hold, so a gift to a full store is never taken and wasted.
+        String roomNote = emeralds > 0 ? "" : " They have room for "
+                + SettlementSimulator.room(s, value.get().type()) + " more " + unitName + ".";
         if (args.length < 2) {
             player.sendMessage(Component.text("You're holding " + held + " " + itemName + ", worth "
-                    + worth.applyAsInt(held) + " " + unitName + " to " + s.name() + ". Use ", NamedTextColor.GRAY)
+                    + worth.applyAsInt(held) + " " + unitName + " to " + s.name() + "." + roomNote + " Use ", NamedTextColor.GRAY)
                     .append(Component.text("/settlement donate <amount>", NamedTextColor.YELLOW))
                     .append(Component.text(" or ", NamedTextColor.GRAY))
                     .append(Component.text("/settlement donate all", NamedTextColor.YELLOW))
@@ -220,18 +224,32 @@ final class SettlementCommand implements TabExecutor {
                     + ", or \"all\".", NamedTextColor.GRAY));
             return;
         }
-        int amount = quantity.getAsInt();
-        int credited = worth.applyAsInt(amount);
-        if (emeralds == 0 && credited > 0) {
-            // Take only the items the credit pays for: an odd stick or bamboo stalk left over stays with the player.
-            ResourceMapper.Value v = value.get();
-            amount = Math.min(amount, (int) Math.ceil((double) credited * v.denominator() / v.numerator()));
-        }
-        if (credited == 0) {
-            // Not taken: a lone stick, or a tool worn to nothing, is worth less than one unit.
-            player.sendMessage(Component.text(amount + " " + itemName + " is worth nothing to " + s.name()
-                    + (amount < held ? "; try giving more at once." : " as it is."), NamedTextColor.GRAY));
-            return;
+        int offered = quantity.getAsInt();
+        int amount = offered;
+        int credited;
+        boolean limitedByRoom = false;
+        if (emeralds > 0) {
+            credited = offered * emeralds;
+        } else {
+            // Only as many items as are worth something and fit in the room left: the rest stay with the player.
+            Donation.Plan plan = Donation.plan(s, value.get(), offered);
+            amount = plan.items();
+            credited = plan.units();
+            limitedByRoom = plan.limitedByRoom();
+            if (credited == 0) {
+                if (plan.limitedByRoom()) {
+                    // Full, or with less room left than one of these is worth: giving more will not help.
+                    player.sendMessage(Component.text(plan.room() == 0
+                            ? "The " + unitName + " stores of " + s.name() + " are full. Nothing taken."
+                            : s.name() + " only has room for " + plan.room() + " more " + unitName
+                                    + ", less than one " + itemName + " is worth. Nothing taken.", NamedTextColor.GRAY));
+                } else {
+                    // A lone stick, or a tool worn to nothing, is worth less than one unit.
+                    player.sendMessage(Component.text(offered + " " + itemName + " is worth nothing to " + s.name()
+                            + (offered < held ? "; try giving more at once." : " as it is."), NamedTextColor.GRAY));
+                }
+                return;
+            }
         }
 
         if (emeralds > 0) {
@@ -262,7 +280,9 @@ final class SettlementCommand implements TabExecutor {
                     .values().forEach(over -> player.getWorld().dropItem(player.getLocation(), over));
         }
         player.sendMessage(Component.text("The people of " + s.name() + " thank you. (+" + credited + " "
-                + unitName + (paid > 0 ? "; they pay you " + paid + " emeralds for it" : "") + ")", NamedTextColor.GREEN));
+                + unitName + (paid > 0 ? "; they pay you " + paid + " emeralds for it" : "")
+                + (limitedByRoom ? "; the stores cannot hold the rest, so you keep the other " + (offered - amount) : "") + ")",
+                NamedTextColor.GREEN));
         service.plugin().requestSave();
     }
 
