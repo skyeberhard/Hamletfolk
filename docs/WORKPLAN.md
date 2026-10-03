@@ -78,6 +78,7 @@ Write the core part and the thin wiring now; each needs a `docs/TESTING.md` scen
 | **R2.4** Buildings inferred from blocks (#27) | block-change analysis |
 | **R4.7, R4.8** Construction projects, builder occupation (#57, #58) | placing blocks over time, NBT templates |
 | **R4.11, R4.12, R4.13** Visible personality, overheard lines and mood, workstation pairing (#77, #78, #79) | villager AI memories, particles, name display |
+| **R4.17** Residents visibly work at their workplace (#104) | choosing who works (core, tested); walking to a registered building and animating (Paper), after R4.13 |
 | **R1.12** Paper-layer performance measurement (#49) | an admin command timing real ticks |
 | **R1.27** (detection half) | locating a village's real area |
 | **R5.3** Calls for help (#38) | chat and player interaction |
