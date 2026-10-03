@@ -22,6 +22,7 @@ import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Raider;
 import org.bukkit.entity.Villager;
 import org.bukkit.entity.ZombieVillager;
+import io.papermc.paper.event.player.PlayerTradeEvent;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -33,6 +34,8 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityTransformEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.MerchantInventory;
 
@@ -80,6 +83,22 @@ final class VillagerListener implements Listener {
                 && service.inScope(villager.getWorld())) {
             service.applyTradePrices(villager, event.getPlayer().getUniqueId());
         }
+    }
+
+    /** R3.2: a completed trade moves goods into or out of the settlement's stores. */
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onTrade(PlayerTradeEvent event) {
+        if (!(event.getVillager() instanceof Villager villager) || !service.inScope(villager.getWorld())) {
+            return;
+        }
+        // The game fires this just before it takes payment; in the rare case it then refuses, the stores have moved anyway.
+        MerchantRecipe recipe = event.getTrade();
+        ItemStack given = recipe.getAdjustedIngredient1(); // what the player actually hands over, price changes included
+        if (given == null) {
+            return;
+        }
+        service.applyTrade(villager, given.getType().getKey().getKey(), given.getAmount(),
+                recipe.getResult().getType().getKey().getKey(), recipe.getResult().getAmount());
     }
 
     @EventHandler(ignoreCancelled = true)

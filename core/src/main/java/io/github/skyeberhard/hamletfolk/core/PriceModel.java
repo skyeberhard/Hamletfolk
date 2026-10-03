@@ -20,18 +20,22 @@ public final class PriceModel {
     private PriceModel() {
     }
 
+    /** What the village wants to hold of a resource: the level below which it counts as short. */
+    static int wanted(Settlement settlement, ResourceType type) {
+        return settlement.population() * (type == ResourceType.FOOD
+                ? SettlementSimulator.FOOD_WANTED_PER_HEAD : SettlementSimulator.STOCK_WANTED_PER_HEAD);
+    }
+
     /**
      * The price multiplier for a resource: {@link #SHORT_MULTIPLIER} at an empty store, falling
      * steadily to 1 when the stores reach what the village wants, staying at 1 up to twice that, then
      * falling steadily to {@link #PLENTY_MULTIPLIER} at four times it.
      */
     public static double multiplier(Settlement settlement, ResourceType type) {
-        int population = settlement.population();
-        if (population == 0) {
+        int wanted = wanted(settlement, type);
+        if (wanted == 0) {
             return 1.0;
         }
-        int wanted = population * (type == ResourceType.FOOD
-                ? SettlementSimulator.FOOD_WANTED_PER_HEAD : SettlementSimulator.STOCK_WANTED_PER_HEAD);
         double cover = (double) settlement.ledger().get(type) / wanted;
         if (cover < 1.0) {
             return SHORT_MULTIPLIER - (SHORT_MULTIPLIER - 1.0) * Math.max(0.0, cover);

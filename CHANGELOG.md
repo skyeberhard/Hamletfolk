@@ -4,6 +4,14 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R3.2: Trades with villagers now move goods in the settlement's stores. What you sell a villager for
+  emeralds (wheat to a farmer, stone to a mason) is added to the stores, as far as there is room, and
+  what you buy with emeralds (bread, glass) is taken out of them, but only down to the level the village
+  wants to hold, so buying cannot starve a village or manufacture the shortage that makes it post a
+  request. Emeralds still come from the game, not the treasury, and tools and trades that are not goods
+  for emeralds are left alone. Selling to a short village makes the next sale pay better (R3.1); a
+  1-emerald purchase never changes price, which is why buying is held back by the floor. The rules are
+  in core and tested; the trade event hook is Paper-side and unverified until a playtest (T36).
 - R3.4: Each settlement now keeps a reputation, -100 to 100, for every player. Gifts raise it (an
   emerald's worth of goods is a point, so a handful of sticks earns nothing), filling a request raises it
   a little more (up to 10 per delivery), and killing a resident lowers it by 25. Residents greet you

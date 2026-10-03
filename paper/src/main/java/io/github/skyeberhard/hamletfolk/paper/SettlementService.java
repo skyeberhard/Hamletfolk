@@ -9,6 +9,7 @@ import io.github.skyeberhard.hamletfolk.core.PriceModel;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.ResourceType;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
+import io.github.skyeberhard.hamletfolk.core.Trading;
 import io.github.skyeberhard.hamletfolk.core.SettlementRegistry;
 import io.github.skyeberhard.hamletfolk.core.SettlementSimulator;
 import java.util.ArrayList;
@@ -110,6 +111,19 @@ final class SettlementService {
                 recipe.setSpecialPrice(recipe.getSpecialPrice() + delta);
             }
         }
+    }
+
+    /** R3.2: feeds a completed trade into the stores of the settlement the villager belongs to, if any. */
+    void applyTrade(Villager villager, String given, int givenAmount, String received, int receivedAmount) {
+        Resident resident = track(villager);
+        if (resident == null) {
+            return;
+        }
+        registry.settlementOf(resident.id()).ifPresent(settlement -> {
+            if (Trading.apply(settlement, given, givenAmount, received, receivedAmount).isPresent()) {
+                plugin.requestSave();
+            }
+        });
     }
 
     /** R2.1: registers the building a sign marks. */
