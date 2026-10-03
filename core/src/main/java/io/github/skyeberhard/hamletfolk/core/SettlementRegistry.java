@@ -238,6 +238,25 @@ public final class SettlementRegistry {
         return ids;
     }
 
+    /**
+     * R4.2: moves a resident from one settlement to another, with a line in each history. The resident
+     * keeps who they are but not their job (there is none where they are going), and is marked as moved
+     * on paper only: the Minecraft layer brings the villager over when it can.
+     */
+    public void migrate(Resident resident, Settlement from, Settlement to, long day) {
+        if (from.removeResident(resident.id()) == null) {
+            return;
+        }
+        resident.setOccupation(Occupation.UNEMPLOYED);
+        to.addResident(resident);
+        residentIndex.put(resident.id(), to.id());
+        from.record(day, HistoryEvent.Kind.DEPARTURE, resident.fullName() + " left " + from.name() + " for "
+                + to.name() + ", hoping for a better life.");
+        to.record(day, HistoryEvent.Kind.ARRIVAL, resident.fullName() + " came to " + to.name() + " from "
+                + from.name() + ", hoping for a better life.");
+        to.conditions().put(Migration.MOVING + resident.id(), day);
+    }
+
     /** Removes a resident from wherever they live and returns them. */
     public Optional<Resident> remove(UUID residentId) {
         UUID settlementId = residentIndex.remove(residentId);

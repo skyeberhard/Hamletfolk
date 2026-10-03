@@ -4,6 +4,19 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R4.2: Unemployed or unhappy residents now leave for a better-off settlement nearby. Each day a village
+  is checked once: any adult who is not an elder and either has no job or is in low spirits has a one in
+  five chance of setting out, and at most one resident leaves a village a day, and never one that would
+  leave it with fewer than two people. They go to the nearest settlement within 600 blocks, in the same
+  world, that is clearly better off (more food in store per head, less threat), has a free bed and is not
+  in famine. Both histories record it ("left X for Y" and "came to Y from X"), the resident keeps who
+  they are but loses their job there, and the villager is teleported to the new village the next time it
+  is loaded (a vanilla profession can give them work again, as for any unemployed resident). Residents
+  with no better village in reach simply stay. `economy.migration: false` turns it off. No save format
+  change except a new history kind, so the format is now 13 (the pending move is kept as a settlement
+  condition). A villager that is trading, leashed or riding is left alone and tried again later, as is a
+  teleport that fails. The rule is in core and tested; the teleport is Paper-side and unverified until a
+  playtest (T39).
 - R3.5: Residents now have wealth. A working adult earns the worth of what they produce each day (at the
   merchant rates: ten food, six wood, five stone or two metal make an emerald), a merchant keeps a fifth of
   each emerald a sale brings the treasury, and every adult pays for their own meals out of what they have.

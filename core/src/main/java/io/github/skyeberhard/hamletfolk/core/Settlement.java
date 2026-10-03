@@ -121,6 +121,7 @@ public final class Settlement {
     }
 
     Resident removeResident(UUID id) {
+        conditions.remove(Migration.MOVING + id); // R4.2: nobody left to bring over
         return residents.remove(id);
     }
 
@@ -370,6 +371,26 @@ public final class Settlement {
     /** True once R1.5 has marked this settlement abandoned: empty for {@code ABANDONMENT_DAYS} days straight. */
     public boolean isAbandoned() {
         return hasCondition("abandoned");
+    }
+
+    /** R4.2: residents who have moved here on paper but whose villager has not yet been brought over. */
+    public List<UUID> pendingMoves() {
+        List<UUID> ids = new ArrayList<>();
+        for (String key : conditions.keySet()) {
+            if (key.startsWith(Migration.MOVING)) {
+                try {
+                    ids.add(UUID.fromString(key.substring(Migration.MOVING.length())));
+                } catch (IllegalArgumentException e) {
+                    // a damaged key: ignore it
+                }
+            }
+        }
+        return ids;
+    }
+
+    /** Forgets a condition, e.g. once a pending move has been carried out. */
+    public void removeCondition(String key) {
+        conditions.remove(key);
     }
 
     public boolean hasCondition(String key) {

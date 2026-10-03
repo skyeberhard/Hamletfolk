@@ -77,3 +77,7 @@ prices:
 economy:
   tool-penalty: true
   trades-need-stock: true
+  # R4.2: an unemployed or unhappy adult may leave, at most one a day from a village, for the nearest
+  # better-off village within 600 blocks that has a free bed and no famine. Both histories record it and
+  # the villager is brought over the next time it is loaded. Turn off to keep everyone where they are.
+  migration: true

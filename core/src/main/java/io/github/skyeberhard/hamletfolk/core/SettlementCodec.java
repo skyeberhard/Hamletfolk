@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 12;
+    public static final int FORMAT_VERSION = 13;
 
     private SettlementCodec() {
     }
@@ -255,6 +255,8 @@ public final class SettlementCodec {
         // v9 -> v10: "beds" (R2.2) is optional, so an old save has no housing until its chunks are next loaded.
         // v10 -> v11: "reputation" (R3.4) is optional, so an old save has no opinions.
         // v11 -> v12: "wealth" (R3.5) on residents is optional, so an old save's residents start with nothing put by.
+        // v12 -> v13: history gained the DEPARTURE kind (R4.2); an old save has none, so nothing to convert, but an
+        // older build must refuse a save that may contain it rather than fail on an unknown kind.
         if (version < 5) {
             // v4 -> v5: residents gain a gender (R4.14).
             migrated.put("residents", withGenders(migrated.get("residents")));

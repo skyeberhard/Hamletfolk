@@ -8,6 +8,7 @@ import io.github.skyeberhard.hamletfolk.core.Occupation;
 import io.github.skyeberhard.hamletfolk.core.PriceModel;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.ResourceType;
+import io.github.skyeberhard.hamletfolk.core.Migration;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.Trading;
 import io.github.skyeberhard.hamletfolk.core.SettlementRegistry;
@@ -43,6 +44,8 @@ final class SettlementService {
     private final SettlementSimulator simulator;
     /** Parents of villagers that were just bred but haven't been added to the world yet. */
     private final Map<UUID, UUID[]> pendingParents = new HashMap<>();
+    /** R4.2: residents whose villager is being teleported right now, so it is not started twice. */
+    private final java.util.Set<UUID> movesInFlight = new java.util.HashSet<>();
 
     SettlementService(HamletfolkPlugin plugin, SettlementRegistry registry, HamletfolkConfig config) {
         this.plugin = plugin;
@@ -111,6 +114,76 @@ final class SettlementService {
                 recipe.setSpecialPrice(recipe.getSpecialPrice() + delta);
             }
         }
+    }
+
+    /**
+     * R4.2: lets an unemployed or unhappy resident leave for a better-off neighbour (the rule is in core).
+     * The record moves at once; the villager is brought over now if it is loaded, else when it next loads.
+     */
+    private void considerMigration(Settlement settlement) {
+        World world = Bukkit.getWorld(settlement.world());
+        if (world == null || !inScope(world)) {
+            return;
+        }
+        // Moves that could not be carried out yet (villager unloaded or busy) are tried again every round.
+        for (UUID id : settlement.pendingMoves()) {
+            if (Bukkit.getEntity(id) instanceof Villager villager) {
+                registry.resident(id).ifPresent(resident -> completeMove(villager, resident));
+            }
+        }
+        if (!config.migration()) {
+            return;
+        }
+        Migration.run(registry, settlement, settlement.lastSimulatedDay()).ifPresent(move -> {
+            plugin.requestSave();
+            if (Bukkit.getEntity(move.resident().id()) instanceof Villager villager) {
+                completeMove(villager, move.resident());
+            }
+        });
+    }
+
+    /**
+     * R4.2: if this resident has moved on paper to another settlement, take their villager there. The
+     * marker stays until the teleport has worked, so a villager that is busy (trading, leashed, riding)
+     * or a teleport that fails is simply tried again later.
+     */
+    private void completeMove(Villager villager, Resident resident) {
+        Settlement home = registry.settlementOf(resident.id()).orElse(null);
+        String marker = Migration.MOVING + resident.id();
+        if (home == null || !home.hasCondition(marker) || !villager.isValid()
+                || villager.isTrading() || villager.isLeashed() || villager.isInsideVehicle()
+                || !movesInFlight.add(resident.id())) {
+            return;
+        }
+        World world = Bukkit.getWorld(home.world());
+        if (world == null) {
+            movesInFlight.remove(resident.id());
+            return;
+        }
+        int x = home.centerX();
+        int z = home.centerZ();
+        // Load the destination first (it is often far from anyone), then pick the spot: leaves are skipped so
+        // a village centre under a tree does not put the villager in the canopy (as for newcomers).
+        world.getChunkAtAsync(x >> 4, z >> 4).thenAccept(chunk -> {
+            if (!villager.isValid()) {
+                movesInFlight.remove(resident.id());
+                return;
+            }
+            int y = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES) + 1;
+            villager.teleportAsync(new Location(world, x + 0.5, y, z + 0.5)).thenAccept(moved -> {
+                movesInFlight.remove(resident.id());
+                if (moved) {
+                    home.removeCondition(marker);
+                    plugin.requestSave();
+                }
+            }).exceptionally(error -> {
+                movesInFlight.remove(resident.id());
+                return null;
+            });
+        }).exceptionally(error -> {
+            movesInFlight.remove(resident.id());
+            return null;
+        });
     }
 
     /**
@@ -204,6 +277,7 @@ final class SettlementService {
                 scanBedsIfDue(settlement, bedWorld);
             }
             considerNewcomer(settlement);
+            considerMigration(settlement);
             World world = Bukkit.getWorld(settlement.world());
             if (world != null && inScope(world)) {
                 refreshAppearance(settlement, world);
@@ -323,6 +397,7 @@ final class SettlementService {
         if (resident == null) {
             resident = enroll(villager);
         }
+        completeMove(villager, resident); // R4.2: someone who moved settlement while unloaded arrives now
         // R4.3: the simulation owns the occupation; the vanilla profession only fills in a missing one.
         resident.seedOccupation(occupationOf(villager));
         resident.setAdult(villager.isAdult());

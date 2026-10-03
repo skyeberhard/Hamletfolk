@@ -13,6 +13,7 @@ public record HistoryEvent(long day, Kind kind, String text, int count, String a
     public enum Kind {
         FOUNDED(true),
         ARRIVAL(false),
+        DEPARTURE(false),
         BIRTH(false),
         DEATH(true),
         CURE(true),
