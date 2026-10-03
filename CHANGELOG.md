@@ -4,6 +4,15 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R2.2: Beds within a settlement now set its housing capacity, shown in `/settlement` ("Housing: 5 beds
+  (2 free)") and in the admin inspect. Beds are counted per chunk within the settlement radius, only in
+  loaded chunks and at most once a minute, and a chunk that is not loaded keeps its last known count,
+  so housing does not vanish when nobody is nearby. Newcomers (R4.1) now use this saved capacity
+  instead of a scan at the moment of arrival, so they arrive when there is a free bed whether or not
+  the beds are in loaded chunks. Save format is now 10 (the bed counts); an older save has none
+  until its chunks are next loaded. Where two settlements' areas overlap a bed is counted for both (as before). Lowering `settlement-radius`
+  drops counts outside the new range. The model is in core (`Housing`, tested); the bed scan is
+  unverified until a playtest (T33).
 - R2.1: Players can now register buildings with signs. A sign reading `[Farm]`, `[Smithy]`, `[Mine]`,
   `[House]` or `[Guard Post]` (any capitalisation, brackets required) inside a settlement registers that
   building at the sign, the sign is tidied to the standard text, and the history records it (one

@@ -171,6 +171,10 @@ final class SettlementService {
     void simulateAll() {
         for (Settlement settlement : registry.settlements()) {
             simulate(settlement);
+            World bedWorld = Bukkit.getWorld(settlement.world());
+            if (bedWorld != null && inScope(bedWorld)) {
+                scanBedsIfDue(settlement, bedWorld);
+            }
             considerNewcomer(settlement);
             World world = Bukkit.getWorld(settlement.world());
             if (world != null && inScope(world)) {
@@ -181,21 +185,17 @@ final class SettlementService {
     }
 
     /**
-     * R4.1: with a food surplus and a free bed, a new villager turns up. Beds are counted in
-     * loaded chunks only, so this undercounts rather than overcounts. The arrival is recorded in
-     * history when the new villager is enrolled (see {@code enroll}).
+     * R4.1: with a food surplus and a free bed, a new villager turns up. Free beds come from the saved
+     * housing count (R2.2), which is only refreshed from loaded chunks, so it can be slightly out of date
+     * (a bed broken just before its chunk unloaded) and, where two settlements' areas overlap, counts a
+     * shared bed for both. The arrival is recorded in history when the new villager is enrolled.
      */
     private void considerNewcomer(Settlement settlement) {
         World world = Bukkit.getWorld(settlement.world());
         if (world == null || !inScope(world) || settlement.isAbandoned()) {
             return;
         }
-        // Cheap checks first: counting beds scans block entities in every loaded chunk nearby.
-        if (!simulator.newcomerDue(settlement, Integer.MAX_VALUE)) {
-            return;
-        }
-        int freeBeds = bedsNear(settlement, world) - settlement.population();
-        if (!simulator.newcomerDue(settlement, freeBeds)) {
+        if (!simulator.newcomerDue(settlement, settlement.freeBeds())) {
             return;
         }
         int x = settlement.centerX();
@@ -214,15 +214,44 @@ final class SettlementService {
         }
     }
 
-    private int bedsNear(Settlement settlement, World world) {
+    /** How often a settlement's beds are recounted while the server runs: beds change rarely and the scan is not free. */
+    private static final long BED_SCAN_INTERVAL_MS = 60_000;
+    private final Map<UUID, Long> lastBedScan = new HashMap<>();
+
+    /** R2.2: recounts beds if it has been a minute. */
+    private void scanBedsIfDue(Settlement settlement, World world) {
+        long now = System.currentTimeMillis();
+        Long last = lastBedScan.get(settlement.id());
+        if (last == null || now - last >= BED_SCAN_INTERVAL_MS) {
+            lastBedScan.put(settlement.id(), now);
+            scanBeds(settlement, world);
+        }
+    }
+
+    /** R2.2: recounts beds now (for a player asking), in whichever of the settlement's chunks are loaded. */
+    void refreshHousing(Settlement settlement) {
+        World world = Bukkit.getWorld(settlement.world());
+        long now = System.currentTimeMillis();
+        Long last = lastBedScan.get(settlement.id());
+        if (world != null && inScope(world) && (last == null || now - last >= 2_000)) { // a player spamming the command costs one scan per 2 s
+            lastBedScan.put(settlement.id(), now);
+            scanBeds(settlement, world);
+        }
+    }
+
+    /**
+     * R2.2: counts beds chunk by chunk in the loaded chunks within the settlement radius. A chunk that
+     * is not loaded keeps its last known count, so housing does not vanish when nobody is nearby.
+     */
+    private void scanBeds(Settlement settlement, World world) {
         int radius = config.settlementRadius();
         long radiusSquared = (long) radius * radius;
-        int beds = 0;
         for (int cx = (settlement.centerX() - radius) >> 4; cx <= (settlement.centerX() + radius) >> 4; cx++) {
             for (int cz = (settlement.centerZ() - radius) >> 4; cz <= (settlement.centerZ() + radius) >> 4; cz++) {
                 if (!world.isChunkLoaded(cx, cz)) {
                     continue;
                 }
+                int beds = 0;
                 // Each bed is two blocks; count only the head so a bed counts once.
                 for (BlockState state : world.getChunkAt(cx, cz).getTileEntities(
                         block -> block.getBlockData() instanceof Bed bed && bed.getPart() == Bed.Part.HEAD, false)) {
@@ -230,9 +259,12 @@ final class SettlementService {
                         beds++;
                     }
                 }
+                settlement.housing().setChunk(cx, cz, beds);
             }
         }
-        return beds;
+        // A smaller radius than before must not leave counts for chunks that are no longer in range.
+        settlement.housing().retainWithin((settlement.centerX() - radius) >> 4, (settlement.centerX() + radius) >> 4,
+                (settlement.centerZ() - radius) >> 4, (settlement.centerZ() + radius) >> 4);
     }
 
     void trackLoadedVillagers() {

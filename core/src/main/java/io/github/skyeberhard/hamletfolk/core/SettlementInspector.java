@@ -67,6 +67,8 @@ public final class SettlementInspector {
             }
         }
         lines.add("Buildings: " + (buildings.isEmpty() ? "none" : buildings));
+        lines.add("Housing: " + s.housingCapacity() + " beds, population " + s.population() + " (" + s.freeBeds()
+                + " free; beds counted in " + s.housing().chunkCount() + " chunks)");
 
         lines.add("Threat: " + Math.round(s.threat()));
         Map<String, Long> conditions = new TreeMap<>(s.conditions());

@@ -34,6 +34,7 @@ public final class Settlement {
     private final Map<UUID, Long> departed = new LinkedHashMap<>();
     private final Map<ResourceType, Request> requests = new LinkedHashMap<>();
     private final Map<String, Building> buildings = new LinkedHashMap<>();
+    private final Housing housing = new Housing();
     private final List<UUID> newlyDeparted = new ArrayList<>();
     /** Ongoing or one-time conditions, keyed by name, valued by the day they began. */
     private final Map<String, Long> conditions = new HashMap<>();
@@ -182,6 +183,21 @@ public final class Settlement {
             }
         }
         add(new HistoryEvent(day, HistoryEvent.Kind.BUILDING, text, 1, actor));
+    }
+
+    /** R2.2: the beds in this settlement, counted by the Minecraft layer. */
+    public Housing housing() {
+        return housing;
+    }
+
+    /** R2.2: how many people the beds can house. */
+    public int housingCapacity() {
+        return housing.capacity();
+    }
+
+    /** R2.2: beds nobody lives in yet: capacity less the population, and 0 if it is already crowded. */
+    public int freeBeds() {
+        return Math.max(0, housing.capacity() - residents.size());
     }
 
     /** Every registered building, in the order they were registered. */

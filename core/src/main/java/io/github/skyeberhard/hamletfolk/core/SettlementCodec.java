@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 9;
+    public static final int FORMAT_VERSION = 10;
 
     private SettlementCodec() {
     }
@@ -99,6 +99,7 @@ public final class SettlementCodec {
             buildings.add(building);
         }
         map.put("buildings", buildings);
+        map.put("beds", new LinkedHashMap<>(s.housing().asMap()));
         map.put("history", history);
         return map;
     }
@@ -175,6 +176,13 @@ public final class SettlementCodec {
                     num(b, "y").intValue(), num(b, "z").intValue(), num(b, "day").longValue(), str(b, "by")));
         }
 
+        // v9 -> v10: "beds" (R2.2) is optional, so an old save has no housing until its chunks are next loaded.
+        for (Map.Entry<?, ?> entry : asMap(map.get("beds")).entrySet()) {
+            if (entry.getValue() instanceof Number count) {
+                s.housing().load(entry.getKey().toString(), count.intValue());
+            }
+        }
+
         // v7 -> v8: "requests" (R3.3) is optional, so an old save simply has none open.
         for (Object o : asList(map.get("requests"))) {
             Map<?, ?> r = asMap(o);
@@ -231,6 +239,7 @@ public final class SettlementCodec {
         // v2 -> v3: "count" and "actor" on history events are optional; old events read as count 1, no actor.
         // v3 -> v4: "flow" (R3.7) is optional; an old save simply starts with no flow history.
         // v8 -> v9: "buildings" (R2.1) is optional, so an old save simply has none registered.
+        // v9 -> v10: "beds" (R2.2) is optional, so an old save has no housing until its chunks are next loaded.
         if (version < 5) {
             // v4 -> v5: residents gain a gender (R4.14).
             migrated.put("residents", withGenders(migrated.get("residents")));
