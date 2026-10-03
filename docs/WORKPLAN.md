@@ -141,4 +141,4 @@ Settled on 2026-10-02:
   was `toollessGatherersProduceLess` comparing two independently random villages: fixed (`3af668e`).
   R1.15 closed. R4.6 reworded for per-biome template sets (`1182f81`). R3.11 (`ab82bb6`) and R2.1
   (`2d5af13`) committed. M8 (plan-owned villages, #93, R8.1 to R8.9) added from the design notes.
-  R2.2 (`6e044ef`), R2.3 (`55d880b`) and R3.4 and R3.2 done. Next: R3.5.
+  R2.2 (`6e044ef`), R2.3 (`55d880b`) and R3.4 and R3.2 done. R3.14 (#103, villagers sell only what the village can spare, seeded founding stores) added and done. Next: R3.5.

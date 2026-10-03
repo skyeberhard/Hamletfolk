@@ -40,6 +40,49 @@ class TradingTest {
     }
 
     @Test
+    void aVillagerSellsOnlyWhatTheVillageCanSpare() {
+        Settlement s = village(); // wants 100 food
+        s.ledger().add(ResourceType.FOOD, 112);
+        // Six bread per trade is six units: 12 spare is two trades.
+        assertEquals(2, Trading.tradesAllowed(s, "emerald", "bread", 6).orElseThrow());
+        s.ledger().take(ResourceType.FOOD, 20); // now short
+        assertEquals(0, Trading.tradesAllowed(s, "emerald", "bread", 6).orElseThrow());
+    }
+
+    @Test
+    void tradesTheStoresDoNotGovernAreUncapped() {
+        Settlement s = village();
+        assertTrue(Trading.tradesAllowed(s, "emerald", "enchanted_book", 1).isEmpty());
+        assertTrue(Trading.tradesAllowed(s, "emerald", "iron_pickaxe", 1).isEmpty(), "tools stay vanilla");
+        assertTrue(Trading.tradesAllowed(s, "wheat", "emerald", 1).isEmpty(), "the village buying is not capped");
+        assertTrue(Trading.tradesAllowed(s, "emerald", "stick", 1).isEmpty(), "worth less than a unit");
+        assertTrue(Trading.tradesAllowed(s, "emerald", "glass", 4).isEmpty(), "goods have no wanted level, like their prices");
+        assertTrue(Trading.tradesAllowed(s, "emerald", "white_wool", 1).isEmpty());
+    }
+
+    @Test
+    void foundersBringStartingStoresSoTheFirstTradersHaveStock() {
+        Settlement s = village();
+        for (int i = 0; i < 3; i++) {
+            Trading.seedFounder(s);
+        }
+        assertEquals(60, s.ledger().get(ResourceType.FOOD));
+        for (ResourceType type : ResourceType.values()) {
+            if (type != ResourceType.FOOD) {
+                assertEquals(0, s.ledger().get(type), type + " is not seeded");
+            }
+        }
+        // A village of three wants 30 food, so the seed leaves something spare.
+        Settlement three = new SettlementRegistry().found("world", 0, 0, 0);
+        for (int i = 0; i < 3; i++) {
+            three.addResident(new Resident(new UUID(2, i), "T", "P", Gender.MALE, new Traits(50, 50, 50, 50),
+                    Occupation.NITWIT, true, 10_000, null, null, Needs.initial()));
+            Trading.seedFounder(three);
+        }
+        assertTrue(Trading.tradesAllowed(three, "emerald", "bread", 6).orElseThrow() > 0);
+    }
+
+    @Test
     void buyingCannotMakeAShortage() {
         Settlement s = village();
         s.ledger().add(ResourceType.FOOD, 40); // already short

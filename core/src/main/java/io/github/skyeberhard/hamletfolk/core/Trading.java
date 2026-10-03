@@ -1,6 +1,7 @@
 package io.github.skyeberhard.hamletfolk.core;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 /**
  * R3.2: what a trade between a player and a villager does to the settlement's stores. Emeralds are
@@ -13,6 +14,40 @@ import java.util.Optional;
  */
 public final class Trading {
     private Trading() {
+    }
+
+    /** Food a founding resident brings, double what the village wants of it (R3.14). */
+    static final int FOOD_SEED_PER_HEAD = 2 * SettlementSimulator.FOOD_WANTED_PER_HEAD;
+
+    /**
+     * R3.14: food for a newly founded village, added once for each founding resident, so its first
+     * traders have something to sell. Food is the one resource vanilla villagers really sell. Nothing else
+     * is seeded: a village with no wood, stone, metal or tools should feel it.
+     */
+    public static void seedFounder(Settlement settlement) {
+        settlement.ledger().add(ResourceType.FOOD, FOOD_SEED_PER_HEAD);
+    }
+
+    /**
+     * R3.14: how many more times a villager may make a trade that sells the player {@code resultAmount} of
+     * {@code resultMaterial} for emeralds, given what the village can spare (stock above what it wants to
+     * hold). Empty when the trade is not one the stores govern (not emeralds for food, wood, stone or
+     * metal; tools and goods such as wool and glass are left as in vanilla, like their prices; or worth less
+     * than a unit), meaning the game's own limit stands.
+     */
+    public static OptionalInt tradesAllowed(Settlement settlement, String costMaterial, String resultMaterial,
+            int resultAmount) {
+        if (!ResourceMapper.isCurrency(costMaterial)) {
+            return OptionalInt.empty();
+        }
+        Optional<ResourceMapper.Value> value = ResourceMapper.value(resultMaterial)
+                .filter(v -> v.type() != ResourceType.TOOLS && v.type() != ResourceType.GOODS);
+        if (value.isEmpty() || value.get().unitsFor(resultAmount) <= 0) {
+            return OptionalInt.empty();
+        }
+        int spare = Math.max(0, settlement.ledger().get(value.get().type())
+                - PriceModel.wanted(settlement, value.get().type()));
+        return OptionalInt.of(spare / value.get().unitsFor(resultAmount));
     }
 
     /** The change a trade made: {@code units} of {@code type}, added when {@code gained}, else taken out. */

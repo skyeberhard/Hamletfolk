@@ -4,7 +4,7 @@ import io.github.skyeberhard.hamletfolk.core.WorldFilter;
 import org.bukkit.configuration.ConfigurationSection;
 
 record HamletfolkConfig(int settlementRadius, int maxCatchUpDays, boolean showNames, boolean oldAgeDeaths, boolean appearanceTypes,
-                       double lifespanScale, boolean pricesFollowSupply, boolean toolPenalty,
+                       double lifespanScale, boolean pricesFollowSupply, boolean toolPenalty, boolean tradesNeedStock,
                        WorldFilter worlds) {
 
     /** How much longer than the base 60 / 90-110 days a life lasts: 20 is roughly a month of real time. */
@@ -20,6 +20,7 @@ record HamletfolkConfig(int settlementRadius, int maxCatchUpDays, boolean showNa
                 config.getDouble("aging.lifespan-scale", DEFAULT_LIFESPAN_SCALE),
                 config.getBoolean("prices.follow-supply", true),
                 config.getBoolean("economy.tool-penalty", true),
+                config.getBoolean("economy.trades-need-stock", true),
                 new WorldFilter(config.getStringList("worlds.allow"), config.getStringList("worlds.deny")));
     }
 }

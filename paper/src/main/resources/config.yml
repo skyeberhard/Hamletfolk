@@ -69,5 +69,11 @@ prices:
 # mines metal for a smith or donates tools. A village with no mine is not penalised: it has no way to
 # get metal. Place a sign reading [Mine] (and [Farm], [Smithy]) inside a village and unemployed
 # residents take the jobs, unless the village is in famine. Turn this off to never slow villages.
+#
+# A villager sells food only while the village can spare it (R3.14): stock above what it wants to hold.
+# A sale the stores cannot cover is refused. Vanilla villagers sell no wood, stone or metal, and tools,
+# goods (wool, glass) and other trades (enchanted books, maps, armour) are not affected. A newly founded
+# village starts with some food. Turn trades-need-stock off for vanilla stock and no starting food.
 economy:
   tool-penalty: true
+  trades-need-stock: true

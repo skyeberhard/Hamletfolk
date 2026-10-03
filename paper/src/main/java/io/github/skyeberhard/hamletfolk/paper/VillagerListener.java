@@ -85,6 +85,22 @@ final class VillagerListener implements Listener {
         }
     }
 
+    /** R3.14: refuse a sale the stores can no longer cover (several offers can share one stock). */
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
+    public void onTradeStock(PlayerTradeEvent event) {
+        if (!(event.getVillager() instanceof Villager villager) || !service.inScope(villager.getWorld())) {
+            return;
+        }
+        MerchantRecipe recipe = event.getTrade();
+        ItemStack given = recipe.getAdjustedIngredient1();
+        if (given != null && !service.storesCover(villager, given.getType().getKey().getKey(),
+                recipe.getResult().getType().getKey().getKey(), recipe.getResult().getAmount())) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(Component.text(
+                    "The village has no more of that to spare right now.", NamedTextColor.GRAY));
+        }
+    }
+
     /** R3.2: a completed trade moves goods into or out of the settlement's stores. */
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onTrade(PlayerTradeEvent event) {

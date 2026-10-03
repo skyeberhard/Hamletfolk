@@ -77,10 +77,10 @@ final class SettlementService {
     }
 
     /**
-     * R3.1: as a trade window opens, adds to each trade's price a change from the settlement's stores
-     * (see {@code PriceModel}). The game has already added its reputation and Hero of the Village
-     * discounts, and clears the lot when the window closes, so this never compounds. Does nothing
-     * for a villager outside any settlement.
+     * As a trade window opens: R3.1 adds to each trade's price a change from the settlement's stores and
+     * R3.4 the player's standing (see {@code PriceModel}).
+     * The game has already added its reputation and Hero of the Village discounts, and clears the lot when
+     * the window closes, so the price change never compounds. Does nothing for a villager outside any settlement.
      */
     void applyTradePrices(Villager villager, java.util.UUID player) {
         if (!config.pricesFollowSupply()) {
@@ -111,6 +111,20 @@ final class SettlementService {
                 recipe.setSpecialPrice(recipe.getSpecialPrice() + delta);
             }
         }
+    }
+
+    /**
+     * R3.14: false when this trade sells the player something the stores can no longer spare. Checked as the
+     * trade happens, because several offers can draw on the same stock.
+     */
+    boolean storesCover(Villager villager, String costMaterial, String resultMaterial, int resultAmount) {
+        if (!config.tradesNeedStock()) {
+            return true;
+        }
+        Resident resident = registry.resident(villager.getUniqueId()).orElse(null);
+        Settlement settlement = resident == null ? null : registry.settlementOf(resident.id()).orElse(null);
+        return settlement == null
+                || Trading.tradesAllowed(settlement, costMaterial, resultMaterial, resultAmount).orElse(1) > 0;
     }
 
     /** R3.2: feeds a completed trade into the stores of the settlement the villager belongs to, if any. */
@@ -386,6 +400,9 @@ final class SettlementService {
         long day = settlement.effectiveDay(today);
 
         UUID[] parents = pendingParents.remove(villager.getUniqueId());
+        if (config.tradesNeedStock() && parents == null && day == settlement.foundedDay()) {
+            Trading.seedFounder(settlement); // R3.14: the first villagers bring the village's starting stores
+        }
         Resident resident = registry.enroll(settlement, villager.getUniqueId(), occupationOf(villager),
                 villager.isAdult(), day, parents == null ? null : parents[0], parents == null ? null : parents[1]);
 

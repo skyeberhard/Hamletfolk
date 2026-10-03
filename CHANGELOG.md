@@ -4,6 +4,17 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R3.14: Villagers now sell food only while the village can spare it. A sale the stores cannot cover
+  (stock above what the village wants to hold) is refused with a message, and nothing is taken from the
+  player; this is checked as the trade happens, so several food offers cannot all draw on the same stock.
+  The offers are not greyed out, because changing a villager's trade limits risks leaving them wrong or
+  raising its prices for good. In vanilla 26.2 no villager sells wood, stone or metal for emeralds, so
+  food is what this governs in practice; tools, goods such as wool and glass, and other trades (enchanted
+  books, maps, armour) are left as in vanilla. `economy.trades-need-stock: false` turns the rule and the
+  seeding off. A newly founded village now starts with 20 food for each founding resident, so its first
+  traders have stock (a village with farmers will therefore take in its first newcomer a little sooner).
+  The rules are in core and tested; the refusal and the seeding are Paper-side and unverified until a
+  playtest (T37).
 - R3.2: Trades with villagers now move goods in the settlement's stores. What you sell a villager for
   emeralds (wheat to a farmer, stone to a mason) is added to the stores, as far as there is room, and
   what you buy with emeralds (bread, glass) is taken out of them, but only down to the level the village
