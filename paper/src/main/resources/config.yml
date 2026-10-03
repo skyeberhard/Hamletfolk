@@ -60,7 +60,7 @@ appearance:
 # the base price, so a 1-emerald trade (bread, apples) never changes and the effect is clearest on
 # trades that ask for many items (a farmer's 20 wheat). Only trades that are emeralds for food, wood,
 # stone, metal or tools (or the reverse) are touched, and only for villagers that belong to a
-# settlement. Turn it off to leave vanilla prices alone.
+# settlement. A player's standing with the settlement (R3.4) adds up to a tenth either way. Turn it off to leave vanilla prices alone.
 prices:
   follow-supply: true
 

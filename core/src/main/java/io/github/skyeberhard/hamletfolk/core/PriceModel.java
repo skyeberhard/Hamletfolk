@@ -84,18 +84,29 @@ public final class PriceModel {
      * @param costAmount       how many of it the trade asks for at the base price
      */
     public static int specialPriceDelta(Settlement settlement, String resultMaterial, String costMaterial, int costAmount) {
+        return specialPriceDelta(settlement, resultMaterial, costMaterial, costAmount, 0);
+    }
+
+    /**
+     * As above, for a player the settlement regards at {@code reputation} (R3.4): up to a tenth off
+     * what they pay and a tenth better when they sell, up to a tenth more and worse at the other end.
+     * Rounded towards the base price like the rest, so a cheap trade may not move at all.
+     */
+    public static int specialPriceDelta(Settlement settlement, String resultMaterial, String costMaterial, int costAmount,
+            int reputation) {
+        double factor = Reputation.priceFactor(reputation);
         if (costAmount < 1) {
             return 0;
         }
         if (ResourceMapper.currencyValue(costMaterial) > 0) {
             Optional<ResourceType> sold = priced(resultMaterial);
             if (sold.isPresent()) {
-                return adjustedCost(costAmount, multiplier(settlement, sold.get())) - costAmount;
+                return adjustedCost(costAmount, multiplier(settlement, sold.get()) * factor) - costAmount;
             }
         } else if (ResourceMapper.currencyValue(resultMaterial) > 0) {
             Optional<ResourceType> bought = priced(costMaterial);
             if (bought.isPresent()) {
-                return adjustedAmount(costAmount, multiplier(settlement, bought.get())) - costAmount;
+                return adjustedAmount(costAmount, multiplier(settlement, bought.get()) / factor) - costAmount;
             }
         }
         return 0;

@@ -29,6 +29,20 @@ public final class Dialogue {
         return "Good to see you, " + playerName + "!";
     }
 
+    /**
+     * R3.4: the greeting for a player the settlement has an opinion of. Strangers get the plain greeting;
+     * those it dislikes or admires are greeted accordingly.
+     */
+    public static String greeting(Resident resident, Settlement settlement, UUID playerId, String playerName) {
+        return switch (Reputation.standing(settlement.reputationOf(playerId))) {
+            case HOSTILE -> "You. " + settlement.name() + " has not forgotten what you did, " + playerName + ".";
+            case WARY -> "Oh. " + playerName + ". I'm watching you.";
+            case FRIENDLY -> "Good to see you, " + playerName + ". " + settlement.name() + " remembers your kindness.";
+            case HONOURED -> "Welcome, " + playerName + "! Everyone in " + settlement.name() + " speaks well of you.";
+            case STRANGER -> greeting(resident, playerId, playerName);
+        };
+    }
+
     public static String speak(Resident resident, Settlement settlement, long day, Random random) {
         return urgentConcern(resident, settlement, day).orElseGet(() -> smallTalk(resident, settlement, day, random));
     }

@@ -4,6 +4,13 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R3.4: Each settlement now keeps a reputation, -100 to 100, for every player. Gifts raise it (an
+  emerald's worth of goods is a point, so a handful of sticks earns nothing), filling a request raises it
+  a little more (up to 10 per delivery), and killing a resident lowers it by 25. Residents greet you
+  accordingly (wary, hostile, friendly, honoured), `/settlement` shows your "Regard", and resource-trade prices
+  move up to a tenth in your favour at +100 and against you at -100 (a cheap trade may round to no change; this rides on `prices.follow-supply`, so it is off when that is).
+  Save format is now 11; an older save starts everyone as a stranger. The rules are in core and tested;
+  the kill, donation, greeting and trade hooks are Paper-side and unverified until a playtest (T35).
 - R2.3: Registered buildings now give residents somewhere to work. A registered `[Mine]` lets an
   unemployed resident become a **miner** (new occupation, four places per mine) who makes stone and
   metal, so smiths can finally work without donations; a registered `[Farm]` likewise gives four

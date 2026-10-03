@@ -4,6 +4,7 @@ import io.github.skyeberhard.hamletfolk.core.Building;
 import io.github.skyeberhard.hamletfolk.core.Donation;
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
 import io.github.skyeberhard.hamletfolk.core.LifeStage;
+import io.github.skyeberhard.hamletfolk.core.Reputation;
 import io.github.skyeberhard.hamletfolk.core.Request;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.ResourceMapper;
@@ -125,6 +126,7 @@ final class SettlementCommand implements TabExecutor {
             line(player, "Last " + s.flowDays() + " days", flow);
         }
         line(player, "Danger", threatLabel(s.threat()));
+        line(player, "Regard", regardLabel(s.reputationOf(player.getUniqueId())));
 
         List<String> troubles = new ArrayList<>();
         if (s.hasCondition("famine")) {
@@ -139,6 +141,11 @@ final class SettlementCommand implements TabExecutor {
         if (!troubles.isEmpty()) {
             player.sendMessage(Component.text("Troubles: " + String.join(", ", troubles), NamedTextColor.RED));
         }
+    }
+
+    /** R3.4: how the settlement sees the player, e.g. "friendly (+32)". */
+    private static String regardLabel(int score) {
+        return Reputation.standing(score).name().toLowerCase(Locale.ROOT) + " (" + (score > 0 ? "+" : "") + score + ")";
     }
 
     private void history(Player player, Settlement s) {
@@ -290,6 +297,8 @@ final class SettlementCommand implements TabExecutor {
         }
         long today = SettlementService.day(player.getWorld());
         s.recordDonation(today, player.getName(), amount, itemName);
+        s.adjustReputation(player.getUniqueId(), Reputation.donationGain(
+                emeralds > 0 ? ResourceType.GOODS : value.get().type(), credited, emeralds > 0)); // R3.4
         // R3.3: a donation of something the village asked for is paid for out of the request.
         // R3.13: a crafted tool never pays more than the raw materials in it would.
         int toolCap = SettlementSimulator.maxPayout(material, wear);
@@ -298,6 +307,7 @@ final class SettlementCommand implements TabExecutor {
         }
         int paid = emeralds > 0 ? 0 : service.fulfilRequest(s, value.get().type(), credited, today, player.getName(),
                 toolCap);
+        s.adjustReputation(player.getUniqueId(), Reputation.requestGain(paid)); // R3.4
         // In stacks of at most 64: a big request can pay more than a stack, and an oversized item is not safe to drop.
         for (int left = paid; left > 0; left -= 64) {
             player.getInventory().addItem(new ItemStack(Material.EMERALD, Math.min(64, left)))

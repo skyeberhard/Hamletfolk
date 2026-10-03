@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 10;
+    public static final int FORMAT_VERSION = 11;
 
     private SettlementCodec() {
     }
@@ -100,6 +100,9 @@ public final class SettlementCodec {
         }
         map.put("buildings", buildings);
         map.put("beds", new LinkedHashMap<>(s.housing().asMap()));
+        Map<String, Object> reputation = new LinkedHashMap<>();
+        s.reputation().forEach((player, score) -> reputation.put(player.toString(), score));
+        map.put("reputation", reputation);
         map.put("history", history);
         return map;
     }
@@ -176,6 +179,13 @@ public final class SettlementCodec {
                     num(b, "y").intValue(), num(b, "z").intValue(), num(b, "day").longValue(), str(b, "by")));
         }
 
+        // v10 -> v11: "reputation" (R3.4) is optional, so an old save has no opinions: everyone is a stranger.
+        for (Map.Entry<?, ?> entry : asMap(map.get("reputation")).entrySet()) {
+            if (entry.getValue() instanceof Number score && Reputation.clamp(score.intValue()) != 0) {
+                s.reputation().put(UUID.fromString(entry.getKey().toString()), Reputation.clamp(score.intValue()));
+            }
+        }
+
         // v9 -> v10: "beds" (R2.2) is optional, so an old save has no housing until its chunks are next loaded.
         for (Map.Entry<?, ?> entry : asMap(map.get("beds")).entrySet()) {
             if (entry.getValue() instanceof Number count) {
@@ -240,6 +250,7 @@ public final class SettlementCodec {
         // v3 -> v4: "flow" (R3.7) is optional; an old save simply starts with no flow history.
         // v8 -> v9: "buildings" (R2.1) is optional, so an old save simply has none registered.
         // v9 -> v10: "beds" (R2.2) is optional, so an old save has no housing until its chunks are next loaded.
+        // v10 -> v11: "reputation" (R3.4) is optional, so an old save has no opinions.
         if (version < 5) {
             // v4 -> v5: residents gain a gender (R4.14).
             migrated.put("residents", withGenders(migrated.get("residents")));

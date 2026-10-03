@@ -4,6 +4,7 @@ import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
 import io.github.skyeberhard.hamletfolk.core.Dialogue;
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
 import io.github.skyeberhard.hamletfolk.core.Occupation;
+import io.github.skyeberhard.hamletfolk.core.Reputation;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import java.util.Random;
@@ -77,7 +78,7 @@ final class VillagerListener implements Listener {
     public void onOpenTrade(InventoryOpenEvent event) {
         if (event.getInventory() instanceof MerchantInventory trade && trade.getMerchant() instanceof Villager villager
                 && service.inScope(villager.getWorld())) {
-            service.applyTradePrices(villager);
+            service.applyTradePrices(villager, event.getPlayer().getUniqueId());
         }
     }
 
@@ -107,7 +108,7 @@ final class VillagerListener implements Listener {
         player.sendMessage(Component.text(resident.fullName(), NamedTextColor.GOLD)
                 .append(Component.text(" · " + title + " of " + settlement.name() + " · " + mood(resident),
                         NamedTextColor.GRAY)));
-        String line = Dialogue.greeting(resident, player.getUniqueId(), player.getName()) + " "
+        String line = Dialogue.greeting(resident, settlement, player.getUniqueId(), player.getName()) + " "
                 + Dialogue.speak(resident, settlement, day, chatter);
         player.sendMessage(Component.text("\"" + line + "\"", NamedTextColor.WHITE, TextDecoration.ITALIC));
         resident.recordConversation(player.getUniqueId());
@@ -130,6 +131,10 @@ final class VillagerListener implements Listener {
         Entity killer = killerOf(villager);
         if (killer instanceof Monster || killer instanceof Raider) {
             settlement.raiseThreat(15);
+        }
+        Player culprit = killer instanceof Player player ? player : villager.getKiller(); // R3.4: or whoever last hurt it
+        if (culprit != null) {
+            settlement.adjustReputation(culprit.getUniqueId(), -Reputation.KILLING);
         }
         settlement.record(SettlementService.day(villager.getWorld()), HistoryEvent.Kind.DEATH,
                 describe(resident) + " " + causeOfDeath(villager, killer) + ".");

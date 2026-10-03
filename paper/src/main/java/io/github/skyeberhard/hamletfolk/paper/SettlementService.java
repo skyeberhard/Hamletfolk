@@ -81,7 +81,7 @@ final class SettlementService {
      * discounts, and clears the lot when the window closes, so this never compounds. Does nothing
      * for a villager outside any settlement.
      */
-    void applyTradePrices(Villager villager) {
+    void applyTradePrices(Villager villager, java.util.UUID player) {
         if (!config.pricesFollowSupply()) {
             return;
         }
@@ -105,7 +105,7 @@ final class SettlementService {
             }
             ItemStack cost = ingredients.get(0);
             int delta = PriceModel.specialPriceDelta(settlement, recipe.getResult().getType().getKey().getKey(),
-                    cost.getType().getKey().getKey(), cost.getAmount());
+                    cost.getType().getKey().getKey(), cost.getAmount(), settlement.reputationOf(player));
             if (delta != 0) {
                 recipe.setSpecialPrice(recipe.getSpecialPrice() + delta);
             }

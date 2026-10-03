@@ -36,6 +36,8 @@ public final class Settlement {
     private final Map<String, Building> buildings = new LinkedHashMap<>();
     private final Housing housing = new Housing();
     private final List<UUID> newlyDeparted = new ArrayList<>();
+    /** R3.4: how the settlement regards each player, -100 to 100; players it has no opinion of are absent. */
+    private final Map<UUID, Integer> reputation = new LinkedHashMap<>();
     /** Ongoing or one-time conditions, keyed by name, valued by the day they began. */
     private final Map<String, Long> conditions = new HashMap<>();
 
@@ -217,6 +219,28 @@ public final class Settlement {
     /** Loads a saved building without writing history. */
     void addBuilding(Building building) {
         buildings.put(building.key(), building);
+    }
+
+    /** R3.4: how this settlement regards a player: 0 for a stranger. */
+    public int reputationOf(UUID player) {
+        return reputation.getOrDefault(player, 0);
+    }
+
+    /** R3.4: raises or lowers a player's standing, kept within {@link Reputation#MIN} to {@link Reputation#MAX}. */
+    public void adjustReputation(UUID player, int delta) {
+        if (delta == 0) {
+            return;
+        }
+        int score = Reputation.clamp(reputationOf(player) + delta);
+        if (score == 0) {
+            reputation.remove(player);
+        } else {
+            reputation.put(player, score);
+        }
+    }
+
+    Map<UUID, Integer> reputation() {
+        return reputation;
     }
 
     /** R3.3: what the village is asking for right now, at most one request per resource. */

@@ -49,8 +49,8 @@ Dependency-ordered. `Next` is where to start.
 | 4 | **R2.1** Sign registration (#24) | Core `Building` model + registry + save (format 9); a thin sign listener. Everything in M2 builds on it | none | Done |
 | 5 | **R2.2** Housing capacity (#25) | Replaces the Paper bed count R4.1 uses with a core capacity | R2.1 | Done |
 | 6 | **R2.3** Buildings affect output (#26) | Drives `SettlementSimulator.workstationFree` from registered buildings, adds MINER, so R4.3 job assignment stops being dormant; turn on `toollessPenalty` and finish **R3.6** (#67) | R2.1 | Done |
-| 7 | **R3.4** Player reputation (#31) | Per-player standing from donations, requests and harm; feeds prices and dialogue | none | Next |
-| 8 | **R3.2** Trades feed the ledger (#29) | Core hook for trades; revisit price arbitrage (R3.1 review note) | R3.1 | Planned |
+| 7 | **R3.4** Player reputation (#31) | Per-player standing from donations, requests and harm; feeds prices and dialogue | none | Done |
+| 8 | **R3.2** Trades feed the ledger (#29) | Core hook for trades; revisit price arbitrage (R3.1 review note) | R3.1 | Next |
 | 9 | **R3.5** Resident wealth and wages (#32) | Residents earn and spend; wealth shows in dialogue | R3.9 done | Planned |
 | 10 | **R4.2** Migration (#34) | Unemployed or unhappy residents leave for a better-off settlement; core moves the record, Paper moves the villager later | none | Planned |
 | 11 | **R1.8** Membership follows residents (#23) | A resident in another settlement's area for 3 days moves there | R4.2 (shares the move) | Planned |
@@ -141,4 +141,4 @@ Settled on 2026-10-02:
   was `toollessGatherersProduceLess` comparing two independently random villages: fixed (`3af668e`).
   R1.15 closed. R4.6 reworded for per-biome template sets (`1182f81`). R3.11 (`ab82bb6`) and R2.1
   (`2d5af13`) committed. M8 (plan-owned villages, #93, R8.1 to R8.9) added from the design notes.
-  R2.2 (`6e044ef`) and R2.3 done. Next: R3.4.
+  R2.2 (`6e044ef`), R2.3 (`55d880b`) and R3.4 done. Next: R3.2.
