@@ -27,6 +27,15 @@ class InfectionAndCureTest {
     }
 
     @Test
+    void curedVillagerKeepsWhatTheyHadPutBy() {
+        harold.addWealth(777); // R3.5
+        registry.turn(harold.id(), zombie);
+        Settlement reloaded = SettlementCodec.decode(SettlementCodec.encode(settlement)); // a zombie is saved with its wealth
+        assertEquals(777, reloaded.turned().get(zombie).wealth());
+        assertEquals(777, registry.cure(zombie, curedVillager).orElseThrow().wealth());
+    }
+
+    @Test
     void curedVillagerKeepsTheirIdentity() {
         registry.turn(harold.id(), zombie);
         Resident cured = registry.cure(zombie, curedVillager).orElseThrow();

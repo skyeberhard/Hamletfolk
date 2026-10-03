@@ -54,6 +54,8 @@ public final class SettlementSimulator {
     static final int STOCK_KEPT_PER_HEAD = 6;
     /** R3.9: whole batches a merchant sells in a day, each earning one emerald. */
     static final int MERCHANT_BATCHES_PER_DAY = 4;
+    /** R3.5: what a merchant keeps of each emerald a sale brings the treasury, in hundredths of an emerald. */
+    static final int MERCHANT_COMMISSION = 20;
     /** R3.9: one merchant for this many residents, and at least one once there is anything to sell. */
     static final int RESIDENTS_PER_MERCHANT = 15;
     /** R4.15: output multiplier for elders. */
@@ -203,6 +205,12 @@ public final class SettlementSimulator {
         settlement.flow().recordConsumed(ResourceType.FOOD, day, eaten);
         int shortfall = demand - eaten;
         double fedFraction = demand == 0 ? 1.0 : (double) eaten / demand;
+
+        for (Resident resident : settlement.residents()) {
+            if (resident.adult()) {
+                resident.spendWealth(Wealth.mealCost(fedFraction)); // R3.5: they pay for their own meals
+            }
+        }
 
         spoilAndCap(settlement);
         updateRequests(settlement, day);
@@ -442,11 +450,13 @@ public final class SettlementSimulator {
                 * ageFactor + random.nextDouble());
         ledger.add(occupation.produces(), output);
         flow.recordProduced(occupation.produces(), day, output);
+        resident.addWealth(Wealth.worth(occupation.produces(), output)); // R3.5
         if (occupation.secondaryProduces() != null) {
             int extra = (int) Math.floor(occupation.secondaryBaseOutput() * diligence * toolFactor
                     * needsFactor(resident.needs()) * ageFactor + random.nextDouble());
             ledger.add(occupation.secondaryProduces(), extra);
             flow.recordProduced(occupation.secondaryProduces(), day, extra);
+            resident.addWealth(Wealth.worth(occupation.secondaryProduces(), extra)); // R3.5
         }
         resident.needs().adjustPurpose(4);
     }
@@ -657,6 +667,7 @@ public final class SettlementSimulator {
             int units = unitsPerEmerald(best);
             settlement.flow().recordConsumed(best, day, ledger.take(best, units));
             ledger.addTreasury(1);
+            merchant.addWealth(MERCHANT_COMMISSION); // R3.5: a fifth of each emerald
             sold++;
         }
         if (sold > 0) {

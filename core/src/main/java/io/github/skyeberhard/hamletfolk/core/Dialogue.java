@@ -101,6 +101,9 @@ public final class Dialogue {
         }
 
         parentLine(resident, settlement).ifPresent(options::add);
+        if (resident.adult() && occupation != Occupation.NITWIT) {
+            wealthLine(resident, occupation).ifPresent(options::add);
+        }
 
         settlement.requests().stream().findFirst().ifPresent(request -> options.add("We're short of "
                 + request.type().name().toLowerCase(Locale.ROOT) + ". " + settlement.name() + " will pay "
@@ -133,6 +136,19 @@ public final class Dialogue {
         }
 
         return options.get(random.nextInt(options.size()));
+    }
+
+    /** R3.5: what a resident says about money, by how much they have put by. */
+    static Optional<String> wealthLine(Resident resident, Occupation occupation) {
+        return Optional.of(switch (Wealth.tier(resident.wealth())) {
+            case BROKE -> occupation == Occupation.UNEMPLOYED
+                    ? "I haven't a coin to my name. Work would fix that."
+                    : "Every emerald I earn goes on food. There's nothing put by.";
+            case MODEST -> "I get by. A few emeralds put away for a bad winter.";
+            case COMFORTABLE -> "I've done all right: about " + resident.wealth() / Wealth.PER_EMERALD
+                    + " emeralds put by, and a roof over my head.";
+            case WEALTHY -> "Business has been good to me. I could buy half this street, if anyone were selling.";
+        });
     }
 
     /** R4.14: a line about a parent still in the settlement, in the words their gender calls for. */

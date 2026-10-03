@@ -11,6 +11,7 @@ import io.github.skyeberhard.hamletfolk.core.ResourceMapper;
 import io.github.skyeberhard.hamletfolk.core.ResourceType;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.SettlementSimulator;
+import io.github.skyeberhard.hamletfolk.core.Wealth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -183,6 +184,7 @@ final class SettlementCommand implements TabExecutor {
             }
             String role = r.adult() ? r.occupation().title() + ", " + r.age(s.lastSimulatedDay()) + " days"
                     + (r.stage(s.lastSimulatedDay()) == LifeStage.ELDER ? " (elder)" : "")
+                    + ", " + Wealth.tier(r.wealth()).name().toLowerCase(Locale.ROOT) // R3.5
                     : "child";
             player.sendMessage(Component.text(" " + r.fullName(), NamedTextColor.WHITE)
                     .append(Component.text(" — " + role + " (" + r.gender().pronouns() + ")", NamedTextColor.GRAY)));

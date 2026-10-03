@@ -4,6 +4,14 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R3.5: Residents now have wealth. A working adult earns the worth of what they produce each day (at the
+  merchant rates: ten food, six wood, five stone or two metal make an emerald), a merchant keeps a fifth of
+  each emerald a sale brings the treasury, and every adult pays for their own meals out of what they have.
+  Wealth is a personal figure only: it does not touch the treasury or the stores, so it can neither
+  mint nor drain what the village holds. It shows in dialogue (broke, modest, comfortable, wealthy: a
+  jobless resident with no coin says so) and as a word after each adult in `/settlement residents`.
+  Children neither earn nor pay. Save format is now 12; an older save's residents start with nothing put
+  by. The rules are in core and tested; the dialogue and listing are checked in game by T38.
 - R3.14: Villagers now sell food only while the village can spare it. A sale the stores cannot cover
   (stock above what the village wants to hold) is refused with a message, and nothing is taken from the
   player; this is checked as the trade happens, so several food offers cannot all draw on the same stock.

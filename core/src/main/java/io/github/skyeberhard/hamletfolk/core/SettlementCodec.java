@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 11;
+    public static final int FORMAT_VERSION = 12;
 
     private SettlementCodec() {
     }
@@ -123,6 +123,9 @@ public final class SettlementCodec {
             map.put("parentB", r.parentB().toString());
         }
         map.put("lastBlockedDay", r.lastBlockedDay());
+        if (r.wealth() != 0) {
+            map.put("wealth", r.wealth());
+        }
         Traits t = r.traits();
         map.put("traits", List.of(t.workEthic(), t.sociability(), t.ambition(), t.bravery()));
         Needs n = r.needs();
@@ -251,6 +254,7 @@ public final class SettlementCodec {
         // v8 -> v9: "buildings" (R2.1) is optional, so an old save simply has none registered.
         // v9 -> v10: "beds" (R2.2) is optional, so an old save has no housing until its chunks are next loaded.
         // v10 -> v11: "reputation" (R3.4) is optional, so an old save has no opinions.
+        // v11 -> v12: "wealth" (R3.5) on residents is optional, so an old save's residents start with nothing put by.
         if (version < 5) {
             // v4 -> v5: residents gain a gender (R4.14).
             migrated.put("residents", withGenders(migrated.get("residents")));
@@ -375,6 +379,8 @@ public final class SettlementCodec {
                 uuidOrNull(map.get("parentB")),
                 new Needs(intAt(n, 0), intAt(n, 1), intAt(n, 2)));
         r.setLastBlockedDay(num(map, "lastBlockedDay").longValue());
+        // v11 -> v12: "wealth" (R3.5) is optional, so an old save's residents start with nothing put by.
+        r.addWealth(Math.max(0, num(map, "wealth").intValue()));
         for (Map.Entry<?, ?> entry : asMap(map.get("familiarity")).entrySet()) {
             r.familiarity().put(UUID.fromString(entry.getKey().toString()), ((Number) entry.getValue()).intValue());
         }

@@ -72,6 +72,8 @@ public final class Resident {
     private boolean adult;
     /** Day this resident last could not work because an input was missing, or -1. */
     private long lastBlockedDay = -1;
+    /** R3.5: what they have put by, in hundredths of an emerald. */
+    private int wealth;
 
     public Resident(UUID id, String givenName, String familyName, Gender gender, Traits traits,
                     Occupation occupation, boolean adult, long bornDay, UUID parentA, UUID parentB, Needs needs) {
@@ -90,6 +92,23 @@ public final class Resident {
 
     public UUID id() {
         return id;
+    }
+
+    /** R3.5: what this resident has put by, in hundredths of an emerald. */
+    public int wealth() {
+        return wealth;
+    }
+
+    /** R3.5: adds to what they have put by (never below nothing, never above {@link Wealth#MAX}). */
+    void addWealth(int hundredths) {
+        wealth = (int) Math.max(0, Math.min(Wealth.MAX, (long) wealth + hundredths));
+    }
+
+    /** R3.5: pays for something out of what they have put by, as far as it goes; returns what was paid. */
+    int spendWealth(int hundredths) {
+        int paid = Math.min(wealth, Math.max(0, hundredths));
+        wealth -= paid;
+        return paid;
     }
 
     public String givenName() {
@@ -201,6 +220,7 @@ public final class Resident {
         Resident copy = new Resident(newId, givenName, familyName, gender, traits, occupation, adult, rebased,
                 parentA, parentB, new Needs(needs.food(), needs.safety(), needs.purpose()));
         copy.lastBlockedDay = lastBlockedDay;
+        copy.wealth = wealth; // R3.5: a cured villager keeps what they had put by
         copy.familiarity.putAll(familiarity);
         return copy;
     }
