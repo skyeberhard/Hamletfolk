@@ -34,8 +34,9 @@ the villager's own trade screen.
   waits for work. It is deliberate, not a loophole: it is why a village in famine keeps its
   foragers foraging instead of sending them elsewhere, and unemployed residents say so when
   you talk to them. It is far less than a farmer makes (about 4 a day).
-- **Smiths need metal**, and no vanilla profession produces it. Without player donations
-  the forges go cold, the village records a shortage, and the smith will tell you so.
+- **Smiths need metal**, and no vanilla profession produces it. Place a sign reading `[Mine]` inside
+  the village and unemployed residents become miners who dig stone and metal; without a mine or player
+  donations the forges go cold, the village records a shortage, and the smith will tell you so.
 - Everyone eats. When the stores run out, famine starts and goes into the history, and
   residents talk about it until it ends.
 - Deaths from monsters, zombie infections and raids raise the village's sense of danger,

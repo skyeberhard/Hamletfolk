@@ -9,7 +9,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
- * R3.6: gatherers wear out tools. The toolless penalty is off by default until R2.3 gives
+ * R3.6: gatherers wear out tools. The toolless penalty is off by default until a mine (R2.3) gives
  * METAL a source, so the penalty tests use a simulator with it switched on.
  */
 class ToolWearTest {
@@ -22,6 +22,8 @@ class ToolWearTest {
             registry.enroll(s, UUID.randomUUID(), job, true, 0, null, null);
         }
         s.ledger().add(ResourceType.FOOD, 100_000); // keep famine out of the way
+        // The tool penalty only applies where a mine gives the village a way to get metal (R2.3).
+        s.registerBuilding(new Building(BuildingType.MINE, 0, 64, 0, 0, "Test"));
         return s;
     }
 

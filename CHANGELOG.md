@@ -4,6 +4,23 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R2.3: Registered buildings now give residents somewhere to work. A registered `[Mine]` lets an
+  unemployed resident become a **miner** (new occupation, four places per mine) who makes stone and
+  metal, so smiths can finally work without donations; a registered `[Farm]` likewise gives four
+  farmer places. Lumberjacks and merchants need no building. Job assignment is now: food first
+  (while food is short and a food job has a free place, that job is taken),
+  otherwise the shortest need that has somewhere to work, so a missing mine never blocks the
+  lumberjack and a village without one is not forever "short of metal". Only a famine, or stores that cannot cover
+  today's meals, freeze the other jobs, so a village that merely holds little food still gets lumberjacks and miners, and a
+  registered `[Smithy]` gives smith places when tools are short. A `[Farm]` or `[Mine]` place is shared with
+  villagers who already hold that job from their vanilla profession. Miners wear tools out like
+  other gatherers. A villager's own vanilla profession still works as before. The tool penalty
+  (R3.6) is on by default in the Paper layer (`economy.tool-penalty`, set it false to turn off) but
+  only bites in a village that has a registered mine: with no tools it works at three quarters speed and
+  the history records the shortage, until someone mines the metal for a smith or donates tools. The rules are in core and tested; the sign
+  to job link is Paper-side and unverified until a playtest (T34).
+- R3.6: Tool wear is now finished: tools wear out, gatherers (now including miners) slow down while
+  the village has none, and the shortage is recorded and mentioned in dialogue.
 - R2.2: Beds within a settlement now set its housing capacity, shown in `/settlement` ("Housing: 5 beds
   (2 free)") and in the admin inspect. Beds are counted per chunk within the settlement radius, only in
   loaded chunks and at most once a minute, and a chunk that is not loaded keeps its last known count,

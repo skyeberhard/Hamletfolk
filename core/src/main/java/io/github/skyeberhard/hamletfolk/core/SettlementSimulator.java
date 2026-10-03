@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
 /**
@@ -26,7 +27,8 @@ public final class SettlementSimulator {
     static final double TOOLLESS_OUTPUT = 0.75;
     /** R4.3: occupations an unemployed resident can take up, in tie-break order. */
     static final List<Occupation> JOB_CANDIDATES = List.of(
-            Occupation.FARMER, Occupation.LUMBERJACK, Occupation.MASON, Occupation.FISHERMAN);
+            Occupation.FARMER, Occupation.LUMBERJACK, Occupation.MASON, Occupation.FISHERMAN, Occupation.MINER,
+            Occupation.TOOLSMITH);
     /** R4.3: stock per resident below which a resource counts as short. */
     static final int FOOD_WANTED_PER_HEAD = 10;
     static final int STOCK_WANTED_PER_HEAD = 3;
@@ -45,7 +47,7 @@ public final class SettlementSimulator {
      * R3.9: a merchant sells stock above this many per resident, all well over what R4.3 counts as
      * short so selling never starts a shortage. Food keeps 24: the newcomer rule (R4.1) needs 20 a
      * head after the day's meal (2 a head) and spoilage, which happen after the merchant sells.
-     * Tools and metal keep more, since smiths and tool wear need them and neither has a source yet.
+     * Tools and metal keep more, since smiths and tool wear need them and a source only through a mine and a smith (R2.3).
      */
     static final int FOOD_KEPT_PER_HEAD = 24;
     static final int TOOLS_METAL_KEPT_PER_HEAD = 20;
@@ -73,17 +75,18 @@ public final class SettlementSimulator {
     static final int SHORTAGE_QUIET_DAYS = 7;
 
     /**
-     * Whether gatherers slow down (and a tool shortage is recorded) while the village has no
-     * tools. Off until R2.3 gives METAL a source: smiths need metal to make tools, and without
-     * a miner every village would stay toolless for good. Tools still wear out either way.
+     * Whether gatherers slow down (and a tool shortage is recorded) while the village has no tools.
+     * It only applies in a settlement with a registered mine (R2.3), the one way to get more metal for
+     * tools, so a village with no way out is not punished. Tools wear out either way.
      */
     private final boolean toollessPenalty;
 
     /**
-     * R4.3: whether a workstation is free for an occupation. Until buildings exist (M2) only
-     * simulation-owned occupations, which need no vanilla workstation, can be handed out.
+     * R4.3 and R2.3: whether there is somewhere for an unemployed resident to work as an occupation.
+     * By default that means a registered building with a free place (see {@link #buildingsAllow});
+     * tests substitute their own rule.
      */
-    private final Predicate<Occupation> workstationFree;
+    private final BiPredicate<Settlement, Occupation> workstationFree;
 
     /**
      * R4.15: whether residents die of old age. Elders slow down either way. The Paper layer turns
@@ -96,22 +99,50 @@ public final class SettlementSimulator {
     }
 
     SettlementSimulator(boolean toollessPenalty) {
-        this(toollessPenalty, Occupation::simOwned);
+        this(SettlementSimulator::buildingsAllow, toollessPenalty, true);
     }
 
     SettlementSimulator(boolean toollessPenalty, Predicate<Occupation> workstationFree) {
-        this(toollessPenalty, workstationFree, true);
+        this((settlement, occupation) -> workstationFree.test(occupation), toollessPenalty, true);
     }
 
-    public SettlementSimulator(boolean toollessPenalty, Predicate<Occupation> workstationFree, boolean oldAgeDeaths) {
+    private SettlementSimulator(BiPredicate<Settlement, Occupation> workstationFree, boolean toollessPenalty, boolean oldAgeDeaths) {
         this.toollessPenalty = toollessPenalty;
         this.workstationFree = workstationFree;
         this.oldAgeDeaths = oldAgeDeaths;
     }
 
-    /** The simulator the Paper layer uses: no free workstations until M2, old-age deaths as configured. */
+    /** The simulator the Paper layer uses: jobs need registered buildings, with the two settings as configured. */
+    public static SettlementSimulator configured(boolean oldAgeDeaths, boolean toollessPenalty) {
+        return new SettlementSimulator(SettlementSimulator::buildingsAllow, toollessPenalty, oldAgeDeaths);
+    }
+
+    /** As {@link #configured} with the tool penalty off (what core tests use). */
     public static SettlementSimulator withOldAgeDeaths(boolean oldAgeDeaths) {
-        return new SettlementSimulator(false, Occupation::simOwned, oldAgeDeaths);
+        return configured(oldAgeDeaths, false);
+    }
+
+    /**
+     * R2.3: whether a resident can be handed this occupation, by the registered buildings. Lumberjacks
+     * and merchants need no building. A farmer needs a registered farm and a miner a registered mine,
+     * four places each; occupations with no building behind them (a mason, a fisher) are only ever
+     * taken from the villager's own vanilla profession.
+     */
+    static boolean buildingsAllow(Settlement settlement, Occupation occupation) {
+        if (occupation == Occupation.LUMBERJACK || occupation == Occupation.MERCHANT) {
+            return true;
+        }
+        int places = 0;
+        for (Building building : settlement.buildings()) {
+            if (building.type().job().filter(job -> job == occupation).isPresent()) {
+                places += BuildingType.WORKERS_PER_BUILDING;
+            }
+        }
+        if (places == 0) {
+            return false;
+        }
+        long holders = settlement.residents().stream().filter(r -> r.adult() && r.occupation() == occupation).count();
+        return holders < places;
     }
 
     /**
@@ -154,12 +185,14 @@ public final class SettlementSimulator {
 
         Random wearRandom = new Random(settlement.id().getLeastSignificantBits() ^ (day * 0x9E3779B97F4A7C15L) ^ 0x700157L);
         Map<ResourceType, Integer> idleForLack = new EnumMap<>(ResourceType.class);
+        // R3.6: tools are only a real shortage where there is a way to get more: a registered mine for metal.
+        boolean penalty = toollessPenalty && settlement.buildingCount(BuildingType.MINE) > 0;
         for (Resident resident : workOrder(settlement)) {
             if (resident.adult() && resident.occupation() == Occupation.MERCHANT) {
                 sell(settlement, resident, day);
                 continue;
             }
-            work(resident, settlement.flow(), ledger, day, random, wearRandom, idleForLack);
+            work(resident, settlement.flow(), ledger, day, random, wearRandom, idleForLack, penalty);
         }
 
         int demand = 0;
@@ -272,13 +305,35 @@ public final class SettlementSimulator {
         if (jobless == null) {
             return;
         }
+        // Food first, but only where it can be acted on: while food is short and a food job has a free place,
+        // that job is taken. Otherwise the shortest need that has somewhere to work, so a missing mine never
+        // blocks the lumberjack. Only an actual famine freezes the other jobs: then the unemployed keep
+        // foraging (R1.24). A village that merely holds less than 10 food a head is not in famine.
+        boolean foodShort = cover(settlement, Occupation.FARMER) < 1.0;
+        // Famine, or stores that cannot cover today's meals: then nothing but food work will do.
+        boolean famine = settlement.hasCondition("famine") || settlement.ledger().get(ResourceType.FOOD) <= dailyFoodDemand(settlement);
         Occupation best = null;
         double bestCover = Double.MAX_VALUE;
         for (Occupation candidate : JOB_CANDIDATES) {
+            if (!workstationFree.test(settlement, candidate) || !(foodShort && candidate.produces() == ResourceType.FOOD)) {
+                continue;
+            }
             double cover = cover(settlement, candidate);
             if (cover < 1.0 && cover < bestCover) {
                 best = candidate;
                 bestCover = cover;
+            }
+        }
+        if (best == null && !famine) {
+            for (Occupation candidate : JOB_CANDIDATES) {
+                if (!workstationFree.test(settlement, candidate)) {
+                    continue;
+                }
+                double cover = cover(settlement, candidate);
+                if (cover < 1.0 && cover < bestCover) {
+                    best = candidate;
+                    bestCover = cover;
+                }
             }
         }
         // R3.9: with nothing short and goods to spare, someone takes up selling them.
@@ -290,13 +345,14 @@ public final class SettlementSimulator {
         boolean apprentice = jobless.parentA() != null;
         boolean parentTradeNeeded = parentTrade == Occupation.MERCHANT
                 ? best == null && merchantNeeded(settlement)
-                : parentTrade != null && cover(settlement, parentTrade) < 1.0;
-        if (parentTradeNeeded && workstationFree.test(parentTrade)) {
+                : parentTrade != null && cover(settlement, parentTrade) < 1.0
+                        && !(famine && parentTrade.produces() != ResourceType.FOOD)
+                        && !(foodShort && best != null && best.produces() == ResourceType.FOOD
+                                && parentTrade.produces() != ResourceType.FOOD);
+        if (parentTradeNeeded && workstationFree.test(settlement, parentTrade)) {
             best = parentTrade;
         }
-        // Shortest over every candidate, then check its workstation: a village short of food but
-        // with no farm to staff doesn't send its forager off to cut wood instead.
-        if (best != null && workstationFree.test(best)) {
+        if (best != null) {
             jobless.setOccupation(best);
             if (apprentice) {
                 settlement.record(day, HistoryEvent.Kind.MILESTONE, jobless.fullName()
@@ -305,9 +361,23 @@ public final class SettlementSimulator {
         }
     }
 
+    /** What the whole settlement eats in a day. */
+    private static int dailyFoodDemand(Settlement settlement) {
+        int demand = 0;
+        for (Resident resident : settlement.residents()) {
+            demand += resident.adult() ? ADULT_FOOD_PER_DAY : CHILD_FOOD_PER_DAY;
+        }
+        return demand;
+    }
+
     /** How well stocked the settlement is with what an occupation makes; below 1 means short. */
     private static double cover(Settlement settlement, Occupation occupation) {
-        ResourceType resource = occupation.produces();
+        double cover = coverOf(settlement, occupation.produces());
+        // A miner is wanted when either stone or metal is short.
+        return Math.min(cover, coverOf(settlement, occupation.secondaryProduces()));
+    }
+
+    private static double coverOf(Settlement settlement, ResourceType resource) {
         if (resource == null) {
             return Double.MAX_VALUE;
         }
@@ -340,7 +410,7 @@ public final class SettlementSimulator {
 
     private void work(Resident resident, ResourceFlow flow, Ledger ledger, long day, Random random,
                              Random wearRandom,
-                             Map<ResourceType, Integer> idleForLack) {
+                             Map<ResourceType, Integer> idleForLack, boolean toollessPenalty) {
         Occupation occupation = resident.occupation();
         if (!resident.adult() || occupation.produces() == null) {
             return;
@@ -372,6 +442,12 @@ public final class SettlementSimulator {
                 * ageFactor + random.nextDouble());
         ledger.add(occupation.produces(), output);
         flow.recordProduced(occupation.produces(), day, output);
+        if (occupation.secondaryProduces() != null) {
+            int extra = (int) Math.floor(occupation.secondaryBaseOutput() * diligence * toolFactor
+                    * needsFactor(resident.needs()) * ageFactor + random.nextDouble());
+            ledger.add(occupation.secondaryProduces(), extra);
+            flow.recordProduced(occupation.secondaryProduces(), day, extra);
+        }
         resident.needs().adjustPurpose(4);
     }
 
@@ -524,9 +600,14 @@ public final class SettlementSimulator {
     }
 
     /** True if a gathering resource is short (the same test assignJob uses to pick a job). */
-    private static boolean somethingShort(Settlement settlement) {
+    private boolean somethingShort(Settlement settlement) {
+        if (cover(settlement, Occupation.FARMER) < 1.0) {
+            return true; // food is always something to work on: an unemployed resident forages
+        }
         for (Occupation candidate : JOB_CANDIDATES) {
-            if (cover(settlement, candidate) < 1.0) {
+            // Only a shortage someone could work on: a missing mine does not count, or a village
+            // without one would always look short of metal and never keep a merchant.
+            if (workstationFree.test(settlement, candidate) && cover(settlement, candidate) < 1.0) {
                 return true;
             }
         }
@@ -537,7 +618,7 @@ public final class SettlementSimulator {
      * R3.9: nothing left to sell while something else is short, so one merchant goes back to being
      * unemployed and the job assignment can send them where they are needed. At most one a day.
      */
-    private static void releaseMerchant(Settlement settlement) {
+    private void releaseMerchant(Settlement settlement) {
         if (hasSurplus(settlement) || !somethingShort(settlement)) {
             return;
         }

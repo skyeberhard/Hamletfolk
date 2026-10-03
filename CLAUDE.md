@@ -55,8 +55,9 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   step in `migrate()` with a test using a hand-built old-format map.
 - **The simulation owns occupations** (R4.3). The vanilla profession may only fill in an
   UNEMPLOYED resident (`Resident.seedOccupation`); never call `setOccupation` from `SettlementService`
-  or `VillagerListener`. Vanilla-backed jobs get a free workstation from M2 (see
-  `SettlementSimulator.workstationFree`).
+  or `VillagerListener`. Whether a job can be *assigned* comes from registered buildings
+  (`SettlementSimulator.buildingsAllow`: farm and mine, four places each; lumberjack and merchant
+  need none). Food comes first in job assignment (R2.3).
 - **Adult enrollment draws an age** (R4.15, 12 to 51 days), so a test that enrolls adults and runs
   past about 39 days can lose them to old age. Build residents with `new Resident(..., bornDay, ...)`
   and `Settlement.addResident` to control age, or use `SettlementSimulator.withOldAgeDeaths(false)`. The lifespan scale is a static
@@ -64,9 +65,9 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
 - **The treasury has one spending so far:** merchants (R3.9) fill it and requests (R3.3) spend it
   (the reward is held aside when a request is posted); R4.8 (builder) and R5.1 (guards) are next. STONE and GOODS now have an outlet in the
   merchant. TOOLS wear out (R3.6).
-- **Tool wear penalty is off** (`SettlementSimulator.toollessPenalty`, false by default): no
-  occupation produces METAL until R2.3, so smiths can't make tools and a penalty would starve
-  every village. Turn it on as part of R2.3; then R3.6 can be marked Done.
+- **The tool penalty is a setting** (`economy.tool-penalty`, on in the Paper config, off by default in
+  `new SettlementSimulator()` so core tests are unaffected; `SettlementSimulator.configured(oldAge, toolPenalty)`).
+  A village with no mine has no metal and so no new tools: that is the pressure to build one.
 - **`SettlementService.track()` returns null** for a world excluded by `worlds.allow/deny`
   (R1.10); callers must handle it.
 - **Line endings:** working copies are CRLF (autocrlf) while the repo stores LF, so git warns
@@ -78,10 +79,10 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
 ## Where things stand
 
 - Done: M0; M1 items R1.2, R1.3, R1.4, R1.5, R1.6, R1.9, R1.10, R1.13, R1.14, R1.16, R1.17,
-  R1.18, R1.19, R1.20, R1.21, R1.22, R1.23; M2 items R2.1, R2.2; M3 items R3.1, R3.3, R3.7, R3.9, R3.10, R3.11, R3.12, R3.13 (R3.6 partly, see above); M4 items R4.1, R4.3, R4.4, R4.5, R4.9, R4.10, R4.14, R4.15, R4.16.
+  R1.18, R1.19, R1.20, R1.21, R1.22, R1.23; M2 items R2.1, R2.2, R2.3; M3 items R3.1, R3.3, R3.6, R3.7, R3.9, R3.10, R3.11, R3.12, R3.13 ; M4 items R4.1, R4.3, R4.4, R4.5, R4.9, R4.10, R4.14, R4.15, R4.16.
   Save format is 10 (R2.2 added bed counts; R2.1 added buildings; R3.3 added requests; R1.21 added event count/actor, R3.7 added flow, R4.14 added gender, R4.15 added departed ids; 7 dropped the nonbinary gender).
 - **Next, highest value:** R1.1 (first playtest — the Paper layer has never run; scenarios
-  T1–T33 in docs/TESTING.md, of which T17 (admin), T18 (worlds), T19 (backups), T26 (appearance), T27 (requests) and T28 (donation values) and T29 (tool requests) and T30 (trade prices) and T31 (donation room), T32 (building signs) and T33 (housing) are
+  T1–T34 in docs/TESTING.md, of which T17 (admin), T18 (worlds), T19 (backups), T26 (appearance), T27 (requests) and T28 (donation values) and T29 (tool requests) and T30 (trade prices) and T31 (donation room), T32 (building signs) and T33 (housing) and T34 (miners) are
   Paper-only). After that R1.8, R1.24 (needs a decision), R1.7 and R1.12, then M2 buildings.
 - On a local machine, much of R1.1 can be driven from the server console (`/summon`, `/time add`,
   restarts, reading `plugins/Hamletfolk/settlements.json`); player-only steps (sneak +

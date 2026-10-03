@@ -14,10 +14,23 @@ public enum BuildingType {
     HOUSE("House"),
     GUARD_POST("Guard Post");
 
+    /** R2.3: how many residents one building gives work to. */
+    public static final int WORKERS_PER_BUILDING = 4;
+
     private final String label;
 
     BuildingType(String label) {
         this.label = label;
+    }
+
+    /** R2.3: the occupation a building of this kind employs people in, if any. */
+    public Optional<Occupation> job() {
+        return switch (this) {
+            case FARM -> Optional.of(Occupation.FARMER);
+            case MINE -> Optional.of(Occupation.MINER);
+            case SMITHY -> Optional.of(Occupation.TOOLSMITH);
+            case HOUSE, GUARD_POST -> Optional.empty();
+        };
     }
 
     /** e.g. "Guard Post". */

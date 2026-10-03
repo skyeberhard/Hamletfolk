@@ -29,9 +29,11 @@ class JobAssignmentTest {
         s.ledger().add(ResourceType.FOOD, 1000);
         s.ledger().add(ResourceType.WOOD, 1000);
         new SettlementSimulator(false, o -> true).simulateTo(s, 3, 100);
-        assertEquals(Occupation.MASON, jobless.occupation()); // stone is the only thing short
+        assertEquals(Occupation.MASON, jobless.occupation()); // stone and metal are both short; the mason comes first in the list
         Resident another = enroll(s, Occupation.UNEMPLOYED, true);
         s.ledger().add(ResourceType.STONE, 1000);
+        s.ledger().add(ResourceType.METAL, 1000); // a miner (R2.3) would also be wanted for metal
+        s.ledger().add(ResourceType.TOOLS, 1000); // and a smith for tools
         new SettlementSimulator(false, o -> true).simulateTo(s, 6, 100);
         // Nothing is short, so no gathering job; with plenty to spare (R3.9) they sell it instead.
         assertEquals(Occupation.MERCHANT, another.occupation());

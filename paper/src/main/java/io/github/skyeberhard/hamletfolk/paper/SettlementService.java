@@ -47,7 +47,7 @@ final class SettlementService {
         this.plugin = plugin;
         this.registry = registry;
         this.config = config;
-        this.simulator = SettlementSimulator.withOldAgeDeaths(config.oldAgeDeaths());
+        this.simulator = SettlementSimulator.configured(config.oldAgeDeaths(), config.toolPenalty());
     }
 
     SettlementRegistry registry() {

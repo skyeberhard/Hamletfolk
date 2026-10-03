@@ -29,6 +29,7 @@ class MerchantTest {
         for (int i = 0; i < 3; i++) {
             s.addResident(person(Occupation.NITWIT)); // makes nothing, so only the test adds to the stores
         }
+        s.ledger().add(ResourceType.FOOD, 100); // they eat for the run; with none the merchant would be released to forage
         return s;
     }
 
@@ -86,6 +87,9 @@ class MerchantTest {
         Settlement s = village();
         s.ledger().add(ResourceType.TOOLS, 60); // 15 a head: well above need, but below what a village keeps
         s.ledger().add(ResourceType.METAL, 60);
+        // Enough wood that nothing is short, but not a surplus to sell: otherwise the idle merchant is released
+        // to cut wood, and a lumberjack's tools wear out by a dice roll.
+        s.ledger().add(ResourceType.WOOD, 20);
         simulator.simulateTo(s, 5, 100);
         assertEquals(60, s.ledger().get(ResourceType.TOOLS));
         assertEquals(60, s.ledger().get(ResourceType.METAL));

@@ -21,6 +21,8 @@ public enum Occupation {
     // No vanilla profession backs these; they're assigned directly by the simulation
     // (R4.3 "jobs follow need") rather than reached through fromVanillaKey.
     LUMBERJACK("lumberjack", "lumberjack", ResourceType.WOOD, 3, null),
+    // R2.3: works a registered mine: mostly stone, and some metal, which is what lets smiths work without donations.
+    MINER("miner", "miner", ResourceType.STONE, 3, null, ResourceType.METAL, 1),
     // R3.9: makes nothing; sells surplus into the treasury (see SettlementSimulator.sell).
     MERCHANT("merchant", "merchant", null, 0, null),
     ARMORER("armorer", "armorer", ResourceType.TOOLS, 1, ResourceType.METAL),
@@ -35,13 +37,22 @@ public enum Occupation {
     private final ResourceType produces;
     private final int baseOutput;
     private final ResourceType consumes;
+    private final ResourceType secondaryProduces;
+    private final int secondaryBaseOutput;
 
     Occupation(String vanillaKey, String title, ResourceType produces, int baseOutput, ResourceType consumes) {
+        this(vanillaKey, title, produces, baseOutput, consumes, null, 0);
+    }
+
+    Occupation(String vanillaKey, String title, ResourceType produces, int baseOutput, ResourceType consumes,
+               ResourceType secondaryProduces, int secondaryBaseOutput) {
         this.vanillaKey = vanillaKey;
         this.title = title;
         this.produces = produces;
         this.baseOutput = baseOutput;
         this.consumes = consumes;
+        this.secondaryProduces = secondaryProduces;
+        this.secondaryBaseOutput = secondaryBaseOutput;
     }
 
     /** Maps a vanilla profession key (e.g. {@code "farmer"}) to an occupation. Unknown keys become UNEMPLOYED. */
@@ -64,7 +75,7 @@ public enum Occupation {
 
     /** True for occupations no vanilla profession backs, so the simulation alone hands them out (R4.3). */
     public boolean simOwned() {
-        return this == LUMBERJACK || this == MERCHANT;
+        return this == LUMBERJACK || this == MERCHANT || this == MINER;
     }
 
     public String title() {
@@ -78,7 +89,16 @@ public enum Occupation {
 
     /** Gatherers wear out tools as they work (R3.6). */
     public boolean usesTools() {
-        return this == FARMER || this == FISHERMAN || this == LUMBERJACK || this == MASON;
+        return this == FARMER || this == FISHERMAN || this == LUMBERJACK || this == MASON || this == MINER;
+    }
+
+    /** A second resource this occupation adds each day (a miner gets metal as well as stone), or null. */
+    public ResourceType secondaryProduces() {
+        return secondaryProduces;
+    }
+
+    public int secondaryBaseOutput() {
+        return secondaryBaseOutput;
     }
 
     public int baseOutput() {
