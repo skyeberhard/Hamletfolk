@@ -68,7 +68,7 @@ Dependency-ordered. `Next` is where to start.
 | 19b | **R8.1** Village planner and decision log (#94) | The decision layer; works on today's adopted villages and unblocks the rest of M8 | R2.3 | Done |
 | 19c | **R8.2** Site scoring (#95, done), **R8.3** Road graph and lots (#96, done), **R8.4** Terrain pads (#97, done) | Pure functions on sampled grids and heightmaps, fully testable without a server | none | Done |
 | 19d | **R8.5** Players found villages (#98), core rules; **R8.9** Stages and failure (#102) | Founding rules (cap, spacing, kit, validation) and the stall-decline-abandon path | R8.1, R2.1 | Planned |
-| 21 | **R4.6** Building templates with tiers (#56), core catalog and diff | The catalog, tier choice, materials from a block palette and the block diff are core (see "Template library" below) | R2.1 | In progress: core half done (`Blueprint`, `BuildingGenerator`, `TemplateCatalog`), Paper half to do |
+| 21 | **R4.6** Building templates with tiers (#56), core catalog and diff | The catalog, tier choice, materials from a block palette and the block diff are core (see "Template library" below) | R2.1 | Coded (core and Paper), awaiting playtest T49; R4.7, R4.8 coded too (T50) |
 
 ## Tier 2: Paper-heavy (write without a playtest, verify in game)
 

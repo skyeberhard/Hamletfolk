@@ -45,7 +45,7 @@ final class SettlementCommand implements TabExecutor {
     private final java.util.Map<java.util.UUID, org.bukkit.scheduler.BukkitTask> lotViews = new java.util.HashMap<>();
     /** When each player last ran /settlement beds, for the cooldown. */
     private final java.util.Map<java.util.UUID, Long> lastBedsCommand = new java.util.HashMap<>();
-    private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate", "buildings", "beds", "plan", "lots", "survey");
+    private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate", "buildings", "beds", "plan", "lots", "projects", "survey");
     private static final int EVENTS_PER_PAGE = 3;
     /** Vanilla's limit for a written book; more and the client refuses it. */
     private static final int MAX_BOOK_PAGES = 100;
@@ -91,6 +91,7 @@ final class SettlementCommand implements TabExecutor {
             case "beds" -> beds(player, settlement);
             case "plan" -> plan(player, settlement);
             case "lots" -> lots(player, settlement, args);
+            case "projects" -> projects(player, settlement);
             default -> {
                 return false;
             }
@@ -336,6 +337,34 @@ final class SettlementCommand implements TabExecutor {
         }
         for (String note : profile.notes()) {
             player.sendMessage(Component.text("  " + note, NamedTextColor.GRAY));
+        }
+    }
+
+    /** R4.7, R4.8: what the village is building, who is building it and how far along it is, and what it has built. */
+    private void projects(Player player, Settlement s) {
+        var open = s.openProject();
+        if (open.isEmpty()) {
+            player.sendMessage(Component.text(s.name() + " is not building anything right now.", NamedTextColor.GRAY));
+        } else {
+            var p = open.get();
+            String who = p.builder() == null ? "nobody has taken it on yet"
+                    : s.resident(p.builder()).map(r -> r.fullName() + " is building it").orElse("its builder has gone");
+            String progress = p.blocksLeft() < 0 ? "not started" : p.blocksLeft() + " blocks to go";
+            String waiting = p.waitingFor() == null ? "" : ", waiting for " + p.waitingFor().name().toLowerCase(Locale.ROOT);
+            player.sendMessage(Component.text("Building: " + (p.isUpgrade() ? "an upgrade of the " : "a ")
+                    + p.type().label().toLowerCase(Locale.ROOT) + " (tier " + p.tier() + ") at " + p.x() + ", " + p.z()
+                    + " (" + who + "; " + progress + waiting + ")", NamedTextColor.GOLD));
+        }
+        int shown = 0;
+        var all = s.projects();
+        for (int i = all.size() - 1; i >= 0 && shown < 5; i--) {
+            var p = all.get(i);
+            if (!p.isOpen()) {
+                player.sendMessage(Component.text("  day " + p.finishedDay() + ": " + p.status().name().toLowerCase(Locale.ROOT)
+                        + " " + p.type().label().toLowerCase(Locale.ROOT) + " (tier " + p.tier() + ") at " + p.x() + ", " + p.z(),
+                        NamedTextColor.GRAY));
+                shown++;
+            }
         }
     }
 

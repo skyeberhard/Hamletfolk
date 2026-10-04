@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 18;
+    public static final int FORMAT_VERSION = 19;
 
     private SettlementCodec() {
     }
@@ -99,6 +99,38 @@ public final class SettlementCodec {
             buildings.add(building);
         }
         map.put("buildings", buildings);
+        if (!s.projects().isEmpty()) {
+            List<Object> projects = new ArrayList<>();
+            for (ConstructionProject p : s.projects()) {
+                Map<String, Object> project = new LinkedHashMap<>();
+                project.put("id", p.id());
+                project.put("type", p.type().name());
+                project.put("tier", p.tier());
+                project.put("previousTier", p.previousTier());
+                project.put("biome", p.biomeSet());
+                project.put("x", p.x());
+                project.put("y", p.y());
+                project.put("z", p.z());
+                project.put("lot", p.lotId());
+                project.put("queuedDay", p.queuedDay());
+                project.put("status", p.status().name());
+                if (p.builder() != null) {
+                    project.put("builder", p.builder().toString());
+                }
+                project.put("finishedDay", p.finishedDay());
+                project.put("siteChecked", p.siteChecked());
+                project.put("shiftX", p.shiftX());
+                project.put("shiftZ", p.shiftZ());
+                if (p.signY() != ConstructionProject.NO_SIGN) {
+                    project.put("sign", List.of(p.signX(), p.signY(), p.signZ()));
+                }
+                Map<String, Object> credit = new LinkedHashMap<>();
+                p.credit().forEach((type, halves) -> credit.put(type.name(), halves));
+                project.put("credit", credit);
+                projects.add(project);
+            }
+            map.put("projects", projects);
+        }
         map.put("beds", new LinkedHashMap<>(s.housing().asMap()));
         Map<String, Object> reputation = new LinkedHashMap<>();
         s.reputation().forEach((player, score) -> reputation.put(player.toString(), score));
@@ -241,6 +273,46 @@ public final class SettlementCodec {
             }
         }
 
+        // v18 -> v19: "projects" (R4.7, R4.8) is optional, so an old save has none.
+        for (Object o : asList(map.get("projects"))) {
+            try {
+                Map<?, ?> p = asMap(o);
+                for (String required : new String[] {"id", "tier", "x", "y", "z", "lot", "queuedDay"}) {
+                    if (!(p.get(required) instanceof Number)) {
+                        throw new IllegalArgumentException("project without " + required);
+                    }
+                }
+                ConstructionProject project = new ConstructionProject(num(p, "id").intValue(),
+                        BuildingType.valueOf(str(p, "type")), Math.max(1, num(p, "tier").intValue()),
+                        Math.max(0, num(p, "previousTier").intValue()), str(p, "biome"), num(p, "x").intValue(),
+                        num(p, "y").intValue(), num(p, "z").intValue(), num(p, "lot").intValue(), num(p, "queuedDay").longValue());
+                UUID builder = p.get("builder") == null ? null : UUID.fromString(p.get("builder").toString());
+                ConstructionProject.Status status = ConstructionProject.Status.valueOf(str(p, "status"));
+                // An active project needs its builder; without one it goes back in the queue.
+                if (status == ConstructionProject.Status.ACTIVE && builder == null) {
+                    status = ConstructionProject.Status.QUEUED;
+                }
+                // The village builds one thing at a time: a hand-edited second open project is dropped.
+                if ((status == ConstructionProject.Status.ACTIVE || status == ConstructionProject.Status.QUEUED)
+                        && s.openProject().isPresent()) {
+                    status = ConstructionProject.Status.CANCELLED;
+                    builder = null;
+                }
+                project.setShift(p.get("shiftX") instanceof Number sx ? sx.intValue() : 0,
+                        p.get("shiftZ") instanceof Number sz ? sz.intValue() : 0);
+                project.restore(status, builder, num(p, "finishedDay").longValue(), Boolean.TRUE.equals(p.get("siteChecked")));
+                if (p.get("sign") instanceof List<?> sign && sign.size() == 3) {
+                    project.setSign(((Number) sign.get(0)).intValue(), ((Number) sign.get(1)).intValue(), ((Number) sign.get(2)).intValue());
+                }
+                for (Map.Entry<?, ?> credit : asMap(p.get("credit")).entrySet()) {
+                    project.credit().put(ResourceType.valueOf(credit.getKey().toString()),
+                            Math.max(0, ((Number) credit.getValue()).intValue()));
+                }
+                s.addProject(project);
+            } catch (RuntimeException e) {
+                // a damaged project is dropped: the village decides again what to build
+            }
+        }
         if (map.get("plan") instanceof Map<?, ?> plan) {
             try {
                 s.setPlan(VillagePlan.fromMap(plan));
@@ -302,6 +374,8 @@ public final class SettlementCodec {
         // v14 -> v15: occupations gained GUARD (R5.1); an old save has none, so nothing to convert, but an older
         // build must refuse a save that may contain it rather than fail on an unknown occupation.
         // v15 -> v16: "incidents" (R5.5, the days the village was attacked) is optional, so an old save has none.
+        // v18 -> v19: "projects" (R4.7, R4.8, construction) is optional, so an old save has none; occupations gained BUILDER, so
+        // an older build must refuse a save that may contain it.
         // v17 -> v18: "plan" (R8.3, the streets and lots) is optional, so an old save has none until the ground is surveyed.
         // v16 -> v17: "decisions" (R8.1, the planner's log) is optional, so an old save has none; the planner fills it in.
         // v13 -> v14: the treasury got a limit (R2.6). So that no existing village loses emeralds, what it holds now (the

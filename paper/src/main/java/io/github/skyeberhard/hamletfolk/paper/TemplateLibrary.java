@@ -39,6 +39,8 @@ final class TemplateLibrary {
     private final HamletfolkPlugin plugin;
     private final TemplateCatalog catalog = new TemplateCatalog();
     private final Path directory;
+    /** Vanilla pieces read once: the server's structure files do not change while it runs. */
+    private final java.util.Map<String, Optional<Blueprint>> vanillaCache = new java.util.HashMap<>();
 
     TemplateLibrary(HamletfolkPlugin plugin) {
         this.plugin = plugin;
@@ -135,6 +137,10 @@ final class TemplateLibrary {
         if (own.isPresent() || template.source() != TemplateCatalog.Source.VANILLA) {
             return own;
         }
+        return vanillaCache.computeIfAbsent(template.key(), k -> readVanilla(template));
+    }
+
+    private Optional<Blueprint> readVanilla(TemplateCatalog.Template template) {
         Structure structure = loadStructure(template.key());
         if (structure == null || structure.getPalettes().isEmpty()) {
             return Optional.empty();

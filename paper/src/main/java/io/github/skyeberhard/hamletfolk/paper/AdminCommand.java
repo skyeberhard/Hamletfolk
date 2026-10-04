@@ -15,8 +15,8 @@ import org.bukkit.entity.Player;
  */
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
-    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ...";
+    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject");
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name]";
 
     private final SettlementService service;
     private final TemplateCommand templates;
@@ -41,6 +41,7 @@ final class AdminCommand {
             case "ignore" -> ignore(sender);
             case "capture" -> templates.capture(sender, args);
             case "build" -> templates.build(sender, args);
+            case "cancelproject" -> cancelProject(sender, args);
             default -> sender.sendMessage(USAGE);
         }
     }
@@ -74,6 +75,24 @@ final class AdminCommand {
         sender.sendMessage(service.toggleIgnoreTag(villager)
                 ? "That villager is now left alone: not in any village, not re-priced, not moved."
                 : "That villager is no longer exempt (it may still be inside an [Exempt] sign's area).");
+    }
+
+    /** R4.7: gives up the village's open building project (the builder goes back to being jobless). */
+    private void cancelProject(CommandSender sender, String[] args) {
+        Optional<Settlement> target = args.length >= 3 ? lookup(sender, words(args, 2, args.length)) : here(sender);
+        if (target.isEmpty()) {
+            return;
+        }
+        Settlement settlement = target.get();
+        var open = settlement.openProject();
+        if (open.isEmpty()) {
+            sender.sendMessage(settlement.name() + " has no open building project.");
+            return;
+        }
+        io.github.skyeberhard.hamletfolk.core.Construction.cancel(settlement, open.get(), settlement.lastSimulatedDay(),
+                "an admin stopped it");
+        service.plugin().requestSave();
+        sender.sendMessage("Cancelled the " + open.get().type().label().toLowerCase(java.util.Locale.ROOT) + " project in " + settlement.name() + ".");
     }
 
     private void list(CommandSender sender) {

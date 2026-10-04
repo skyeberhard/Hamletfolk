@@ -93,3 +93,10 @@ economy:
 # the village it was first seen in.
 membership:
   follows-residents: true
+
+# R4.7, R4.8: villages build what they need, a block at a time, paid for from their stores, on the lots of
+# their plan (see /settlement plan and /settlement lots). A builder only works while a player is within 128
+# blocks, never builds over anything a player made, and never while an exempt villager is nearby.
+# Turn off to stop villages building (a project in progress waits).
+construction:
+  enabled: true

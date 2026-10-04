@@ -55,19 +55,32 @@ public record Blueprint(String key, int width, int height, int depth, List<Block
         // Work in halves so slabs (half a block) add up exactly before rounding.
         EnumMap<ResourceType, Integer> halves = new EnumMap<>(ResourceType.class);
         for (Map.Entry<String, Integer> entry : materialCounts().entrySet()) {
-            Optional<ResourceMapper.Value> value = blockValue(name(entry.getKey()));
-            if (value.isEmpty()) {
-                continue;
-            }
-            int perBlockHalves = Math.max(1, value.get().numerator() * 2 / value.get().denominator());
-            if (name(entry.getKey()).endsWith("_SLAB")) {
-                perBlockHalves = Math.max(1, perBlockHalves / 2);
-            }
-            halves.merge(value.get().type(), perBlockHalves * entry.getValue(), Integer::sum);
+            halvesOf(entry.getKey()).ifPresent(h -> halves.merge(h.type(), h.halves() * entry.getValue(), Integer::sum));
         }
         EnumMap<ResourceType, Integer> units = new EnumMap<>(ResourceType.class);
         halves.forEach((type, h) -> units.put(type, (h + 1) / 2));
         return units;
+    }
+
+    /** What one block of a material costs, in half-units of a resource. */
+    public record Halves(ResourceType type, int halves) {
+    }
+
+    /** R4.8: the cost of placing one block, or empty if it is free (air, torches, doors, chests). */
+    public static Optional<Halves> halvesOf(String material) {
+        String name = name(material);
+        if ("AIR".equalsIgnoreCase(name)) {
+            return Optional.empty();
+        }
+        Optional<ResourceMapper.Value> value = blockValue(name);
+        if (value.isEmpty()) {
+            return Optional.empty();
+        }
+        int perBlock = Math.max(1, value.get().numerator() * 2 / value.get().denominator());
+        if (name.toUpperCase(Locale.ROOT).endsWith("_SLAB")) {
+            perBlock = Math.max(1, perBlock / 2);
+        }
+        return Optional.of(new Halves(value.get().type(), perBlock));
     }
 
     /**
@@ -105,6 +118,15 @@ public record Blueprint(String key, int width, int height, int depth, List<Block
         return blocks.stream().filter(b -> name(b.material()).endsWith("_WALL_SIGN")).findFirst();
     }
 
+    /** The same blocks moved by a whole number of blocks (to put an old building in a new building's frame). */
+    public Blueprint shifted(int dx, int dy, int dz) {
+        List<Block> moved = new ArrayList<>(blocks.size());
+        for (Block block : blocks) {
+            moved.add(new Block(block.x() + dx, block.y() + dy, block.z() + dz, block.material()));
+        }
+        return new Blueprint(key, width, height, depth, moved);
+    }
+
     /** The same building in another biome's materials (see {@link BiomeSet#substitute}). */
     public Blueprint inBiome(String biomeSet) {
         List<Block> swapped = new ArrayList<>(blocks.size());
@@ -125,7 +147,7 @@ public record Blueprint(String key, int width, int height, int depth, List<Block
         List<Block> todo = new ArrayList<>();
         for (Block block : blocks) {
             String now = existing.apply(block);
-            if (!block.material().equalsIgnoreCase(now == null ? "AIR" : now)) {
+            if (!Construction.matches(now, block.material())) {
                 todo.add(block);
             }
         }

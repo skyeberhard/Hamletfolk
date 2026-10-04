@@ -35,9 +35,40 @@ public final class Settlement {
     private final Map<ResourceType, Request> requests = new LinkedHashMap<>();
     private final Map<String, Building> buildings = new LinkedHashMap<>();
     private final Housing housing = new Housing();
+    /** R4.7, R4.8: buildings the village is putting up or has put up, oldest first. */
+    private final List<ConstructionProject> projects = new ArrayList<>();
+    /** The most closed projects kept on record; the oldest go first. */
+    public static final int MAX_CLOSED_PROJECTS = 40;
     private final List<UUID> newlyDeparted = new ArrayList<>();
     /** R8.3: the village's plan of streets and lots, once it has one (null until the ground has been surveyed). */
     private VillagePlan plan;
+
+    /** R4.7: every project on record, oldest first. */
+    public List<ConstructionProject> projects() {
+        return Collections.unmodifiableList(projects);
+    }
+
+    /** R4.7: the project being built or waiting for a builder, if any (the village does one at a time). */
+    public Optional<ConstructionProject> openProject() {
+        return projects.stream().filter(ConstructionProject::isOpen).findFirst();
+    }
+
+    int nextProjectId() {
+        return projects.stream().mapToInt(ConstructionProject::id).max().orElse(0) + 1;
+    }
+
+    void addProject(ConstructionProject project) {
+        projects.add(project);
+        long closed = projects.stream().filter(p -> !p.isOpen()).count();
+        for (int i = 0; i < projects.size() && closed > MAX_CLOSED_PROJECTS; ) {
+            if (projects.get(i).isOpen()) {
+                i++;
+            } else {
+                projects.remove(i);
+                closed--;
+            }
+        }
+    }
 
     /** R8.3: the plan of streets and lots, or null if the village has none yet. */
     public VillagePlan plan() {

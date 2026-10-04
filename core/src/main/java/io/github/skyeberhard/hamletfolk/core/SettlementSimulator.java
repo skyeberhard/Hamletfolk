@@ -266,6 +266,7 @@ public final class SettlementSimulator {
         ageOut(settlement, day);
         releaseMerchant(settlement);
         staffGuards(settlement, day);
+        Construction.staffBuilders(settlement, day, settlement.hasCondition("famine")); // R4.8: a famine puts every hand on food
         assignJob(settlement, day);
         Random random = new Random(settlement.id().getMostSignificantBits() ^ (day * 0x9E3779B97F4A7C15L));
         Ledger ledger = settlement.ledger();
@@ -281,6 +282,9 @@ public final class SettlementSimulator {
                     guarding++;
                 }
                 continue;
+            }
+            if (resident.adult() && resident.occupation() == Occupation.BUILDER) {
+                continue; // R4.8: the builder's work is done a block at a time by the Paper layer, not as a daily output
             }
             if (resident.adult() && resident.occupation() == Occupation.MERCHANT) {
                 sell(settlement, resident, day, treasuryRoom(settlement));
@@ -844,7 +848,7 @@ public final class SettlementSimulator {
         Resident chosen = null;
         for (Resident r : settlement.residents()) {
             if (!r.adult() || r.stage(day) == LifeStage.ELDER || r.traits().bravery() < GUARD_MIN_BRAVERY
-                    || r.occupation() == Occupation.GUARD || r.occupation() == Occupation.MERCHANT
+                    || r.occupation() == Occupation.GUARD || r.occupation() == Occupation.MERCHANT || r.occupation() == Occupation.BUILDER
                     || (r.occupation() != Occupation.UNEMPLOYED && r.occupation().produces() == ResourceType.FOOD)
                     || lastToolMaker(settlement, r)) {
                 continue;

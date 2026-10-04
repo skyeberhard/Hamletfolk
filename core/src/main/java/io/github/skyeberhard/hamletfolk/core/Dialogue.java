@@ -84,6 +84,12 @@ public final class Dialogue {
                     + "the larder from running bare while I wait for work.");
         } else if (occupation == Occupation.NITWIT) {
             options.add("Work? No, no. I'm more of a thinker.");
+        } else if (occupation == Occupation.BUILDER) {
+            options.add("There's a building to put up in " + settlement.name() + ". One block at a time, that's how it gets done.");
+            if (settlement.openProject().filter(p -> p.waitingFor() != null).isPresent()) {
+                options.add("I'm waiting on " + settlement.openProject().get().waitingFor().name().toLowerCase(java.util.Locale.ROOT)
+                        + " before I can lay another block.");
+            }
         } else if (occupation == Occupation.GUARD) {
             options.add("Someone has to watch the road. It might as well be me.");
             if (settlement.ledger().get(ResourceType.TOOLS) == 0) {

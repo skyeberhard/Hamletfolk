@@ -19,6 +19,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
     private SettlementStore store;
     private SettlementService service;
     private TemplateLibrary templates;
+    private ConstructionService construction;
     private boolean saveRequested;
     private Path saveFile;
     private Path backupDirectory;
@@ -67,6 +68,8 @@ public final class HamletfolkPlugin extends JavaPlugin {
 
         // Structures are only loadable once the server has finished starting.
         getServer().getScheduler().runTask(this, templates::verifyVanilla);
+        construction = new ConstructionService(this, service);
+        construction.start();
         service.trackLoadedVillagers();
         getServer().getScheduler().runTaskTimer(this, service::simulateAll, SIMULATION_PERIOD_TICKS, SIMULATION_PERIOD_TICKS);
 

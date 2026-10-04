@@ -34,7 +34,10 @@ public enum Occupation {
     // R5.1, R5.5: makes nothing; eats an extra ration when there is one, wears out tools while on watch and is only
     // armed (and only calms the village) while the stores hold tools (see SettlementSimulator.guard). Called up when
     // the village is attacked; no vanilla profession backs it.
-    GUARD("guard", "guard", null, 0, null);
+    GUARD("guard", "guard", null, 0, null),
+    // R4.8: makes nothing; works through the block diff of the village's open construction project (see Construction).
+    // Taken by a jobless adult when a project is queued and given back when it is done; no vanilla profession backs it.
+    BUILDER("builder", "builder", null, 0, null);
 
     private final String vanillaKey;
     private final String title;
@@ -79,7 +82,7 @@ public enum Occupation {
 
     /** True for occupations no vanilla profession backs, so the simulation alone hands them out (R4.3). */
     public boolean simOwned() {
-        return this == LUMBERJACK || this == MERCHANT || this == MINER || this == GUARD;
+        return this == LUMBERJACK || this == MERCHANT || this == MINER || this == GUARD || this == BUILDER;
     }
 
     public String title() {
