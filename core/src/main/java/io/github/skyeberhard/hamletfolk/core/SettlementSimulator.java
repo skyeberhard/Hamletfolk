@@ -90,6 +90,9 @@ public final class SettlementSimulator {
      */
     private final BiPredicate<Settlement, Occupation> workstationFree;
 
+    /** The rule that reads the registered buildings; true when {@link #workstationFree} is this one. */
+    private static final BiPredicate<Settlement, Occupation> BUILDINGS = SettlementSimulator::buildingsAllow;
+
     /**
      * R4.15: whether residents die of old age. Elders slow down either way. The Paper layer turns
      * this off by default until a playtest shows how villages hold up, since a death removes a villager.
@@ -101,7 +104,7 @@ public final class SettlementSimulator {
     }
 
     SettlementSimulator(boolean toollessPenalty) {
-        this(SettlementSimulator::buildingsAllow, toollessPenalty, true);
+        this(BUILDINGS, toollessPenalty, true);
     }
 
     SettlementSimulator(boolean toollessPenalty, Predicate<Occupation> workstationFree) {
@@ -116,7 +119,7 @@ public final class SettlementSimulator {
 
     /** The simulator the Paper layer uses: jobs need registered buildings, with the two settings as configured. */
     public static SettlementSimulator configured(boolean oldAgeDeaths, boolean toollessPenalty) {
-        return new SettlementSimulator(SettlementSimulator::buildingsAllow, toollessPenalty, oldAgeDeaths);
+        return new SettlementSimulator(BUILDINGS, toollessPenalty, oldAgeDeaths);
     }
 
     /** As {@link #configured} with the tool penalty off (what core tests use). */
@@ -125,26 +128,32 @@ public final class SettlementSimulator {
     }
 
     /**
-     * R2.3: whether a resident can be handed this occupation, by the registered buildings. Lumberjacks
-     * and merchants need no building. A farmer needs a registered farm and a miner a registered mine,
-     * four places each; occupations with no building behind them (a mason, a fisher) are only ever
+     * R2.3 and R2.5: whether a resident can be handed this occupation, by the registered buildings.
+     * Lumberjacks need no building. A farmer needs a registered farm and a miner a registered mine, four
+     * places each, and a merchant a registered shop, one place each; occupations with no building behind them (a mason, a fisher) are only ever
      * taken from the villager's own vanilla profession.
      */
     static boolean buildingsAllow(Settlement settlement, Occupation occupation) {
-        if (occupation == Occupation.LUMBERJACK || occupation == Occupation.MERCHANT) {
+        if (occupation == Occupation.LUMBERJACK) {
             return true;
         }
-        int places = 0;
-        for (Building building : settlement.buildings()) {
-            if (building.type().job().filter(job -> job == occupation).isPresent()) {
-                places += BuildingType.WORKERS_PER_BUILDING;
-            }
-        }
+        int places = placesFor(settlement, occupation);
         if (places == 0) {
             return false;
         }
         long holders = settlement.residents().stream().filter(r -> r.adult() && r.occupation() == occupation).count();
         return holders < places;
+    }
+
+    /** R2.3 and R2.5: how many residents the registered buildings give work to in this occupation. */
+    static int placesFor(Settlement settlement, Occupation occupation) {
+        int places = 0;
+        for (Building building : settlement.buildings()) {
+            if (building.type().job().filter(job -> job == occupation).isPresent()) {
+                places += building.type().places();
+            }
+        }
+        return places;
     }
 
     /**
@@ -345,7 +354,7 @@ public final class SettlementSimulator {
             }
         }
         // R3.9: with nothing short and goods to spare, someone takes up selling them.
-        if (best == null && merchantNeeded(settlement)) {
+        if (best == null && merchantNeeded(settlement) && workstationFree.test(settlement, Occupation.MERCHANT)) {
             best = Occupation.MERCHANT;
         }
         // R4.10: a grown child (one born to residents) follows a parent's trade when it is also needed.
@@ -629,6 +638,19 @@ public final class SettlementSimulator {
      * unemployed and the job assignment can send them where they are needed. At most one a day.
      */
     private void releaseMerchant(Settlement settlement) {
+        // R2.5: a merchant with no storefront to work in goes back to being unemployed, one a day.
+        if (workstationFree == BUILDINGS) {
+            long merchants = settlement.residents().stream()
+                    .filter(r -> r.adult() && r.occupation() == Occupation.MERCHANT).count();
+            if (merchants > placesFor(settlement, Occupation.MERCHANT)) {
+                for (Resident resident : settlement.residents()) {
+                    if (resident.adult() && resident.occupation() == Occupation.MERCHANT) {
+                        resident.setOccupation(Occupation.UNEMPLOYED);
+                        return;
+                    }
+                }
+            }
+        }
         if (hasSurplus(settlement) || !somethingShort(settlement)) {
             return;
         }

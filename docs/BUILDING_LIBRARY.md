@@ -287,7 +287,7 @@ eye when you see them. Mark a biome closed once its map looks right on a test bu
 
 1. **Mine, plains, T1 mountainside and flatland** (R4.6 v1 scope: one authored building).
 2. **Mine T2**, then the **plains palette map** proven end to end on that one building.
-3. Guard post, storefront, treasury and storage in plains (they block R2.5, R2.6, R5.1).
+3. Guard post, storefront, treasury and storage in plains (R2.5 and R2.6 work from signs alone, so these are needed for R4.6 construction and R5.1).
 4. The remaining biomes' palette maps, then the gaps in section 2.
 
 Vanilla pieces need no building at all; only R4.6's catalog and the Paper startup check.

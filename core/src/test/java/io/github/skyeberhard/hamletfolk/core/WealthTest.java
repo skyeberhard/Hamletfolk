@@ -94,6 +94,7 @@ class WealthTest {
     void aMerchantKeepsACommissionOnTheirSales() {
         Resident merchant = resident(1, Occupation.MERCHANT, true);
         Settlement s = village(merchant);
+        s.registerBuilding(new Building(BuildingType.SHOP, 0, 64, 0, 0, "test"));
         s.ledger().add(ResourceType.WOOD, 500); // plenty to sell
         s.ledger().add(ResourceType.STONE, 500);
         days(s, 5);

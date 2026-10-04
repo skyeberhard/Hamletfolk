@@ -4,6 +4,13 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R2.5: Merchants now work from a storefront. A sign reading `[Shop]` inside a village registers one (and
+  breaking the sign removes it); `/settlement buildings` lists it. A merchant needs a free storefront, one
+  merchant per storefront, so a village with no shop has no merchant selling: nobody new is made a
+  merchant, and an existing merchant (or more merchants than shops) goes back to being unemployed, one a
+  day. Building a second shop lets a second merchant work, up to the one per fifteen residents the village
+  could use. Existing villages with merchants lose them until someone places a `[Shop]` sign. The rule is
+  in core and tested; the sign is checked in game by T41.
 - R1.8: A villager that stays in another village's area for three days now becomes a resident of that
   village. Every few seconds the plugin notes where each loaded villager is; one that is outside its own
   village's radius and inside another's (the nearest, if several) starts a count, and after three days

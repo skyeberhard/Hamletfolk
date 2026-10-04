@@ -21,7 +21,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.SignChangeEvent;
 
 /**
- * R2.1: a sign reading {@code [Farm]}, {@code [Smithy]}, {@code [Mine]}, {@code [House]} or
+ * R2.1: a sign reading {@code [Farm]}, {@code [Smithy]}, {@code [Mine]}, {@code [Shop]}, {@code [House]} or
  * {@code [Guard Post]} inside a settlement registers a building; breaking the sign removes it.
  * A sign has two sides: the front names the building if both do. Signs destroyed any other way
  * (physics, explosions, pistons) are caught by {@code SettlementService#pruneBuildings}.

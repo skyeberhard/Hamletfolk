@@ -67,7 +67,7 @@ prices:
 # Tools wear out as gatherers work. With tool-penalty on, a village that has a registered [Mine] but
 # no tools left works at three quarters speed and the history records the shortage, until someone
 # mines metal for a smith or donates tools. A village with no mine is not penalised: it has no way to
-# get metal. Place a sign reading [Mine] (and [Farm], [Smithy]) inside a village and unemployed
+# get metal. Place a sign reading [Mine] (and [Farm], [Smithy], [Shop]) inside a village and unemployed
 # residents take the jobs, unless the village is in famine. Turn this off to never slow villages.
 #
 # A villager sells food only while the village can spare it (R3.14): stock above what it wants to hold.

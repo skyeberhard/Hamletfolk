@@ -12,7 +12,8 @@ public enum BuildingType {
     SMITHY("Smithy"),
     MINE("Mine"),
     HOUSE("House"),
-    GUARD_POST("Guard Post");
+    GUARD_POST("Guard Post"),
+    SHOP("Shop");
 
     /** R2.3: how many residents one building gives work to. */
     public static final int WORKERS_PER_BUILDING = 4;
@@ -23,12 +24,21 @@ public enum BuildingType {
         this.label = label;
     }
 
+    /** R2.5: a storefront gives work to one merchant. */
+    public static final int MERCHANTS_PER_SHOP = 1;
+
+    /** R2.3 and R2.5: how many residents one building of this kind gives work to. */
+    public int places() {
+        return this == SHOP ? MERCHANTS_PER_SHOP : WORKERS_PER_BUILDING;
+    }
+
     /** R2.3: the occupation a building of this kind employs people in, if any. */
     public Optional<Occupation> job() {
         return switch (this) {
             case FARM -> Optional.of(Occupation.FARMER);
             case MINE -> Optional.of(Occupation.MINER);
             case SMITHY -> Optional.of(Occupation.TOOLSMITH);
+            case SHOP -> Optional.of(Occupation.MERCHANT);
             case HOUSE, GUARD_POST -> Optional.empty();
         };
     }

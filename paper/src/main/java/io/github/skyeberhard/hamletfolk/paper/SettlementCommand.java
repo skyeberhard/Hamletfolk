@@ -195,7 +195,7 @@ final class SettlementCommand implements TabExecutor {
     private void buildings(Player player, Settlement s) {
         if (s.buildings().isEmpty()) {
             player.sendMessage(Component.text("No buildings are registered in " + s.name() + ". Place a sign reading "
-                    + "[Farm], [Smithy], [Mine], [House] or [Guard Post] inside the village to register one.", NamedTextColor.GRAY));
+                    + "[Farm], [Smithy], [Mine], [Shop], [House] or [Guard Post] inside the village to register one.", NamedTextColor.GRAY));
             return;
         }
         player.sendMessage(Component.text("Buildings of " + s.name() + ":", NamedTextColor.GOLD));

@@ -37,6 +37,8 @@ the villager's own trade screen.
 - **Smiths need metal**, and no vanilla profession produces it. Place a sign reading `[Mine]` inside
   the village and unemployed residents become miners who dig stone and metal; without a mine or player
   donations the forges go cold, the village records a shortage, and the smith will tell you so.
+- **Merchants need a shop.** Place a sign reading `[Shop]` inside the village; each shop gives one
+  merchant a place to sell the village's surplus for emeralds. Without one nobody sells.
 - Everyone eats. When the stores run out, famine starts and goes into the history, and
   residents talk about it until it ends.
 - Deaths from monsters, zombie infections and raids raise the village's sense of danger,

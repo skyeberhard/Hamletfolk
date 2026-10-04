@@ -140,6 +140,7 @@ class MinerTest {
         for (int i = 1; i < 4; i++) {
             s.addResident(person(i, Occupation.NITWIT));
         }
+        s.registerBuilding(new Building(BuildingType.SHOP, 0, 64, 0, 0, "test"));
         s.ledger().add(ResourceType.FOOD, 1000);
         s.ledger().add(ResourceType.WOOD, 100);
         s.ledger().add(ResourceType.STONE, 100);
@@ -153,6 +154,7 @@ class MinerTest {
     @Test
     void aMerchantIsReleasedInAFamineSoTheyCanForage() {
         Settlement s = registry.found("world", 0, 0, 0);
+        s.registerBuilding(new Building(BuildingType.SHOP, 0, 64, 0, 0, "test")); // so it is the famine, not a missing shop, that releases them
         s.addResident(person(0, Occupation.MERCHANT));
         for (int i = 1; i < 4; i++) {
             s.addResident(person(i, Occupation.NITWIT));

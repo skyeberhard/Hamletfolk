@@ -17,6 +17,13 @@ class MerchantTest {
                 job, true, 10_000, null, null, Needs.initial());
     }
 
+    /** R2.5: a merchant needs a registered storefront each. */
+    private static void shop(Settlement s, int count) {
+        for (int i = 0; i < count; i++) {
+            s.registerBuilding(new Building(BuildingType.SHOP, i, 64, 0, 0, "test"));
+        }
+    }
+
     /** Emeralds the merchant has earned: the treasury plus what the village has put aside for requests (R3.3). */
     private static int earned(Settlement s) {
         return s.ledger().treasury() + s.requests().stream().mapToInt(Request::reward).sum();
@@ -25,6 +32,7 @@ class MerchantTest {
     /** Four residents (a storage limit of 140 for stone, 24 of it kept) with one merchant. */
     private Settlement village() {
         Settlement s = registry.found("world", 0, 0, 0);
+        shop(s, 1);
         s.addResident(person(Occupation.MERCHANT));
         for (int i = 0; i < 3; i++) {
             s.addResident(person(Occupation.NITWIT)); // makes nothing, so only the test adds to the stores
@@ -67,6 +75,7 @@ class MerchantTest {
         // enrolled last, so it sells after the farmers, which is the order that used to drain the
         // stores to just under the 20 a head newcomers need.
         Settlement s = registry.found("world", 0, 0, 0);
+        shop(s, 1);
         for (int i = 0; i < 6; i++) {
             s.addResident(person(Occupation.FARMER));
         }
@@ -99,6 +108,7 @@ class MerchantTest {
     @Test
     void aMerchantWithNothingToSellIsReleasedWhenSomethingIsShort() {
         Settlement s = registry.found("world", 0, 0, 0);
+        shop(s, 1);
         Resident merchant = person(Occupation.MERCHANT);
         s.addResident(merchant);
         s.ledger().add(ResourceType.FOOD, 5); // short, and nothing at all to sell
@@ -109,6 +119,7 @@ class MerchantTest {
     @Test
     void aMerchantsChildFollowsTheTradeOnlyWhenNothingIsShort() {
         Settlement s = registry.found("world", 0, 0, 0);
+        shop(s, 1);
         SettlementSimulator anyJob = new SettlementSimulator(false, o -> true);
         Resident parent = person(Occupation.MERCHANT);
         s.addResident(parent);
@@ -128,6 +139,7 @@ class MerchantTest {
     @Test
     void anElderMerchantSellsLessThanAnAdult() {
         Settlement s = registry.found("world", 50, 50, 0);
+        shop(s, 1);
         Resident elder = new Resident(UUID.randomUUID(), "Old", "Person", Gender.MALE, new Traits(50, 50, 50, 50),
                 Occupation.MERCHANT, true, -70, null, null, Needs.initial()); // 71 days: an elder, well short of any maximum age
         s.addResident(elder);
@@ -158,6 +170,7 @@ class MerchantTest {
     @Test
     void anUnemployedResidentBecomesTheMerchantOnlyWhenThereIsSomethingToSell() {
         Settlement bare = registry.found("world", 0, 0, 0);
+        shop(bare, 1);
         Resident jobless = person(Occupation.UNEMPLOYED);
         bare.addResident(jobless);
         bare.ledger().add(ResourceType.FOOD, 20); // exactly what one resident keeps
@@ -167,6 +180,8 @@ class MerchantTest {
         assertEquals(Occupation.UNEMPLOYED, jobless.occupation()); // nothing to spare, and nothing short
 
         Settlement rich = registry.found("world", 100, 100, 0);
+
+        shop(rich, 1);
         Resident other = person(Occupation.UNEMPLOYED);
         rich.addResident(other);
         rich.ledger().add(ResourceType.FOOD, 100);
@@ -179,6 +194,7 @@ class MerchantTest {
     @Test
     void oneMerchantPerFifteenResidentsNotAMerchantEach() {
         Settlement s = registry.found("world", 0, 0, 0);
+        shop(s, 5);
         for (int i = 0; i < 6; i++) {
             s.addResident(person(Occupation.UNEMPLOYED));
         }
@@ -192,7 +208,7 @@ class MerchantTest {
     }
 
     @Test
-    void merchantsRoundTripThroughASaveAndAreOpenWithoutAWorkstation() {
+    void merchantsRoundTripThroughASave() {
         assertTrue(Occupation.MERCHANT.simOwned());
         assertEquals(null, Occupation.MERCHANT.produces());
         Settlement s = village();
