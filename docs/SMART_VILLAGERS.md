@@ -1,0 +1,54 @@
+# Smarter villagers (M9)
+
+The simulation decides what a village needs; the world should show it. Today a villager cannot be given a
+new behaviour through the public Paper API: it can be sent somewhere and its memories read and set, but
+it cannot be taught to fight, to walk to its farm and work it, or to react to danger. M9 reaches into the
+game's internal villager code to do that, under rules that keep the rest of the plugin safe.
+
+## Target and constraint
+
+- Built against **Paper 26.2 only** (the version this project and the owner's server run). The module is
+  compiled against that exact server build; a game update means rebuilding and re-checking it, nothing more.
+- Still server-side only, so Bedrock players on Geyser see the same behaviour.
+- The simulation still owns every number. A behaviour makes a villager *act out* a decision the simulation
+  has already made (a guard fights, a farmer works the field); it never changes the ledger by itself.
+
+## Rules
+
+1. **Everything that touches internals lives in one module** (`brain/`). `core` and the rest of `paper` never
+   import an internal class. The plugin talks to the module through a small interface, so if the module is
+   missing or refuses to load, the plugin runs exactly as it does today.
+2. **A self-check at startup** (R9.1). The module lists every internal class, method and field it relies on
+   and verifies each exists in the running server. If any is missing it logs which one, turns itself off and
+   stays off. The check is a pure list, so it is testable without a server.
+3. **A kill switch that works live** (R9.1). `/settlement brain on|off|status`, and `brain.enabled` in the
+   config (default off until it has been played). Off removes every behaviour the module added and returns
+   villagers to vanilla without a restart.
+4. **A circuit breaker.** An exception in an added behaviour, or the added behaviours using more than a time
+   budget per tick, turns the module off and logs it once with the villager involved. A fault costs the
+   feature, never the server.
+5. **Nothing is written into the world.** Behaviours are added when a villager loads and removed when it
+   unloads or the module goes off, so removing the plugin leaves vanilla villagers and vanilla saves.
+6. **Troubleshooting is part of the feature** (R9.2). Inspect a villager's activity, memories and added
+   behaviours, switchable debug logging of each decision, the cost per tick, and a report written to a file.
+7. **Every behaviour is optional by itself.** Each has its own config switch under `brain.behaviours`, so one
+   misbehaving behaviour can be turned off without losing the others.
+
+## Order of work
+
+1. **R5.5**, guards respond to a pattern of attacks. Needs no internals, and R9.3 depends on guards existing
+   sooner.
+2. **R9.1**, starting with a spike: does the internals build set-up resolve on this Gradle and Java, can a
+   test behaviour be added to a villager's brain and removed again, and what does it cost per tick.
+3. **R9.2**, the tools, before any real behaviour, so the first behaviour can be debugged.
+4. **R9.3**, guards fight: attack hostile monsters near the village while the stores hold tools, retreat when
+   badly hurt.
+5. Then R4.17 (visible work) can use the module instead of the public-API route, with the same switch.
+
+## Risks we accept, and how they are contained
+
+- *Game updates break the module.* Pinned to 26.2; the self-check refuses to run on a mismatch.
+- *A behaviour breaks vanilla villager life* (trading, sleeping, breeding, raids). Each behaviour is scoped to
+  a few tracked residents, can be switched off alone, and is covered by the kill switch.
+- *Performance.* Counters and the time budget (rule 4) exist from the first behaviour.
+- *Unknowns.* The spike in R9.1 answers the build and API questions before anything else is written.

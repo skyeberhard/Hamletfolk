@@ -72,6 +72,9 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   A village with no mine has no metal and so no new tools: that is the pressure to build one.
 - **Beds are not block entities in 26.2** (there is no bed block entity class), so `Chunk.getTileEntities` never finds one.
   Count them through points of interest (`World.locateAllPoiInRange` with `PoiTypes.HOME`), which also says which are claimed.
+- **Villager brain code (M9):** the public API cannot add villager behaviours, so anything that needs it (guards that
+  fight, R9.3) goes in the isolated, switchable `brain/` module described in docs/SMART_VILLAGERS.md, never into `core` or the
+  rest of `paper`. Pinned to Paper 26.2; it must have the startup self-check and the live off switch before any behaviour.
 - **`SettlementService.track()` returns null** for a world excluded by `worlds.allow/deny`
   (R1.10); callers must handle it.
 - **Line endings:** working copies are CRLF (autocrlf) while the repo stores LF, so git warns
