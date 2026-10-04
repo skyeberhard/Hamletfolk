@@ -122,6 +122,8 @@ public final class Settlement {
 
     Resident removeResident(UUID id) {
         conditions.remove(Migration.MOVING + id); // R4.2: nobody left to bring over
+        conditions.keySet().removeIf(key -> key.startsWith(Membership.STRAYING + id + ":")); // R1.8
+        conditions.remove(Migration.ARRIVED + id);
         return residents.remove(id);
     }
 
@@ -386,6 +388,16 @@ public final class Settlement {
             }
         }
         return ids;
+    }
+
+    /**
+     * R4.2: the villager of a resident who moved here on paper has now been brought over. The pending marker
+     * goes, and the day they arrived is kept for a while so R1.8 does not count them as straying if they
+     * wander back toward where they came from.
+     */
+    public void completeMove(UUID resident, long day) {
+        conditions.remove(Migration.MOVING + resident);
+        conditions.put(Migration.ARRIVED + resident, day);
     }
 
     /** Forgets a condition, e.g. once a pending move has been carried out. */

@@ -4,6 +4,19 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.8: A villager that stays in another village's area for three days now becomes a resident of that
+  village. Every few seconds the plugin notes where each loaded villager is; one that is outside its own
+  village's radius and inside another's (the nearest, if several) starts a count, and after three days
+  there it is moved: both histories say so ("X settled in Y and is no longer counted in Z" and "X came to
+  live in Y from Z"), and the resident loses their old job, as with migration. Going back home, or to a
+  different village, starts the count again, being anywhere in your own village's radius never counts, and
+  a village that has been given up can be resettled this way. Someone just brought over by migration
+  (R4.2) is left alone for a week, and forgets their old bed and workplace, so they do not drift straight
+  back. This is how a villager you carry to a new village becomes part of it, which also means carrying
+  every villager away can leave a village empty and, after ten days, abandoned. `membership.follows-residents: false` turns it off. A resident whose
+  migration (R4.2) is still being carried out is left alone. No save format change (the count is kept as
+  a settlement condition). The rule is in core and tested; reading villager positions is Paper-side and
+  unverified until a playtest (T40).
 - R4.2: Unemployed or unhappy residents now leave for a better-off settlement nearby. Each day a village
   is checked once: any adult who is not an elder and either has no job or is in low spirits has a one in
   five chance of setting out, and at most one resident leaves a village a day, and never one that would

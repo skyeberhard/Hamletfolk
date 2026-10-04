@@ -244,17 +244,30 @@ public final class SettlementRegistry {
      * on paper only: the Minecraft layer brings the villager over when it can.
      */
     public void migrate(Resident resident, Settlement from, Settlement to, long day) {
+        transfer(resident, from, to, day,
+                resident.fullName() + " left " + from.name() + " for " + to.name() + ", hoping for a better life.",
+                resident.fullName() + " came to " + to.name() + " from " + from.name() + ", hoping for a better life.",
+                true);
+    }
+
+    /**
+     * Moves a resident between settlements with the given line in each history (R4.2, R1.8). They lose their
+     * job, as there is none waiting for them. {@code pending} marks the villager as still to be brought over
+     * (R4.2); a resident whose villager is already there (R1.8) is not.
+     */
+    void transfer(Resident resident, Settlement from, Settlement to, long day, String leaving, String arriving,
+            boolean pending) {
         if (from.removeResident(resident.id()) == null) {
             return;
         }
         resident.setOccupation(Occupation.UNEMPLOYED);
         to.addResident(resident);
         residentIndex.put(resident.id(), to.id());
-        from.record(day, HistoryEvent.Kind.DEPARTURE, resident.fullName() + " left " + from.name() + " for "
-                + to.name() + ", hoping for a better life.");
-        to.record(day, HistoryEvent.Kind.ARRIVAL, resident.fullName() + " came to " + to.name() + " from "
-                + from.name() + ", hoping for a better life.");
-        to.conditions().put(Migration.MOVING + resident.id(), day);
+        from.record(day, HistoryEvent.Kind.DEPARTURE, leaving);
+        to.record(day, HistoryEvent.Kind.ARRIVAL, arriving);
+        if (pending) {
+            to.conditions().put(Migration.MOVING + resident.id(), day);
+        }
     }
 
     /** Removes a resident from wherever they live and returns them. */

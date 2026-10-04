@@ -81,3 +81,10 @@ economy:
   # better-off village within 600 blocks that has a free bed and no famine. Both histories record it and
   # the villager is brought over the next time it is loaded. Turn off to keep everyone where they are.
   migration: true
+
+# R1.8: a villager that stays in another village's area (outside its own village's radius, inside the
+# other's) for three days is counted as a resident of that village instead, and both histories say so.
+# This is how a villager you move to a new village becomes part of it. Turn off to keep every villager in
+# the village it was first seen in.
+membership:
+  follows-residents: true

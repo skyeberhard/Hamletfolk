@@ -8,6 +8,7 @@ import io.github.skyeberhard.hamletfolk.core.Occupation;
 import io.github.skyeberhard.hamletfolk.core.PriceModel;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.ResourceType;
+import io.github.skyeberhard.hamletfolk.core.Membership;
 import io.github.skyeberhard.hamletfolk.core.Migration;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.Trading;
@@ -29,6 +30,7 @@ import org.bukkit.World;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.entity.Villager;
+import org.bukkit.entity.memory.MemoryKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -117,6 +119,28 @@ final class SettlementService {
     }
 
     /**
+     * R1.8: reports where each loaded villager of a settlement is, so one that has settled in another
+     * settlement's area becomes a resident of it (the rule and the count of days are in core).
+     */
+    private void considerMembership(Settlement settlement) {
+        if (!config.membershipFollows()) {
+            return;
+        }
+        for (Resident resident : new ArrayList<>(settlement.residents())) {
+            if (!(Bukkit.getEntity(resident.id()) instanceof Villager villager) || !villager.isValid()
+                    || !inScope(villager.getWorld())) {
+                continue;
+            }
+            Location at = villager.getLocation();
+            long day = settlement.lastSimulatedDay(); // the settlement's own day, whichever world the villager is in
+            if (Membership.observe(registry, resident, villager.getWorld().getName(), at.getBlockX(), at.getBlockZ(),
+                    config.settlementRadius(), day).isPresent()) {
+                plugin.requestSave();
+            }
+        }
+    }
+
+    /**
      * R4.2: lets an unemployed or unhappy resident leave for a better-off neighbour (the rule is in core).
      * The record moves at once; the villager is brought over now if it is loaded, else when it next loads.
      */
@@ -173,7 +197,13 @@ final class SettlementService {
             villager.teleportAsync(new Location(world, x + 0.5, y, z + 0.5)).thenAccept(moved -> {
                 movesInFlight.remove(resident.id());
                 if (moved) {
-                    home.removeCondition(marker);
+                    home.completeMove(resident.id(), home.lastSimulatedDay());
+                    // Forget the old bed, workplace and meeting place so it does not walk back to them (R1.8 would
+                    // then count it as straying home).
+                    villager.setMemory(MemoryKey.HOME, null);
+                    villager.setMemory(MemoryKey.JOB_SITE, null);
+                    villager.setMemory(MemoryKey.POTENTIAL_JOB_SITE, null);
+                    villager.setMemory(MemoryKey.MEETING_POINT, null);
                     plugin.requestSave();
                 }
             }).exceptionally(error -> {
@@ -278,6 +308,7 @@ final class SettlementService {
             }
             considerNewcomer(settlement);
             considerMigration(settlement);
+            considerMembership(settlement);
             World world = Bukkit.getWorld(settlement.world());
             if (world != null && inScope(world)) {
                 refreshAppearance(settlement, world);

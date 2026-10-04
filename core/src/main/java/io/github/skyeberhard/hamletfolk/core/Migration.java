@@ -28,6 +28,10 @@ public final class Migration {
     static final String CHECKED = "migrationChecked";
     /** Prefix of the condition that marks a resident as moved on paper but not yet in person (R4.2). */
     public static final String MOVING = "moving:";
+    /** Prefix of the condition holding the day a moved resident's villager arrived (kept for {@link #ARRIVAL_GRACE_DAYS}). */
+    public static final String ARRIVED = "arrived:";
+    /** For this many days after arriving, R1.8 does not count a migrant as straying back to where they came from. */
+    public static final int ARRIVAL_GRACE_DAYS = 7;
 
     private Migration() {
     }
