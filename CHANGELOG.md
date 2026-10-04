@@ -4,6 +4,14 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R8.2: Village sites can now be scored. A pure function takes a coarse sample of the land around a point (the
+  biome every 24 blocks out to 96, from the game's computed biomes, so nothing is generated) and scores how much
+  water, timber, farmland, grazing, stone and ore is within reach, with nearer land counting for more. It is a
+  score, not a gate: a missing resource becomes something the village will have to bring in (food, wood, stone or
+  metal), and the profile gives the starting conditions it implies (growth fast, normal or slow by how much has to be
+  brought in, and a food balance). An oasis, a swamp, a mountain with springs and a bare plain each come out as you
+  would expect in the tests. New command `/settlement survey` scores the ground where you stand, in a village or not.
+  No save format change. The scoring is in core and tested; the sampling is Paper-side, checked by T46.
 - R8.1: Each village now has a planner. Once a day it reads the stores and the village's needs and works through
   four tiers in order, food, shelter, safety, then trade and growth, and does not move on until the one before is
   met. A tier counts as met at full cover and slips at 70%, so priorities do not flap with a day's luck. For a

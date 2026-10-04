@@ -12,6 +12,8 @@ import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.ResourceMapper;
 import io.github.skyeberhard.hamletfolk.core.ResourceType;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
+import io.github.skyeberhard.hamletfolk.core.SiteResource;
+import io.github.skyeberhard.hamletfolk.core.SiteSurvey;
 import io.github.skyeberhard.hamletfolk.core.SettlementSimulator;
 import io.github.skyeberhard.hamletfolk.core.Wealth;
 import java.util.ArrayList;
@@ -39,7 +41,7 @@ import org.bukkit.inventory.meta.Damageable;
 final class SettlementCommand implements TabExecutor {
     /** When each player last ran /settlement beds, for the cooldown. */
     private final java.util.Map<java.util.UUID, Long> lastBedsCommand = new java.util.HashMap<>();
-    private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate", "buildings", "beds", "plan");
+    private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate", "buildings", "beds", "plan", "survey");
     private static final int EVENTS_PER_PAGE = 3;
     /** Vanilla's limit for a written book; more and the client refuses it. */
     private static final int MAX_BOOK_PAGES = 100;
@@ -60,6 +62,10 @@ final class SettlementCommand implements TabExecutor {
         }
         if (!(sender instanceof Player player)) {
             sender.sendMessage("Only players can use this command.");
+            return true;
+        }
+        if (args.length > 0 && args[0].equalsIgnoreCase("survey")) {
+            survey(player); // R8.2: works anywhere, in a village or not
             return true;
         }
         Optional<Settlement> found = service.settlementAt(player.getLocation());
@@ -203,6 +209,38 @@ final class SettlementCommand implements TabExecutor {
                     : "child";
             player.sendMessage(Component.text(" " + r.fullName(), NamedTextColor.WHITE)
                     .append(Component.text(" — " + role + " (" + r.gender().pronouns() + ")", NamedTextColor.GRAY)));
+        }
+    }
+
+    /**
+     * R8.2: /settlement survey scores the land around where you stand as a village site: how much water, timber,
+     * farmland, grazing, stone and ore is within reach, what that means for growth and food, and what a village here
+     * would have to bring in. Sampled from the game's computed biomes every 24 blocks out to 96, so it generates nothing.
+     */
+    private void survey(Player player) {
+        World world = player.getWorld();
+        Location here = player.getLocation();
+        int x = here.getBlockX();
+        int z = here.getBlockZ();
+        int y = Math.max(world.getSeaLevel(), here.getBlockY());
+        SiteSurvey.Profile profile = SiteSurvey.score(SiteSurvey.grid(SiteSurvey.MAX_RADIUS, 24,
+                (dx, dz) -> world.getComputedBiome(x + dx, y, z + dz).getKey().getKey()));
+        player.sendMessage(Component.text("Site survey, " + SiteSurvey.MAX_RADIUS + " blocks around " + x + ", " + z + ":",
+                NamedTextColor.GOLD));
+        StringBuilder scores = new StringBuilder();
+        for (SiteResource resource : SiteResource.values()) {
+            scores.append(scores.isEmpty() ? "" : ", ").append(resource.label()).append(' ')
+                    .append(Math.round(profile.score(resource)));
+        }
+        line(player, "Resources", scores.toString());
+        line(player, "Overall", Math.round(profile.overall()) + " out of 100; growth " + profile.growth().label()
+                + "; food " + (profile.foodBalance() >= 0.2 ? "surplus" : profile.foodBalance() <= -0.2 ? "short" : "balanced"));
+        if (!profile.imports().isEmpty()) {
+            line(player, "Would import", profile.imports().stream().map(t -> t.name().toLowerCase(Locale.ROOT))
+                    .collect(java.util.stream.Collectors.joining(", ")));
+        }
+        for (String note : profile.notes()) {
+            player.sendMessage(Component.text("  " + note, NamedTextColor.GRAY));
         }
     }
 
