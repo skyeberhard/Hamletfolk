@@ -41,6 +41,9 @@ the villager's own trade screen.
   a raid). Two in a week and it grows wary and calls up a guard; more, or high danger, and it calls up more, at
   once under siege. Guards need tools in the stores, not food, and calm the village; they do not fight yet. They
   stand down after ten quiet days.
+- **The village plans.** Each day a village works out what it needs next, in order: food, shelter, safety,
+  then trade and growth, and follows a shortage back to its root (tools need a smithy, which needs metal, which
+  needs a mine). `/settlement plan` shows what it wants and why, as advice for now.
 - **Merchants need a shop.** Place a sign reading `[Shop]` inside the village; each shop gives one
   merchant a place to sell the village's surplus for emeralds. Without one nobody sells.
 - **The treasury has a limit.** A village banks only a few emeralds until someone places a sign reading

@@ -5,6 +5,7 @@ import io.github.skyeberhard.hamletfolk.core.Building;
 import io.github.skyeberhard.hamletfolk.core.Donation;
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
 import io.github.skyeberhard.hamletfolk.core.LifeStage;
+import io.github.skyeberhard.hamletfolk.core.Planner;
 import io.github.skyeberhard.hamletfolk.core.Reputation;
 import io.github.skyeberhard.hamletfolk.core.Request;
 import io.github.skyeberhard.hamletfolk.core.Resident;
@@ -38,7 +39,7 @@ import org.bukkit.inventory.meta.Damageable;
 final class SettlementCommand implements TabExecutor {
     /** When each player last ran /settlement beds, for the cooldown. */
     private final java.util.Map<java.util.UUID, Long> lastBedsCommand = new java.util.HashMap<>();
-    private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate", "buildings", "beds");
+    private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate", "buildings", "beds", "plan");
     private static final int EVENTS_PER_PAGE = 3;
     /** Vanilla's limit for a written book; more and the client refuses it. */
     private static final int MAX_BOOK_PAGES = 100;
@@ -67,6 +68,7 @@ final class SettlementCommand implements TabExecutor {
             return true;
         }
         Settlement settlement = found.get();
+        Planner.visited(settlement, settlement.effectiveDay(SettlementService.day(player.getWorld()))); // R8.1: someone is minding it, so plan at the normal pace
         service.simulate(settlement);
 
         String sub = args.length == 0 ? "info" : args[0].toLowerCase(Locale.ROOT);
@@ -77,6 +79,7 @@ final class SettlementCommand implements TabExecutor {
             case "donate" -> donate(player, settlement, args);
             case "buildings" -> buildings(player, settlement);
             case "beds" -> beds(player, settlement);
+            case "plan" -> plan(player, settlement);
             default -> {
                 return false;
             }
@@ -200,6 +203,31 @@ final class SettlementCommand implements TabExecutor {
                     : "child";
             player.sendMessage(Component.text(" " + r.fullName(), NamedTextColor.WHITE)
                     .append(Component.text(" — " + role + " (" + r.gender().pronouns() + ")", NamedTextColor.GRAY)));
+        }
+    }
+
+    /**
+     * R8.1: /settlement plan says what the village wants next and why, and shows its latest decisions. For now it is
+     * advice (which building to put up, which jobs are open); the builder that acts on it comes later.
+     */
+    private void plan(Player player, Settlement s) {
+        long today = s.effectiveDay(SettlementService.day(player.getWorld()));
+        List<Planner.Directive> now = Planner.directives(s, today, service.treasuryLimit(s));
+        player.sendMessage(Component.text("What " + s.name() + " wants next:", NamedTextColor.GOLD));
+        if (s.population() == 0) {
+            player.sendMessage(Component.text("  Nobody lives here to plan anything.", NamedTextColor.GRAY));
+        } else if (now.isEmpty()) {
+            player.sendMessage(Component.text("  Nothing: the village is in good order.", NamedTextColor.GREEN));
+        }
+        for (Planner.Directive directive : now) {
+            player.sendMessage(Component.text("  [" + directive.tier().label() + "] " + directive.text(), NamedTextColor.WHITE));
+        }
+        List<Planner.Decision> log = s.decisions();
+        if (!log.isEmpty()) {
+            player.sendMessage(Component.text("Recent decisions:", NamedTextColor.GRAY));
+            for (Planner.Decision decision : log.subList(Math.max(0, log.size() - 5), log.size())) {
+                player.sendMessage(Component.text("  day " + decision.day() + ": " + decision.text(), NamedTextColor.GRAY));
+            }
         }
     }
 

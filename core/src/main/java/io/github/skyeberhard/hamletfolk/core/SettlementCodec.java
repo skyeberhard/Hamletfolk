@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 16;
+    public static final int FORMAT_VERSION = 17;
 
     private SettlementCodec() {
     }
@@ -105,6 +105,18 @@ public final class SettlementCodec {
         map.put("reputation", reputation);
         if (!s.incidents().isEmpty()) {
             map.put("incidents", new ArrayList<>(s.incidents()));
+        }
+        if (!s.decisions().isEmpty()) {
+            List<Object> decisions = new ArrayList<>();
+            for (Planner.Decision d : s.decisions()) {
+                Map<String, Object> decision = new LinkedHashMap<>();
+                decision.put("day", d.day());
+                decision.put("tier", d.tier().name());
+                decision.put("key", d.key());
+                decision.put("text", d.text());
+                decisions.add(decision);
+            }
+            map.put("decisions", decisions);
         }
         map.put("history", history);
         return map;
@@ -226,6 +238,16 @@ public final class SettlementCodec {
             }
         }
 
+        for (Object o : asList(map.get("decisions"))) {
+            Map<?, ?> d = asMap(o);
+            try {
+                s.recordDecision(num(d, "day").longValue(), Planner.Tier.valueOf(str(d, "tier")),
+                        d.containsKey("key") ? str(d, "key") : str(d, "text"), str(d, "text"), 0);
+            } catch (IllegalArgumentException e) {
+                // a damaged or unknown entry: skip it
+            }
+        }
+
         for (Object o : asList(map.get("history"))) {
             Map<?, ?> event = asMap(o);
             Object actor = event.get("actor");
@@ -269,6 +291,7 @@ public final class SettlementCodec {
         // v14 -> v15: occupations gained GUARD (R5.1); an old save has none, so nothing to convert, but an older
         // build must refuse a save that may contain it rather than fail on an unknown occupation.
         // v15 -> v16: "incidents" (R5.5, the days the village was attacked) is optional, so an old save has none.
+        // v16 -> v17: "decisions" (R8.1, the planner's log) is optional, so an old save has none; the planner fills it in.
         // v13 -> v14: the treasury got a limit (R2.6). So that no existing village loses emeralds, what it holds now (the
         // treasury and the rewards set aside for open requests) is kept as the room it may keep ("treasuryLegacy"); a
         // new village starts with just the base amount.

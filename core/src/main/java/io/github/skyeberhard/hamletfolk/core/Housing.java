@@ -11,6 +11,13 @@ import java.util.Map;
  */
 public final class Housing {
     private final Map<String, Integer> bedsByChunk = new LinkedHashMap<>();
+    /** Whether beds have been counted at all (R8.1): no count is not the same as no beds. Not saved; a count refills it. */
+    private boolean counted;
+
+    /** True once some chunk has been counted, even if it held no beds. */
+    public boolean counted() {
+        return counted;
+    }
 
     public static String key(int chunkX, int chunkZ) {
         return chunkX + "," + chunkZ;
@@ -18,6 +25,7 @@ public final class Housing {
 
     /** Records how many beds a chunk has now. Zero forgets the chunk. */
     public void setChunk(int chunkX, int chunkZ, int beds) {
+        counted = true;
         if (beds <= 0) {
             bedsByChunk.remove(key(chunkX, chunkZ));
         } else {
@@ -71,6 +79,7 @@ public final class Housing {
         String[] parts = key.split(",");
         try {
             bedsByChunk.put(key(Integer.parseInt(parts[0]), Integer.parseInt(parts[1])), beds);
+            counted = true;
         } catch (NumberFormatException e) {
             // out of range: not a real chunk
         }

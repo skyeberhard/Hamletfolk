@@ -109,6 +109,12 @@ public final class Dialogue {
         }
 
         parentLine(resident, settlement).ifPresent(options::add);
+        if (resident.adult() && !settlement.decisions().isEmpty()) {
+            Planner.Decision latest = settlement.decisions().get(settlement.decisions().size() - 1);
+            if (day - latest.day() <= 14) {
+                options.add("There's talk in " + settlement.name() + ". " + latest.text());
+            }
+        }
         if (resident.adult() && occupation != Occupation.NITWIT) {
             wealthLine(resident, occupation).ifPresent(options::add);
         }

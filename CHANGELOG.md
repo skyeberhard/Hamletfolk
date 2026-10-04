@@ -4,6 +4,17 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R8.1: Each village now has a planner. Once a day it reads the stores and the village's needs and works through
+  four tiers in order, food, shelter, safety, then trade and growth, and does not move on until the one before is
+  met. A tier counts as met at full cover and slips at 70%, so priorities do not flap with a day's luck. For a
+  shortage it walks back to the root of the problem (tools need a smithy, which needs metal, which needs a mine)
+  and says what is actually missing: a building to put up, jobs to fill, or something to bring in. Every decision
+  is written with its reason to a log of up to 100 lines kept apart from the history (the same decision is not
+  repeated within ten days), and a resident will mention the latest one in conversation. `/settlement plan`
+  shows what the village wants next and its recent decisions. A village that has been visited (a command or a
+  conversation in it) but not for a week plans on every third day; one nobody has ever visited plans every day. Beds
+  that have not been counted yet are not treated as no beds. It is advice for now: lots and the builder that act on it come later (R8.3, R4.8). Save format
+  is now 17 (the decision log). The rules are in core and tested; the command is Paper-side, checked by T45.
 - R5.5: Guards now respond to a pattern of attacks, not only to peak danger, replacing R5.1's three-day wait. The
   village remembers each attack on it (a resident killed by a monster, one turned into a zombie, a raid coming or
   being lost). Two attacks in a week make it wary (one guard per fifteen residents, at least one), three or more,

@@ -4,6 +4,7 @@ import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
 import io.github.skyeberhard.hamletfolk.core.Dialogue;
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
 import io.github.skyeberhard.hamletfolk.core.Occupation;
+import io.github.skyeberhard.hamletfolk.core.Planner;
 import io.github.skyeberhard.hamletfolk.core.Reputation;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
@@ -138,6 +139,7 @@ final class VillagerListener implements Listener {
             return; // simulating just now showed they died of old age (R4.15); their villager was removed
         }
         long day = settlement.effectiveDay(SettlementService.day(villager.getWorld())); // R1.23
+        Planner.visited(settlement, day); // R8.1: someone is minding the village
 
         String title = resident.adult() ? resident.occupation().title() : "child";
         player.sendMessage(Component.text(resident.fullName(), NamedTextColor.GOLD)

@@ -321,6 +321,7 @@ public final class SettlementSimulator {
         updateFamine(settlement, day, shortfall);
         updateShortages(settlement, day, idleForLack);
         updateMilestones(settlement, day);
+        Planner.run(settlement, day, treasuryLimit(settlement)); // R8.1
     }
 
     /**

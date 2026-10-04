@@ -36,6 +36,11 @@ public final class Settlement {
     private final Map<String, Building> buildings = new LinkedHashMap<>();
     private final Housing housing = new Housing();
     private final List<UUID> newlyDeparted = new ArrayList<>();
+    /** R8.1: the planner's decisions with their reasons, newest last, separate from the history. */
+    private final List<Planner.Decision> decisions = new ArrayList<>();
+    /** Most decisions kept; the oldest go first. */
+    public static final int MAX_DECISIONS = 100;
+
     /** R5.5: the days attacks on the village happened (a monster killed a resident, one was turned, a raid came or won). */
     private final List<Long> incidents = new ArrayList<>();
     /** Most incident days kept, so a village that is attacked all the time cannot grow its save without limit. */
@@ -227,6 +232,35 @@ public final class Settlement {
     /** Loads a saved building without writing history. */
     void addBuilding(Building building) {
         buildings.put(building.key(), building);
+    }
+
+    /**
+     * R8.1: writes a planner decision into the log, unless the same one (by {@code key}: its tier, kind and target, not
+     * the numbers in its text) was logged within the last {@code quietDays} days. Keeps at most {@link #MAX_DECISIONS}.
+     */
+    public void recordDecision(long day, Planner.Tier tier, String key, String text, int quietDays) {
+        for (int i = decisions.size() - 1; i >= 0; i--) {
+            Planner.Decision earlier = decisions.get(i);
+            if (day - earlier.day() >= quietDays) {
+                break;
+            }
+            if (earlier.key().equals(key)) {
+                return;
+            }
+        }
+        decisions.add(new Planner.Decision(day, tier, key, text));
+        while (decisions.size() > MAX_DECISIONS) {
+            decisions.remove(0);
+        }
+    }
+
+    /** R8.1: the planner's decision log, oldest first. */
+    public List<Planner.Decision> decisions() {
+        return Collections.unmodifiableList(decisions);
+    }
+
+    List<Planner.Decision> decisionLog() {
+        return decisions;
     }
 
     /** R5.5: notes an attack on the village on the given day. */
