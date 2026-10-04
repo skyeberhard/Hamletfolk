@@ -184,11 +184,36 @@ public final class Planner {
                     case SAFETY -> safety(settlement, day);
                     case GROWTH -> List.of();
                 };
-                return found.isEmpty() ? List.of(new Directive(tier, Kind.WAIT, tier.label(), "it is at "
-                        + Math.round(ratio(settlement, tier, day) * 100) + "% and the village is working back to full")) : found;
+                return withLots(settlement, found.isEmpty() ? List.of(new Directive(tier, Kind.WAIT, tier.label(), "it is at "
+                        + Math.round(ratio(settlement, tier, day) * 100) + "% and the village is working back to full")) : found);
             }
         }
-        return growth(settlement, treasuryLimit);
+        return withLots(settlement, growth(settlement, treasuryLimit));
+    }
+
+    /** R8.3: a directive to build something says which reserved lot it would go on, once the village has a plan. */
+    private static List<Directive> withLots(Settlement settlement, List<Directive> directives) {
+        VillagePlan plan = settlement.plan();
+        if (plan == null) {
+            return directives;
+        }
+        List<Directive> out = new ArrayList<>();
+        for (Directive d : directives) {
+            out.add(d.kind() == Kind.BUILD ? withLot(plan, d) : d);
+        }
+        return out;
+    }
+
+    private static Directive withLot(VillagePlan plan, Directive d) {
+        try {
+            return plan.nextLot(BuildingType.valueOf(d.target().toUpperCase(Locale.ROOT)))
+                    .map(lot -> new Directive(d.tier(), d.kind(), d.target(), d.reason() + ". Lot reserved at "
+                            + lot.rect().centerX() + ", " + lot.rect().centerZ() + " (" + lot.rect().width() + " by "
+                            + lot.rect().depth() + ")"))
+                    .orElse(d);
+        } catch (IllegalArgumentException e) {
+            return d; // not a building kind
+        }
     }
 
     // ----- the tiers -----

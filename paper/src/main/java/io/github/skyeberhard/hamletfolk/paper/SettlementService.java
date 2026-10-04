@@ -8,10 +8,13 @@ import io.github.skyeberhard.hamletfolk.core.Occupation;
 import io.github.skyeberhard.hamletfolk.core.PriceModel;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.ResourceType;
+import io.github.skyeberhard.hamletfolk.core.HeightSource;
 import io.github.skyeberhard.hamletfolk.core.Membership;
 import io.github.skyeberhard.hamletfolk.core.Migration;
+import io.github.skyeberhard.hamletfolk.core.PlanGenerator;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.Trading;
+import io.github.skyeberhard.hamletfolk.core.VillagePlan;
 import io.github.skyeberhard.hamletfolk.core.SettlementRegistry;
 import io.github.skyeberhard.hamletfolk.core.SettlementSimulator;
 import java.util.ArrayList;
@@ -27,6 +30,7 @@ import io.papermc.paper.entity.poi.PoiTypes;
 import org.bukkit.Bukkit;
 import org.bukkit.HeightMap;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Tag;
 import org.bukkit.World;
@@ -133,6 +137,69 @@ final class SettlementService {
             }
         }
     }
+
+    /** The ground of a world as the plan sees it: surface height and water, only where chunks are loaded. */
+    private static HeightSource terrainOf(World world) {
+        return new HeightSource() {
+            @Override
+            public int height(int x, int z) {
+                // Leaves are skipped, so a tree or a roof is not mistaken for the ground.
+                return world.isChunkLoaded(x >> 4, z >> 4)
+                        ? world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES) : HeightSource.UNKNOWN;
+            }
+
+            @Override
+            public boolean water(int x, int z) {
+                // Water and lava are both not ground to build on; ice and lily pads are read as what is under them.
+                return world.isChunkLoaded(x >> 4, z >> 4)
+                        && world.getHighestBlockAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES).isLiquid();
+            }
+        };
+    }
+
+    /** True if every chunk within {@code radius} blocks of a point is loaded, so the ground there can be measured. */
+    private static boolean groundLoaded(World world, int cx, int cz, int radius) {
+        for (int x = (cx - radius) >> 4; x <= (cx + radius) >> 4; x++) {
+            for (int z = (cz - radius) >> 4; z <= (cz + radius) >> 4; z++) {
+                if (!world.isChunkLoaded(x, z)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * R8.3: gives a village its plan of streets and lots once the ground around it is loaded, and lengthens it when the
+     * village reaches {@link #STAGE_TWO_POPULATION}. Lots over bad ground are dropped for good, so this waits until the
+     * whole area can be measured instead of planning from part of it.
+     */
+    private void ensurePlan(Settlement settlement) {
+        World world = Bukkit.getWorld(settlement.world());
+        if (world == null || !inScope(world) || settlement.isAbandoned() || settlement.population() == 0) {
+            return;
+        }
+        VillagePlan plan = settlement.plan();
+        if (plan != null && (plan.stage() >= 2 || settlement.population() < STAGE_TWO_POPULATION)) {
+            return;
+        }
+        if (!groundLoaded(world, settlement.centerX(), settlement.centerZ(), 112)) {
+            return;
+        }
+        if (plan == null && !PlanGenerator.siteUsable(terrainOf(world), settlement.centerX(), settlement.centerZ())) {
+            return; // the centre is water or unmeasured: nothing to plan on
+        }
+        if (plan == null) {
+            long seed = settlement.id().getMostSignificantBits() ^ settlement.id().getLeastSignificantBits();
+            settlement.setPlan(PlanGenerator.generate(settlement.centerX(), settlement.centerZ(), seed, "plains", terrainOf(world)));
+            plugin.requestSave();
+        } else if (PlanGenerator.extend(plan, terrainOf(world))) {
+            plugin.requestSave();
+        }
+    }
+
+    /** The population at which a village's plan grows to its second stage. */
+    static final int STAGE_TWO_POPULATION = 25;
 
     /**
      * R1.8: reports where each loaded villager of a settlement is, so one that has settled in another
@@ -325,6 +392,11 @@ final class SettlementService {
             considerNewcomer(settlement);
             considerMigration(settlement);
             considerMembership(settlement);
+            try {
+                ensurePlan(settlement);
+            } catch (RuntimeException e) {
+                plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not plan the layout of " + settlement.name(), e);
+            }
             World world = Bukkit.getWorld(settlement.world());
             if (world != null && inScope(world)) {
                 refreshAppearance(settlement, world);

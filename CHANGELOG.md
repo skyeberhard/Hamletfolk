@@ -4,6 +4,18 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R8.3: Villages now have a plan of streets and lots. Once the ground around a village is loaded (every chunk within
+  112 blocks), it is given a 15 by 15 main square at its centre, a main street through it along whichever axis is
+  flatter, two branches across the street, and reserved lots along both sides of every street, each tied to a
+  building type (houses, farms, a shop, a mine, a smithy, a treasury, a guard post), a biome set (plains for now) and
+  a stage. Lots on ground steeper than four blocks, or wet, or not measured are dropped for good, and streets stop at
+  the shore. Nothing overlaps. Growth fills the nearest reserved lot of a kind first (registering a building sign inside a matching lot
+  marks it built on), and the planner's advice to put up a building now names the lot it would go on. Streets only
+  run where every column of their width is dry, and a branch only exists where the main street reaches. At 25 residents the plan grows to stage 2 (a longer street, two more
+  branches and their lots) without touching what is already there. `/settlement plan` summarises the layout and
+  `/settlement lots` switches an outline of the lots near you on and off (white reserved, green built on, pale for the
+  square and streets, redrawn as you walk) so you can see the plan in the world and edit it from there. Save format is now 18 (the plan). The rules
+  are in core and tested; measuring the ground and the particles are Paper-side, checked by T47.
 - R8.2: Village sites can now be scored. A pure function takes a coarse sample of the land around a point (the
   biome every 24 blocks out to 96, from the game's computed biomes, so nothing is generated) and scores how much
   water, timber, farmland, grazing, stone and ore is within reach, with nearer land counting for more. It is a

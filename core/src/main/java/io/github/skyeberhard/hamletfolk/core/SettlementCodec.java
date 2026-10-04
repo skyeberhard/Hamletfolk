@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 17;
+    public static final int FORMAT_VERSION = 18;
 
     private SettlementCodec() {
     }
@@ -105,6 +105,9 @@ public final class SettlementCodec {
         map.put("reputation", reputation);
         if (!s.incidents().isEmpty()) {
             map.put("incidents", new ArrayList<>(s.incidents()));
+        }
+        if (s.plan() != null) {
+            map.put("plan", s.plan().toMap());
         }
         if (!s.decisions().isEmpty()) {
             List<Object> decisions = new ArrayList<>();
@@ -238,6 +241,14 @@ public final class SettlementCodec {
             }
         }
 
+        if (map.get("plan") instanceof Map<?, ?> plan) {
+            try {
+                s.setPlan(VillagePlan.fromMap(plan));
+            } catch (IllegalArgumentException | ClassCastException e) {
+                // a damaged plan is dropped: the ground is surveyed again and a new one made
+            }
+        }
+
         for (Object o : asList(map.get("decisions"))) {
             Map<?, ?> d = asMap(o);
             try {
@@ -291,6 +302,7 @@ public final class SettlementCodec {
         // v14 -> v15: occupations gained GUARD (R5.1); an old save has none, so nothing to convert, but an older
         // build must refuse a save that may contain it rather than fail on an unknown occupation.
         // v15 -> v16: "incidents" (R5.5, the days the village was attacked) is optional, so an old save has none.
+        // v17 -> v18: "plan" (R8.3, the streets and lots) is optional, so an old save has none until the ground is surveyed.
         // v16 -> v17: "decisions" (R8.1, the planner's log) is optional, so an old save has none; the planner fills it in.
         // v13 -> v14: the treasury got a limit (R2.6). So that no existing village loses emeralds, what it holds now (the
         // treasury and the rewards set aside for open requests) is kept as the room it may keep ("treasuryLegacy"); a

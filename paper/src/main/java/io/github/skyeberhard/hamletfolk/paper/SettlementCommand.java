@@ -6,6 +6,7 @@ import io.github.skyeberhard.hamletfolk.core.Donation;
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
 import io.github.skyeberhard.hamletfolk.core.LifeStage;
 import io.github.skyeberhard.hamletfolk.core.Planner;
+import io.github.skyeberhard.hamletfolk.core.Rect;
 import io.github.skyeberhard.hamletfolk.core.Reputation;
 import io.github.skyeberhard.hamletfolk.core.Request;
 import io.github.skyeberhard.hamletfolk.core.Resident;
@@ -14,6 +15,7 @@ import io.github.skyeberhard.hamletfolk.core.ResourceType;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.SiteResource;
 import io.github.skyeberhard.hamletfolk.core.SiteSurvey;
+import io.github.skyeberhard.hamletfolk.core.VillagePlan;
 import io.github.skyeberhard.hamletfolk.core.SettlementSimulator;
 import io.github.skyeberhard.hamletfolk.core.Wealth;
 import java.util.ArrayList;
@@ -39,9 +41,11 @@ import org.bukkit.inventory.meta.Damageable;
 
 /** /settlement [info|history|residents|donate [amount|all]] — about the settlement you're standing in; admin works anywhere. */
 final class SettlementCommand implements TabExecutor {
+    /** R8.3: the players who have the lot outlines switched on, with the task that draws them. */
+    private final java.util.Map<java.util.UUID, org.bukkit.scheduler.BukkitTask> lotViews = new java.util.HashMap<>();
     /** When each player last ran /settlement beds, for the cooldown. */
     private final java.util.Map<java.util.UUID, Long> lastBedsCommand = new java.util.HashMap<>();
-    private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate", "buildings", "beds", "plan", "survey");
+    private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate", "buildings", "beds", "plan", "lots", "survey");
     private static final int EVENTS_PER_PAGE = 3;
     /** Vanilla's limit for a written book; more and the client refuses it. */
     private static final int MAX_BOOK_PAGES = 100;
@@ -86,6 +90,7 @@ final class SettlementCommand implements TabExecutor {
             case "buildings" -> buildings(player, settlement);
             case "beds" -> beds(player, settlement);
             case "plan" -> plan(player, settlement);
+            case "lots" -> lots(player, settlement, args);
             default -> {
                 return false;
             }
@@ -100,6 +105,9 @@ final class SettlementCommand implements TabExecutor {
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("donate")) {
             return "all".startsWith(args[1].toLowerCase(Locale.ROOT)) ? List.of("all") : List.of();
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("lots")) {
+            return List.of("on", "off").stream().filter(o -> o.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         }
         if (args.length != 1) {
             return List.of();
@@ -213,6 +221,93 @@ final class SettlementCommand implements TabExecutor {
     }
 
     /**
+     * R8.3: /settlement lots switches an outline of the village's lots on and off for you: white for a reserved lot,
+     * green for one that is built on, pale for the main square and the streets, redrawn every second for whatever is
+     * near you, so you can walk the plan and edit it from there. With no argument it toggles; {@code on} and {@code off}
+     * say which. It also counts the reserved lots by building. It stays on until you switch it off (or leave the server).
+     */
+    private void lots(Player player, Settlement s, String[] args) {
+        String mode = args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "";
+        org.bukkit.scheduler.BukkitTask running = lotViews.get(player.getUniqueId());
+        boolean turnOn = mode.equals("on") || (mode.isEmpty() && running == null);
+        if (!turnOn) {
+            if (running == null) {
+                player.sendMessage(Component.text("The lot outlines are already off.", NamedTextColor.GRAY));
+            } else {
+                running.cancel();
+                lotViews.remove(player.getUniqueId());
+                player.sendMessage(Component.text("Lot outlines off.", NamedTextColor.GRAY));
+            }
+            return;
+        }
+        VillagePlan layout = s.plan();
+        if (layout == null) {
+            player.sendMessage(Component.text(s.name() + " has no plan yet: it is made once the ground around the village is loaded.",
+                    NamedTextColor.GRAY));
+            return;
+        }
+        if (running != null) {
+            player.sendMessage(Component.text("The lot outlines are already on. /settlement lots off turns them off.",
+                    NamedTextColor.GRAY));
+            return;
+        }
+        java.util.Map<String, Integer> byType = new java.util.TreeMap<>();
+        for (VillagePlan.Lot lot : layout.lots()) {
+            if (lot.status() == VillagePlan.LotStatus.RESERVED) {
+                byType.merge(lot.type().label().toLowerCase(Locale.ROOT), 1, Integer::sum);
+            }
+        }
+        player.sendMessage(Component.text("Reserved lots in " + s.name() + ": " + (byType.isEmpty() ? "none" : byType.toString())
+                + ". Outlines on; /settlement lots again turns them off.", NamedTextColor.GOLD));
+        World world = player.getWorld();
+        lotViews.put(player.getUniqueId(), Bukkit.getScheduler().runTaskTimer(service.plugin(), () -> {
+            VillagePlan current = s.plan();
+            if (!player.isOnline() || current == null || player.getWorld() != world) {
+                org.bukkit.scheduler.BukkitTask own = lotViews.remove(player.getUniqueId());
+                if (own != null) {
+                    own.cancel();
+                }
+                return;
+            }
+            Location here = player.getLocation();
+            List<Rect> reserved = new ArrayList<>();
+            List<Rect> built = new ArrayList<>();
+            for (VillagePlan.Lot lot : current.lots()) {
+                if (Math.hypot(lot.rect().centerX() - here.getX(), lot.rect().centerZ() - here.getZ()) <= 64) {
+                    (lot.status() == VillagePlan.LotStatus.RESERVED ? reserved : built).add(lot.rect());
+                }
+            }
+            List<Rect> streets = new ArrayList<>();
+            streets.add(current.square());
+            current.roads().forEach(r -> streets.add(r.rect()));
+            outline(player, world, reserved, org.bukkit.Particle.END_ROD);
+            outline(player, world, built, org.bukkit.Particle.HAPPY_VILLAGER);
+            outline(player, world, streets, org.bukkit.Particle.CLOUD);
+        }, 0L, 20L));
+    }
+
+    /** Draws the edges of some rectangles at ground level, one particle every three blocks. */
+    private static void outline(Player player, World world, List<Rect> rects, org.bukkit.Particle particle) {
+        for (Rect r : rects) {
+            for (int x = r.x(); x <= r.maxX(); x += 3) {
+                edge(player, world, particle, x, r.z());
+                edge(player, world, particle, x, r.maxZ());
+            }
+            for (int z = r.z(); z <= r.maxZ(); z += 3) {
+                edge(player, world, particle, r.x(), z);
+                edge(player, world, particle, r.maxX(), z);
+            }
+        }
+    }
+
+    private static void edge(Player player, World world, org.bukkit.Particle particle, int x, int z) {
+        if (world.isChunkLoaded(x >> 4, z >> 4)) {
+            // Forced, so the client draws them beyond the usual 32 blocks.
+            player.spawnParticle(particle, x + 0.5, world.getHighestBlockYAt(x, z) + 1.2, z + 0.5, 1, 0, 0, 0, 0, null, true);
+        }
+    }
+
+    /**
      * R8.2: /settlement survey scores the land around where you stand as a village site: how much water, timber,
      * farmland, grazing, stone and ore is within reach, what that means for growth and food, and what a village here
      * would have to bring in. Sampled from the game's computed biomes every 24 blocks out to 96, so it generates nothing.
@@ -259,6 +354,13 @@ final class SettlementCommand implements TabExecutor {
         }
         for (Planner.Directive directive : now) {
             player.sendMessage(Component.text("  [" + directive.tier().label() + "] " + directive.text(), NamedTextColor.WHITE));
+        }
+        VillagePlan layout = s.plan();
+        if (layout != null) {
+            player.sendMessage(Component.text("Layout: stage " + layout.stage() + ", main square at "
+                    + layout.square().centerX() + ", " + layout.square().centerZ() + ", " + layout.reservedCount()
+                    + " lots reserved and " + layout.filledCount() + " built on (" + layout.dropped()
+                    + " dropped as too steep or wet). /settlement lots shows them.", NamedTextColor.GRAY));
         }
         List<Planner.Decision> log = s.decisions();
         if (!log.isEmpty()) {

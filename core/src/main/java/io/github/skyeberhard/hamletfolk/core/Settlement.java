@@ -36,6 +36,21 @@ public final class Settlement {
     private final Map<String, Building> buildings = new LinkedHashMap<>();
     private final Housing housing = new Housing();
     private final List<UUID> newlyDeparted = new ArrayList<>();
+    /** R8.3: the village's plan of streets and lots, once it has one (null until the ground has been surveyed). */
+    private VillagePlan plan;
+
+    /** R8.3: the plan of streets and lots, or null if the village has none yet. */
+    public VillagePlan plan() {
+        return plan;
+    }
+
+    public void setPlan(VillagePlan plan) {
+        this.plan = plan;
+        if (plan != null) {
+            plan.syncBuildings(buildings.values()); // buildings already registered stand on lots
+        }
+    }
+
     /** R8.1: the planner's decisions with their reasons, newest last, separate from the history. */
     private final List<Planner.Decision> decisions = new ArrayList<>();
     /** Most decisions kept; the oldest go first. */
@@ -163,6 +178,9 @@ public final class Settlement {
             return Registration.TOO_MANY;
         }
         buildings.put(building.key(), building);
+        if (plan != null) {
+            plan.fillFor(building.type(), building.x(), building.z()); // R8.3: the lot it stands on is built on
+        }
         recordBuildingChange(building.registeredDay(), building.registeredBy(), building.registeredBy() + " registered a "
                 + building.type().label().toLowerCase(java.util.Locale.ROOT) + " in " + name + ".");
         return Registration.REGISTERED;
