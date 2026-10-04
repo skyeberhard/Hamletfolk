@@ -21,7 +21,10 @@ final class RaidListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onTrigger(RaidTriggerEvent event) {
-        service.settlementAt(event.getRaid().getLocation()).ifPresent(settlement -> settlement.raiseThreat(30));
+        service.settlementAt(event.getRaid().getLocation()).ifPresent(settlement -> {
+            settlement.raiseThreat(30);
+            settlement.recordIncident(settlement.effectiveDay(SettlementService.day(event.getRaid().getLocation().getWorld()))); // R5.5
+        });
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -41,6 +44,7 @@ final class RaidListener implements Listener {
         }
         service.settlementAt(event.getRaid().getLocation()).ifPresent(settlement -> {
             settlement.raiseThreat(40);
+            settlement.recordIncident(settlement.effectiveDay(SettlementService.day(event.getWorld()))); // R5.5
             settlement.record(SettlementService.day(event.getWorld()), HistoryEvent.Kind.RAID,
                     "Raiders overran " + settlement.name() + ".");
         });

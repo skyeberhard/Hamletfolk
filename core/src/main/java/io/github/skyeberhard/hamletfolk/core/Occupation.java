@@ -31,9 +31,10 @@ public enum Occupation {
     CARTOGRAPHER("cartographer", "cartographer", ResourceType.GOODS, 1, null),
     CLERIC("cleric", "cleric", ResourceType.GOODS, 1, null),
     LIBRARIAN("librarian", "librarian", ResourceType.GOODS, 1, null),
-    // R5.1: makes nothing; eats an extra ration and wears out tools while on watch, and speeds the fall of threat
-    // (see SettlementSimulator.guard). Taken up when threat stays high; no vanilla profession backs it.
-    GUARD("guard", "guard", null, 0, ResourceType.FOOD);
+    // R5.1, R5.5: makes nothing; eats an extra ration when there is one, wears out tools while on watch and is only
+    // armed (and only calms the village) while the stores hold tools (see SettlementSimulator.guard). Called up when
+    // the village is attacked; no vanilla profession backs it.
+    GUARD("guard", "guard", null, 0, null);
 
     private final String vanillaKey;
     private final String title;

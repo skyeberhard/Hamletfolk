@@ -1,13 +1,15 @@
 package io.github.skyeberhard.hamletfolk.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** R5.1: sustained high threat turns a resident into a guard, who consumes tools and food. */
+/** R5.1, R5.5: a village that is attacked arms itself ahead of the worst; guards need tools, not food. */
 class GuardTest {
     private static final UUID VILLAGE = new UUID(11, 11);
 
@@ -20,10 +22,9 @@ class GuardTest {
                 job, true, 10_000, null, null, Needs.initial());
     }
 
-    /** Ten residents of the given jobs with food and tools to spare, on a fixed id so every run draws the same numbers. */
+    /** A village of the given jobs with food and tools to spare, on a fixed id so every run draws the same numbers. */
     private Settlement village(Occupation... jobs) {
         Settlement s = new Settlement(VILLAGE, "Watchford", "world", 0, 0, 0);
-        registry.add(s);
         for (Occupation job : jobs) {
             s.addResident(person(job, 80));
         }
@@ -37,6 +38,12 @@ class GuardTest {
         return s;
     }
 
+    private Settlement idlers(int count) {
+        Occupation[] jobs = new Occupation[count];
+        java.util.Arrays.fill(jobs, Occupation.NITWIT);
+        return village(jobs);
+    }
+
     private static long guards(Settlement s) {
         return s.residents().stream().filter(r -> r.occupation() == Occupation.GUARD).count();
     }
@@ -45,71 +52,185 @@ class GuardTest {
         simulator.simulateTo(s, s.lastSimulatedDay() + n, n);
     }
 
-    /** Days with danger that does not let up, so guards stay on watch instead of standing down. */
-    private void dangerousDays(Settlement s, int n) {
-        for (int i = 0; i < n; i++) {
-            s.raiseThreat(60);
-            days(s, 1);
-        }
+    /** Lets the next day simulated be {@code day}, as if the village had been quiet until then. */
+    private static void startAt(Settlement s, long day) {
+        s.setLastSimulatedDay(day - 1);
     }
 
     @Test
-    void aRaidTheVillageWinsIsNotSustained() {
-        // What the Paper layer adds: 30 when a raid starts, and 15 more for a villager killed by a raider.
-        for (int added : new int[] {30, 45}) {
-            Settlement s = village(Occupation.NITWIT, Occupation.NITWIT, Occupation.NITWIT, Occupation.NITWIT);
-            s.raiseThreat(added);
-            days(s, 15);
-            assertEquals(0, guards(s), "threat " + added + " fades before it is sustained");
-        }
-    }
-
-    @Test
-    void aRaidTheVillageLosesRaisesAGuardAfterThreeDays() {
-        Settlement s = village(Occupation.NITWIT, Occupation.NITWIT, Occupation.NITWIT, Occupation.NITWIT);
-        s.raiseThreat(70); // 30 when the raid starts and 40 more when it is lost
-        days(s, 3);
+    void oneAttackIsNotEnough() {
+        Settlement s = idlers(6);
+        s.recordIncident(1);
+        days(s, 12);
         assertEquals(0, guards(s));
-        days(s, 1);
-        assertEquals(1, guards(s));
     }
 
     @Test
-    void sustainedHighThreatTurnsAResidentIntoAGuard() {
-        Settlement s = village(Occupation.NITWIT, Occupation.NITWIT, Occupation.NITWIT, Occupation.NITWIT);
-        s.raiseThreat(95); // a raid and more
-        days(s, 2);
-        assertEquals(0, guards(s), "not yet: only two days");
-        days(s, 3);
+    void twoAttacksInAWeekMakeTheVillageWaryAndAGuardIsCalledUpAtOnce() {
+        Settlement s = idlers(6);
+        days(s, 1);
+        s.recordIncident(1);
+        days(s, 1);
+        assertEquals(0, guards(s), "one attack so far");
+        s.recordIncident(2);
+        assertEquals(SettlementSimulator.Alert.WARY, SettlementSimulator.alertLevel(s, 3));
+        days(s, 1); // day 3: two attacks in the week
         assertEquals(1, guards(s));
         assertTrue(s.history().stream().anyMatch(e -> e.text().contains("took up arms")));
     }
 
     @Test
-    void onlyOneGuardPerTenResidentsAndOneADay() {
-        Settlement few = village(Occupation.NITWIT, Occupation.NITWIT, Occupation.NITWIT, Occupation.NITWIT,
-                Occupation.NITWIT, Occupation.NITWIT);
-        for (int day = 0; day < 12; day++) {
-            few.raiseThreat(100); // danger that never lets up
-            days(few, 1);
-        }
-        assertEquals(1, guards(few), "six residents want one guard");
+    void attacksOlderThanAWeekDoNotCount() {
+        Settlement s = idlers(6);
+        s.recordIncident(1);
+        s.recordIncident(2);
+        startAt(s, 20);
+        days(s, 3);
+        assertEquals(0, guards(s));
+        assertEquals(SettlementSimulator.Alert.CALM, SettlementSimulator.alertLevel(s, 20));
+    }
 
-        Occupation[] twentyFive = new Occupation[25];
-        java.util.Arrays.fill(twentyFive, Occupation.NITWIT);
-        Settlement many = village(twentyFive);
-        for (int day = 0; day < 4; day++) {
-            many.raiseThreat(100);
-            days(many, 1);
+    @Test
+    void theAlertLevelsFollowAttacksAndThreat() {
+        Settlement s = idlers(4);
+        assertEquals(SettlementSimulator.Alert.CALM, SettlementSimulator.alertLevel(s, 10));
+        s.recordIncident(10);
+        assertEquals(SettlementSimulator.Alert.CALM, SettlementSimulator.alertLevel(s, 10));
+        s.recordIncident(9);
+        assertEquals(SettlementSimulator.Alert.WARY, SettlementSimulator.alertLevel(s, 10));
+        s.recordIncident(8);
+        assertEquals(SettlementSimulator.Alert.ALARMED, SettlementSimulator.alertLevel(s, 10));
+        assertEquals(SettlementSimulator.Alert.WARY, SettlementSimulator.alertLevel(s, 15), "days 9 to 15 hold two attacks");
+        assertEquals(SettlementSimulator.Alert.CALM, SettlementSimulator.alertLevel(s, 16), "the attack on day 9 has left the week");
+        Settlement high = idlers(4);
+        high.setThreat(50);
+        assertEquals(SettlementSimulator.Alert.ALARMED, SettlementSimulator.alertLevel(high, 10));
+        high.setThreat(80);
+        assertEquals(SettlementSimulator.Alert.SIEGE, SettlementSimulator.alertLevel(high, 10));
+    }
+
+    @Test
+    void anAlarmedVillageWantsOneGuardPerTenResidentsAndCallsThemUpOneADay() {
+        Settlement s = idlers(25);
+        s.recordIncident(1);
+        s.recordIncident(1);
+        s.recordIncident(1);
+        startAt(s, 2);
+        for (int day = 0; day < 5; day++) {
+            s.ledger().add(ResourceType.FOOD, 60); // 25 residents eat 50 a day; nobody is called up while food is short
+            days(s, 1);
+            if (day == 0) {
+                assertEquals(1, guards(s), "the first on the first day");
+            }
+            if (day == 1) {
+                assertEquals(2, guards(s), "then one a day");
+            }
         }
-        long afterFirstDays = guards(many);
-        assertTrue(afterFirstDays <= 1, "one a day at most, and the first only on the fourth day: " + afterFirstDays);
-        for (int day = 0; day < 20; day++) {
-            many.raiseThreat(100);
-            many.ledger().add(ResourceType.FOOD, 80); // enough to eat: nobody is called up while food is short
-            days(many, 1);
+        assertEquals(3, guards(s), "twenty-five residents want three, and no more");
+    }
+
+    @Test
+    void aVillageUnderSiegeCallsEveryGuardItWantsUpAtOnceAndEvenInAFamine() {
+        Settlement s = idlers(12);
+        s.ledger().take(ResourceType.FOOD, 1000); // famine
+        s.setThreat(95);
+        days(s, 1);
+        assertEquals(2, guards(s), "twelve residents under siege want two, called up on the same day");
+
+        Settlement alarmed = idlers(12);
+        alarmed.ledger().take(ResourceType.FOOD, 1000);
+        alarmed.recordIncident(1);
+        alarmed.recordIncident(1);
+        alarmed.recordIncident(1);
+        startAt(alarmed, 2);
+        days(alarmed, 3);
+        assertEquals(0, guards(alarmed), "alarmed but starving: every hand is needed for food");
+    }
+
+    @Test
+    void mossmoorsHistoryGetsAGuardByDay27() {
+        // Monster deaths on days 25, 26 and 27, as in the first playtest, with danger never above 28.
+        Settlement s = idlers(11);
+        startAt(s, 25);
+        for (int day = 25; day <= 27; day++) {
+            days(s, 1);
+            if (day == 26) {
+                assertEquals(0, guards(s), "only one attack so far");
+            }
+            s.recordIncident(day);
         }
-        assertEquals(3, guards(many), "twenty-five residents want three");
+        assertEquals(1, guards(s), "wary on day 27, after the attacks on days 25 and 26");
+    }
+
+    @Test
+    void guardsNeedToolsToBeArmedButNotFood() {
+        Settlement base = idlers(4);
+        base.addResident(person(Occupation.GUARD, 80));
+        base.addResident(person(Occupation.GUARD, 80));
+        registry.add(base);
+        base.setThreat(45); // not alarmed (that is 50), but not calm either: the guards stay on watch
+        Map<String, Object> saved = SettlementCodec.encode(base);
+
+        Settlement armed = SettlementCodec.decode(saved);
+        Settlement unarmed = SettlementCodec.decode(saved);
+        unarmed.ledger().take(ResourceType.TOOLS, 1000);
+        Settlement hungry = SettlementCodec.decode(saved);
+        hungry.ledger().take(ResourceType.FOOD, 1000);
+        Settlement noGuards = SettlementCodec.decode(saved);
+        noGuards.residents().forEach(r -> {
+            if (r.occupation() == Occupation.GUARD) {
+                r.setOccupation(Occupation.NITWIT);
+            }
+        });
+        for (Settlement s : new Settlement[] {armed, unarmed, hungry, noGuards}) {
+            days(s, 3);
+        }
+        assertTrue(armed.threat() < noGuards.threat() - 3, armed.threat() + " vs " + noGuards.threat());
+        assertEquals(noGuards.threat(), unarmed.threat(), 1e-9, "no tools, no difference");
+        assertEquals(armed.threat(), hungry.threat(), 1e-9, "an empty stomach does not stop a guard");
+    }
+
+    @Test
+    void aGuardEatsAnExtraRationWhenThereIsOneAndWearsToolsOut() {
+        Settlement s = village();
+        s.addResident(person(Occupation.GUARD, 80));
+        registry.add(s);
+        s.ledger().take(ResourceType.FOOD, 1000);
+        s.ledger().add(ResourceType.FOOD, 48); // under 50, where 2% spoilage rounds to nothing, and enough for the run
+        s.ledger().take(ResourceType.TOOLS, 50);
+        s.ledger().add(ResourceType.TOOLS, 40);
+        Settlement idler = SettlementCodec.decode(SettlementCodec.encode(s));
+        idler.residents().forEach(r -> r.setOccupation(Occupation.NITWIT));
+        for (int day = 0; day < 3; day++) {
+            s.setThreat(45);
+            idler.setThreat(45);
+            days(s, 1);
+            days(idler, 1);
+        }
+        assertEquals(3, idler.ledger().get(ResourceType.FOOD) - s.ledger().get(ResourceType.FOOD),
+                "one extra food a day for three days");
+        for (int day = 0; day < 30; day++) {
+            s.setThreat(45);
+            days(s, 1);
+        }
+        assertTrue(s.ledger().get(ResourceType.TOOLS) < 40, "tools wear on watch");
+    }
+
+    @Test
+    void guardsStandDownOnlyAfterTenQuietDaysOneADay() {
+        Settlement s = idlers(4);
+        s.addResident(person(Occupation.GUARD, 80));
+        s.addResident(person(Occupation.GUARD, 80));
+        registry.add(s);
+        s.recordIncident(8); // a single attack: not wary, but not quiet either
+        startAt(s, 10);
+        days(s, 8); // days 10 to 17
+        assertEquals(2, guards(s), "the attack on day 8 is still within ten days");
+        days(s, 1); // day 18
+        assertEquals(1, guards(s), "one a day");
+        days(s, 1);
+        assertEquals(0, guards(s));
+        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("stood down")));
     }
 
     @Test
@@ -120,10 +241,10 @@ class GuardTest {
         s.addResident(timid);
         s.addResident(brave);
         registry.add(s);
-        for (int day = 0; day < 6; day++) {
-            s.raiseThreat(100);
-            days(s, 1);
-        }
+        s.recordIncident(1);
+        s.recordIncident(1);
+        startAt(s, 2);
+        days(s, 4);
         assertEquals(Occupation.GUARD, brave.occupation());
         assertTrue(timid.occupation() != Occupation.GUARD, "too timid");
         assertEquals(2, s.residents().stream().filter(r -> r.occupation() == Occupation.FARMER).count(),
@@ -132,28 +253,20 @@ class GuardTest {
     }
 
     @Test
-    void whenNoneAreJoblessSomeoneWhoIsNotFeedingTheVillageGoes() {
-        Settlement s = village(Occupation.FARMER, Occupation.MASON);
-        for (int day = 0; day < 6; day++) {
-            s.raiseThreat(100);
-            days(s, 1);
-        }
-        assertEquals(1, s.residents().stream().filter(r -> r.occupation() == Occupation.GUARD).count());
-        assertEquals(Occupation.FARMER, s.residents().stream().filter(r -> r.occupation() != Occupation.GUARD)
-                .findFirst().orElseThrow().occupation());
-    }
+    void theOnlyToolmakerOrMinerIsNotCalledUpButOneOfSeveralIs() {
+        Settlement s = village(Occupation.TOOLSMITH, Occupation.MINER, Occupation.FARMER, Occupation.FARMER);
+        s.recordIncident(1);
+        s.recordIncident(1);
+        startAt(s, 2);
+        days(s, 4);
+        assertEquals(0, guards(s), "the only smith and the only miner arm the guards, and nobody else is free to go");
 
-    @Test
-    void nobodyIsCalledUpInAFamineOrWhileFoodIsShort() {
-        Settlement s = village(Occupation.NITWIT, Occupation.NITWIT, Occupation.NITWIT, Occupation.NITWIT);
-        s.ledger().take(ResourceType.FOOD, 1000);
-        s.ledger().add(ResourceType.FOOD, 12); // well under what four residents should hold
-        for (int day = 0; day < 6; day++) {
-            s.raiseThreat(100);
-            s.ledger().add(ResourceType.FOOD, 12 - Math.min(12, s.ledger().get(ResourceType.FOOD)));
-            days(s, 1);
-        }
-        assertEquals(0, guards(s));
+        Settlement two = village(Occupation.TOOLSMITH, Occupation.TOOLSMITH, Occupation.FARMER, Occupation.FARMER);
+        two.recordIncident(1);
+        two.recordIncident(1);
+        startAt(two, 2);
+        days(two, 3);
+        assertEquals(1, guards(two), "with a second smith one can be spared");
     }
 
     @Test
@@ -162,10 +275,10 @@ class GuardTest {
         Resident idler = person(Occupation.NITWIT, 60);
         s.addResident(idler);
         registry.add(s);
-        for (int day = 0; day < 6; day++) {
-            s.raiseThreat(100);
-            days(s, 1);
-        }
+        s.recordIncident(1);
+        s.recordIncident(1);
+        startAt(s, 2);
+        days(s, 2);
         assertEquals(Occupation.GUARD, idler.occupation(), "less brave, but makes nothing, so goes before the masons");
     }
 
@@ -177,108 +290,36 @@ class GuardTest {
         s.addResident(new Resident(new UUID(10, 901), "Old", "Person", Gender.MALE, new Traits(50, 50, 50, 99),
                 Occupation.UNEMPLOYED, true, -Resident.elderAge() - 5, null, null, Needs.initial()));
         registry.add(s);
-        for (int day = 0; day < 8; day++) {
-            s.raiseThreat(100);
-            days(s, 1);
-        }
+        s.setThreat(95);
+        days(s, 4);
         assertEquals(0, guards(s));
     }
 
     @Test
-    void aGuardEatsAnExtraRationAndWearsOutTools() {
-        Settlement s = village();
-        Resident guard = person(Occupation.GUARD, 80);
-        s.addResident(guard);
-        registry.add(s);
-        s.ledger().take(ResourceType.TOOLS, 50);
-        s.ledger().add(ResourceType.TOOLS, 40);
-        // With too little for spoilage to matter, and a twin whose resident is an idler
-        // instead of a guard: the difference between them is exactly the guard's extra ration.
-        s.ledger().take(ResourceType.FOOD, 1000);
-        s.ledger().add(ResourceType.FOOD, 48); // under 50, where 2% spoilage rounds to nothing, and enough for ten days
-        Settlement idler = SettlementCodec.decode(SettlementCodec.encode(s));
-        idler.residents().forEach(r -> r.setOccupation(Occupation.NITWIT));
-        int toolsBefore = s.ledger().get(ResourceType.TOOLS);
-        StringBuilder trace = new StringBuilder();
-        // Three days: on the fourth the idler's village has had danger long enough to call up a guard of its own.
-        for (int i = 0; i < 3; i++) {
-            dangerousDays(s, 1);
-            dangerousDays(idler, 1);
-            trace.append(String.format("d%d guard food=%d idler food=%d guards=%d; ", i + 1, s.ledger().get(ResourceType.FOOD),
-                    idler.ledger().get(ResourceType.FOOD), guards(s)));
-        }
-        assertEquals(3, idler.ledger().get(ResourceType.FOOD) - s.ledger().get(ResourceType.FOOD),
-                "one extra food a day for three days: " + trace);
-        assertTrue(s.ledger().get(ResourceType.TOOLS) <= toolsBefore);
-        assertEquals(toolsBefore, idler.ledger().get(ResourceType.TOOLS), "an idler wears nothing out");
-    }
-
-    @Test
-    void aGuardWithoutFoodCannotStandWatch() {
-        Settlement s = village();
-        s.ledger().take(ResourceType.FOOD, 400);
-        Resident guard = person(Occupation.GUARD, 80);
-        s.addResident(guard);
-        registry.add(s);
-        dangerousDays(s, 2);
-        assertTrue(guard.lastBlockedDay() >= 0, "blocked for want of food");
-    }
-
-    @Test
-    void guardsWithToolsCalmTheVillageFasterAndWithoutToolsDoNot() {
-        Settlement base = village(Occupation.NITWIT, Occupation.NITWIT);
-        base.addResident(person(Occupation.GUARD, 80));
-        base.addResident(person(Occupation.GUARD, 80));
-        registry.add(base);
-        base.raiseThreat(80);
-        Map<String, Object> saved = SettlementCodec.encode(base);
-
-        Settlement armed = SettlementCodec.decode(saved);
-        Settlement bare = SettlementCodec.decode(saved);
-        bare.ledger().take(ResourceType.TOOLS, 1000);
-        Settlement noGuards = SettlementCodec.decode(saved);
-        noGuards.residents().forEach(r -> {
-            if (r.occupation() == Occupation.GUARD) {
-                r.setOccupation(Occupation.NITWIT);
-            }
-        });
-        days(armed, 3);
-        StringBuilder trace = new StringBuilder();
-        // Three days: on the fourth the unguarded village has had danger long enough to call up a guard of its own.
-        for (int i = 0; i < 3; i++) {
-            days(bare, 1);
-            trace.append(String.format("d%d threat=%.3f tools=%d guards=%d; ", i + 1, bare.threat(), bare.ledger().get(ResourceType.TOOLS), guards(bare)));
-        }
-        days(noGuards, 3);
-        assertTrue(armed.threat() < noGuards.threat() - 3, armed.threat() + " vs " + noGuards.threat());
-        assertEquals(noGuards.threat(), bare.threat(), 1e-9, "no tools, no difference: " + trace);
-    }
-
-    @Test
-    void guardsStandDownOnceTheDangerHasPassedOneADay() {
-        Settlement s = village(Occupation.NITWIT, Occupation.NITWIT);
-        s.addResident(person(Occupation.GUARD, 80));
-        s.addResident(person(Occupation.GUARD, 80));
-        registry.add(s);
-        // Threat is 0: calm.
-        days(s, 1);
-        assertEquals(1, guards(s), "one a day");
-        days(s, 1);
-        assertEquals(0, guards(s));
-        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("stood down")));
-    }
-
-    @Test
-    void aGuardAndTheWatchSurviveASave() {
-        Settlement s = village(Occupation.NITWIT, Occupation.NITWIT);
-        s.addResident(person(Occupation.GUARD, 80));
-        registry.add(s);
-        s.raiseThreat(90);
-        days(s, 1);
-        assertTrue(s.hasCondition(SettlementSimulator.THREAT_HIGH_SINCE));
+    void attacksAreSavedAndAnOldSaveHasNone() {
+        Settlement s = idlers(3);
+        s.recordIncident(4);
+        s.recordIncident(6);
         Settlement loaded = SettlementCodec.decode(SettlementCodec.encode(s));
-        assertEquals(1, guards(loaded));
-        assertTrue(loaded.hasCondition(SettlementSimulator.THREAT_HIGH_SINCE));
-        assertTrue(Occupation.GUARD.simOwned());
+        assertEquals(2, loaded.incidentsSince(0));
+        assertEquals(1, loaded.incidentsSince(5));
+
+        // A format-15 save, written before attacks were remembered: no "incidents" key at all.
+        Map<String, Object> old = new LinkedHashMap<>(SettlementCodec.encode(idlers(3)));
+        old.put("format", 15);
+        old.remove("incidents");
+        Settlement migrated = SettlementCodec.decode(old);
+        assertEquals(0, migrated.incidentsSince(0));
+        assertEquals(SettlementCodec.FORMAT_VERSION, SettlementCodec.encode(migrated).get("format"));
+    }
+
+    @Test
+    void theRecordOfAttacksIsBounded() {
+        Settlement s = idlers(3);
+        for (int i = 0; i < Settlement.MAX_INCIDENTS + 40; i++) {
+            s.recordIncident(i);
+        }
+        assertEquals(Settlement.MAX_INCIDENTS, s.incidentsSince(0));
+        assertFalse(s.incidentsSince(0) > Settlement.MAX_INCIDENTS);
     }
 }

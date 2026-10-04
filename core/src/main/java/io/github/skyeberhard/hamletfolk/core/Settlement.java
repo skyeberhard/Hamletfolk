@@ -36,6 +36,11 @@ public final class Settlement {
     private final Map<String, Building> buildings = new LinkedHashMap<>();
     private final Housing housing = new Housing();
     private final List<UUID> newlyDeparted = new ArrayList<>();
+    /** R5.5: the days attacks on the village happened (a monster killed a resident, one was turned, a raid came or won). */
+    private final List<Long> incidents = new ArrayList<>();
+    /** Most incident days kept, so a village that is attacked all the time cannot grow its save without limit. */
+    public static final int MAX_INCIDENTS = 60;
+
     /** R3.4: how the settlement regards each player, -100 to 100; players it has no opinion of are absent. */
     private final Map<UUID, Integer> reputation = new LinkedHashMap<>();
     /** Ongoing or one-time conditions, keyed by name, valued by the day they began. */
@@ -222,6 +227,29 @@ public final class Settlement {
     /** Loads a saved building without writing history. */
     void addBuilding(Building building) {
         buildings.put(building.key(), building);
+    }
+
+    /** R5.5: notes an attack on the village on the given day. */
+    public void recordIncident(long day) {
+        incidents.add(day);
+        while (incidents.size() > MAX_INCIDENTS) {
+            incidents.remove(0);
+        }
+    }
+
+    /** R5.5: how many attacks happened on or after {@code fromDay}. */
+    public int incidentsSince(long fromDay) {
+        int count = 0;
+        for (long day : incidents) {
+            if (day >= fromDay) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    List<Long> incidents() {
+        return incidents;
     }
 
     /** R3.4: how this settlement regards a player: 0 for a stranger. */

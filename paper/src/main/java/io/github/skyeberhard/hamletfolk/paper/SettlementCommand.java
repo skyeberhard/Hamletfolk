@@ -135,6 +135,10 @@ final class SettlementCommand implements TabExecutor {
             line(player, "Last " + s.flowDays() + " days", flow);
         }
         line(player, "Danger", threatLabel(s.threat()));
+        SettlementSimulator.Alert alert = SettlementSimulator.alertLevel(s, today); // R5.5
+        if (alert != SettlementSimulator.Alert.CALM) {
+            line(player, "Alert", alert.label() + " (" + SettlementSimulator.recentIncidents(s, today) + " attacks this week)");
+        }
         line(player, "Regard", regardLabel(s.reputationOf(player.getUniqueId())));
 
         List<String> troubles = new ArrayList<>();

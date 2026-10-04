@@ -20,21 +20,38 @@ public final class SettlementSimulator {
     static final int CHILD_FOOD_PER_DAY = 1;
     static final double THREAT_DECAY = 0.9;
     /**
-     * R5.1: threat at or above this counts as high, and high on this many days after the first is sustained. A raid the
-     * village wins adds 30 (45 with a death), a raid it loses 70, and threat falls 10% a day: so only a lost raid, or
-     * attacks that keep coming, stay above the line long enough to raise a guard.
+     * R5.5: how a village sees its danger, from the attacks of the last {@link #INCIDENT_WINDOW_DAYS} days and its
+     * threat. It sets how many guards the village wants.
      */
-    static final double THREAT_HIGH = 50;
-    static final int THREAT_SUSTAINED_DAYS = 3;
-    /** R5.1: below this the danger has passed and a guard stands down. */
+    public enum Alert {
+        CALM, WARY, ALARMED, SIEGE;
+
+        public String label() {
+            return name().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
+    /** R5.5: attacks within this many days (counting today) make a village wary, then alarmed. */
+    static final int INCIDENT_WINDOW_DAYS = 7;
+    static final int WARY_INCIDENTS = 2;
+    static final int ALARMED_INCIDENTS = 3;
+    /** R5.5: threat at or above these makes a village alarmed, and under siege. */
+    static final double THREAT_ALARMED = 50;
+    static final double THREAT_SIEGE = 80;
+    /** R5.5: below this threat, and this many days with no attack, guards stand down. */
     static final double THREAT_CALM = 10;
-    static final int RESIDENTS_PER_GUARD = 10;
+    static final int QUIET_DAYS = 10;
+    /** R5.5: one guard for this many residents (at least one) at each level. */
+    static final int RESIDENTS_PER_GUARD_WARY = 15;
+    static final int RESIDENTS_PER_GUARD_ALARMED = 10;
+    static final int RESIDENTS_PER_GUARD_SIEGE = 6;
     /** R5.1: only someone at least this brave takes up arms. */
     static final int GUARD_MIN_BRAVERY = 40;
-    /** R5.1: each guard on duty (fed, and with tools to hand) makes threat fall this much faster, for up to three. */
+    /** R5.1: each armed guard on duty makes threat fall this much faster, for up to three. */
     static final double GUARD_DECAY_BONUS = 0.03;
     static final int MAX_GUARD_EFFECT = 3;
-    static final String THREAT_HIGH_SINCE = "threatHighSince";
+    /** Left in saves from the earlier rule (R5.1), removed when seen. */
+    private static final String LEGACY_THREAT_HIGH_SINCE = "threatHighSince";
     static final int[] POPULATION_MILESTONES = {10, 25, 50, 100, 250};
     static final int ABANDONMENT_DAYS = 10;
     /** R3.6: chance per working day that a gatherer wears out one tool. */
@@ -260,7 +277,7 @@ public final class SettlementSimulator {
         int guarding = 0; // R5.1: guards who were fed and had tools to hand today
         for (Resident resident : workOrder(settlement)) {
             if (resident.adult() && resident.occupation() == Occupation.GUARD) {
-                if (guard(resident, settlement.flow(), ledger, day, wearRandom, idleForLack)) {
+                if (guard(resident, settlement.flow(), ledger, day, wearRandom)) {
                     guarding++;
                 }
                 continue;
@@ -730,18 +747,14 @@ public final class SettlementSimulator {
     }
 
     /**
-     * R5.1: a guard's day. They eat an extra ration (the same input rule as a worker: without food they cannot
-     * stand watch, and say so) and wear out tools as gatherers do. Returns whether they were on duty properly, fed and
-     * with tools in the stores, which is what lets them calm the village.
+     * R5.1, R5.5: a guard's day. They eat an extra ration if there is one (a guard fights on an empty stomach, so
+     * going without does not stop them) and wear out tools as gatherers do. Returns whether they were armed, with
+     * tools in the stores: only an armed guard counts as on duty and calms the village.
      */
-    private boolean guard(Resident resident, ResourceFlow flow, Ledger ledger, long day, Random wearRandom,
-            Map<ResourceType, Integer> idleForLack) {
-        if (ledger.take(ResourceType.FOOD, 1) == 0) {
-            resident.setLastBlockedDay(day);
-            resident.needs().adjustPurpose(-8);
-            return false; // the famine itself is recorded; do not also report an idle worker
+    private boolean guard(Resident resident, ResourceFlow flow, Ledger ledger, long day, Random wearRandom) {
+        if (ledger.take(ResourceType.FOOD, 1) > 0) {
+            flow.recordConsumed(ResourceType.FOOD, day, 1);
         }
-        flow.recordConsumed(ResourceType.FOOD, day, 1);
         boolean armed = ledger.get(ResourceType.TOOLS) > 0;
         if (armed && wearRandom.nextDouble() < TOOL_WEAR_CHANCE) {
             flow.recordConsumed(ResourceType.TOOLS, day, ledger.take(ResourceType.TOOLS, 1));
@@ -751,49 +764,69 @@ public final class SettlementSimulator {
     }
 
     /**
-     * R5.1: sustained high threat turns a resident into a guard, one a day up to one guard per ten residents; once the
-     * danger has passed they stand down, one a day. Sustained means threat has been {@link #THREAT_HIGH} or more for
-     * {@link #THREAT_SUSTAINED_DAYS} days after it first was, so a raid the village wins (which fades) does not count
-     * but a lost raid, or attacks that keep coming, do. Nobody is called up in a famine or while food is short, when
-     * every hand is needed to feed the village. Jobless adults go first, then idlers, then anyone who is not feeding the
-     * village; the bravest goes, and nobody timid, elderly or young.
+     * R5.5: how the village sees its danger today: under siege at threat {@link #THREAT_SIEGE}, alarmed at
+     * {@link #THREAT_ALARMED} or {@link #ALARMED_INCIDENTS} attacks in the last {@link #INCIDENT_WINDOW_DAYS} days,
+     * wary at {@link #WARY_INCIDENTS}, otherwise calm.
+     */
+    public static Alert alertLevel(Settlement settlement, long day) {
+        int recent = recentIncidents(settlement, day);
+        if (settlement.threat() >= THREAT_SIEGE) {
+            return Alert.SIEGE;
+        }
+        if (recent >= ALARMED_INCIDENTS || settlement.threat() >= THREAT_ALARMED) {
+            return Alert.ALARMED;
+        }
+        return recent >= WARY_INCIDENTS ? Alert.WARY : Alert.CALM;
+    }
+
+    /** R5.5: how many attacks the village has seen in the last {@link #INCIDENT_WINDOW_DAYS} days, counting today. */
+    public static int recentIncidents(Settlement settlement, long day) {
+        return settlement.incidentsSince(day - INCIDENT_WINDOW_DAYS + 1);
+    }
+
+    /** R5.5: how many guards a village at this alert level wants. */
+    static int guardsWanted(Settlement settlement, Alert alert) {
+        int per = switch (alert) {
+            case CALM -> 0;
+            case WARY -> RESIDENTS_PER_GUARD_WARY;
+            case ALARMED -> RESIDENTS_PER_GUARD_ALARMED;
+            case SIEGE -> RESIDENTS_PER_GUARD_SIEGE;
+        };
+        return per == 0 ? 0 : Math.max(1, (settlement.population() + per - 1) / per);
+    }
+
+    /**
+     * R5.1, R5.5: a village that has been attacked arms itself ahead of the worst. At each alert level it wants more
+     * guards (see {@link #alertLevel}): one is called up the same day it becomes wary or alarmed and then one a day,
+     * and under siege all it wants are called up at once. Nobody is called up in a famine or while food is short, when
+     * every hand is needed to feed the village, unless it is under siege. Jobless adults go first, then idlers, then
+     * anyone who is not feeding the village; the bravest goes, and nobody timid, elderly or young. Guards stand down,
+     * one a day, once the village has had {@link #QUIET_DAYS} days without an attack and its danger has faded.
      */
     private void staffGuards(Settlement settlement, long day) {
-        Map<String, Long> conditions = settlement.conditions();
-        Long since = conditions.get(THREAT_HIGH_SINCE);
-        if (settlement.threat() >= THREAT_HIGH) {
-            if (since == null) {
-                conditions.put(THREAT_HIGH_SINCE, day);
-                since = day;
-            }
-        } else {
-            conditions.remove(THREAT_HIGH_SINCE);
-            since = null;
-        }
+        settlement.conditions().remove(LEGACY_THREAT_HIGH_SINCE);
+        Alert alert = alertLevel(settlement, day);
         long guards = settlement.residents().stream()
                 .filter(r -> r.adult() && r.occupation() == Occupation.GUARD).count();
-        long wanted = Math.max(1, (settlement.population() + RESIDENTS_PER_GUARD - 1) / RESIDENTS_PER_GUARD);
-        boolean foodShort = settlement.hasCondition("famine") || cover(settlement, Occupation.FARMER) < 1.0;
-        if (since != null && day - since >= THREAT_SUSTAINED_DAYS && guards < wanted && !foodShort) {
-            Resident chosen = null;
-            for (Resident r : settlement.residents()) {
-                if (!r.adult() || r.stage(day) == LifeStage.ELDER || r.traits().bravery() < GUARD_MIN_BRAVERY
-                        || r.occupation() == Occupation.GUARD || r.occupation() == Occupation.MERCHANT
-                        || (r.occupation() != Occupation.UNEMPLOYED && r.occupation().produces() == ResourceType.FOOD)) {
-                    continue;
-                }
-                if (chosen == null || guardPreference(r).compareTo(guardPreference(chosen)) > 0) {
-                    chosen = r;
-                }
+        int wanted = guardsWanted(settlement, alert);
+        if (guards < wanted) {
+            boolean foodShort = settlement.hasCondition("famine") || cover(settlement, Occupation.FARMER) < 1.0;
+            if (foodShort && alert != Alert.SIEGE) {
+                return;
             }
-            if (chosen != null) {
+            long calls = alert == Alert.SIEGE ? wanted - guards : 1;
+            for (long call = 0; call < calls; call++) {
+                Resident chosen = chooseGuard(settlement, day);
+                if (chosen == null) {
+                    break;
+                }
                 chosen.setOccupation(Occupation.GUARD);
-                settlement.record(day, HistoryEvent.Kind.MILESTONE, "With danger hanging over " + settlement.name()
-                        + " for days, " + chosen.fullName() + " took up arms as a guard.");
+                settlement.record(day, HistoryEvent.Kind.MILESTONE, "With " + settlement.name() + " under attack, "
+                        + chosen.fullName() + " took up arms as a guard.");
             }
             return;
         }
-        if (settlement.threat() < THREAT_CALM && guards > 0) {
+        if (guards > 0 && settlement.threat() < THREAT_CALM && settlement.incidentsSince(day - QUIET_DAYS + 1) == 0) {
             for (Resident r : settlement.residents()) {
                 if (r.adult() && r.occupation() == Occupation.GUARD) {
                     r.setOccupation(Occupation.UNEMPLOYED);
@@ -803,6 +836,34 @@ public final class SettlementSimulator {
                 }
             }
         }
+    }
+
+    /** The resident to call up as a guard, or null if there is nobody suitable. */
+    private static Resident chooseGuard(Settlement settlement, long day) {
+        Resident chosen = null;
+        for (Resident r : settlement.residents()) {
+            if (!r.adult() || r.stage(day) == LifeStage.ELDER || r.traits().bravery() < GUARD_MIN_BRAVERY
+                    || r.occupation() == Occupation.GUARD || r.occupation() == Occupation.MERCHANT
+                    || (r.occupation() != Occupation.UNEMPLOYED && r.occupation().produces() == ResourceType.FOOD)
+                    || lastToolMaker(settlement, r)) {
+                continue;
+            }
+            if (chosen == null || guardPreference(r).compareTo(guardPreference(chosen)) > 0) {
+                chosen = r;
+            }
+        }
+        return chosen;
+    }
+
+    /**
+     * True if this resident is the village's only smith or miner: guards are armed with the tools they make and the
+     * metal they dig, so calling up the last one would cut off what arms the guards.
+     */
+    private static boolean lastToolMaker(Settlement settlement, Resident resident) {
+        Occupation job = resident.occupation();
+        boolean makesToolsOrMetal = job.produces() == ResourceType.TOOLS || job.secondaryProduces() == ResourceType.METAL;
+        return makesToolsOrMetal && settlement.residents().stream()
+                .filter(r -> r.adult() && r.occupation() == job).count() <= 1;
     }
 
     /**

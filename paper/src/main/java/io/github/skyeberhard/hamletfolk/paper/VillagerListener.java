@@ -166,6 +166,7 @@ final class VillagerListener implements Listener {
         Entity killer = killerOf(villager);
         if (killer instanceof Monster || killer instanceof Raider) {
             settlement.raiseThreat(15);
+            settlement.recordIncident(settlement.effectiveDay(SettlementService.day(villager.getWorld()))); // R5.5
         }
         Player culprit = killer instanceof Player player ? player : villager.getKiller(); // R3.4: or whoever last hurt it
         if (culprit != null) {
@@ -206,6 +207,7 @@ final class VillagerListener implements Listener {
             // Keep them on record under the zombie's id so a cure can bring them back (R1.2).
             Resident resident = service.registry().turn(id, event.getTransformedEntity().getUniqueId()).orElseThrow();
             settlement.raiseThreat(20);
+            settlement.recordIncident(settlement.effectiveDay(day)); // R5.5
             settlement.record(day, HistoryEvent.Kind.DEATH, describe(resident) + " was turned by zombies.");
             return;
         }

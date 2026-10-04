@@ -4,6 +4,17 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R5.5: Guards now respond to a pattern of attacks, not only to peak danger, replacing R5.1's three-day wait. The
+  village remembers each attack on it (a resident killed by a monster, one turned into a zombie, a raid coming or
+  being lost). Two attacks in a week make it wary (one guard per fifteen residents, at least one), three or more,
+  or danger of 50, make it alarmed (one per ten), and danger of 80 puts it under siege (one per six). The first
+  guard is called up the same day, then one a day, and under siege all of them at once, even in a famine (a
+  village that is only wary or alarmed still will not draft anyone while food is short). A guard needs tools in
+  the stores to count as armed and to calm the village; food is no longer needed, though a guard still eats an
+  extra ration when there is one. Guards stand down, one a day, after ten days with no attack and danger below 10.
+  `/settlement` shows an "Alert" line while the village is wary or worse. In the first playtest's Mossmoor this
+  would have put a guard on watch on day 27, a week before the raid. Save format is now 16 (the days of the recent
+  attacks). The rule is in core and tested; recording the attacks is Paper-side and checked by T44.
 - R2.2 (fix): Beds are now counted through the game's points of interest, the registry villagers use to claim
   a bed, instead of through block entities. Minecraft 26.2 beds are no longer block entities, so the old scan
   found none and every village showed "0 beds". New command `/settlement beds` lists the beds in the village's
