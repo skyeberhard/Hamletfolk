@@ -34,13 +34,30 @@ game's internal villager code to do that, under rules that keep the rest of the 
 7. **Every behaviour is optional by itself.** Each has its own config switch under `brain.behaviours`, so one
    misbehaving behaviour can be turned off without losing the others.
 
+## What M9 grows into
+
+The brain module is the foundation for more than guards. Each of these is its own behaviour family with its own
+switch under `brain.behaviours`, on top of the master switch (R9.4):
+
+| Family | Behaviour | Roadmap |
+|---|---|---|
+| guards | fight hostile monsters near the village while the stores hold tools | R9.3 |
+| work | walk to the workplace and work there while a player is near | R4.17 |
+| builders | walk to a project site and build it over time | R4.7, R4.8 |
+| stewards | elders and stewards meet people, stand at the counter, walk the village | R6.4, R6.6 |
+| pathing | one shared service all of them use, with fallbacks; later roads | R9.5, R8.3 |
+
+Two rules apply to all of them: they only act while a player is near the villager (far villagers are
+simulation only, which also keeps the cost down), and they show what the simulation decided, never change it.
+
 ## Order of work
 
 1. **R5.5**, guards respond to a pattern of attacks. Needs no internals, and R9.3 depends on guards existing
    sooner.
 2. **R9.1**, starting with a spike: does the internals build set-up resolve on this Gradle and Java, can a
    test behaviour be added to a villager's brain and removed again, and what does it cost per tick.
-3. **R9.2**, the tools, before any real behaviour, so the first behaviour can be debugged.
+3. **R9.2** and **R9.4**, the tools and the behaviour framework, before any real behaviour, so the first behaviour can be
+   debugged and switched off by itself. **R9.5**, the pathing service, before the behaviours that walk.
 4. **R9.3**, guards fight: attack hostile monsters near the village while the stores hold tools, retreat when
    badly hurt.
 5. Then R4.17 (visible work) can use the module instead of the public-API route, with the same switch.

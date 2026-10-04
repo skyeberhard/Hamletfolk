@@ -88,6 +88,8 @@ Write the core part and the thin wiring now; each needs a `docs/TESTING.md` scen
 | **R8.7** Village mode switch and vanilla suppression (#100) | the datapack and site picking; verify the portal path first |
 | **R8.8** Ruins instead of vanishing (#101) | swapping buildings for ruined pieces; the decay choice itself is core |
 | **R9.1, R9.2, R9.3** Brain module, its tools, guards that fight (#106, #107, #108) | the isolated internals module with its kill switch and self-check; see [SMART_VILLAGERS.md](SMART_VILLAGERS.md). Start with the R9.1 spike |
+| **R9.4, R9.5** Behaviour framework, pathing service (#111, #112) | per-behaviour switches and one shared path-follower, before the behaviours that walk |
+| **R4.18** Generated gap buildings and a capture command (#113) | generator in core (tested), capture command in Paper |
 | **R5.6** Villages prepare defenses before danger peaks (#110) | needs construction projects (R4.7, R4.8) |
 
 ## Tier 3: needs a person in game
@@ -126,6 +128,10 @@ Settled 2026-10-02. The village structure library is mostly already in the game.
   (log the missing ones), and placing a template through the server's structure manager over time (R4.8).
 - **Ruined variants** (the "zombie" pieces) are reserved for abandonment and disaster states.
 - v1 scope: a house ladder from vanilla pieces, to prove that path, and one authored building (mine).
+- **No hand-building needed (R4.18).** The gaps are *generated* in core (a plain, serviceable layout per building, plains
+  palette, other biomes by substitution), and `/settlement admin capture <name>` saves anything an admin has built as a
+  template that replaces the generated one. Layout (which lot, which road) is code too (R8.2 to R8.4). Construction can
+  start on adopted vanilla villages, adding houses and gap buildings next to what is there, without waiting for M8.
 - The checklist of what vanilla ships per biome and what still has to be built is
   [BUILDING_LIBRARY.md](BUILDING_LIBRARY.md): tick items off there as templates are authored.
 
