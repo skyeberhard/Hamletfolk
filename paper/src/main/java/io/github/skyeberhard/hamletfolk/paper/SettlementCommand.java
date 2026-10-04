@@ -19,21 +19,26 @@ import java.util.Locale;
 import java.util.function.IntUnaryOperator;
 import java.util.Optional;
 import java.util.OptionalInt;
+import io.papermc.paper.entity.poi.PoiType;
 import net.kyori.adventure.inventory.Book;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 
 /** /settlement [info|history|residents|donate [amount|all]] — about the settlement you're standing in; admin works anywhere. */
 final class SettlementCommand implements TabExecutor {
-    private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate", "buildings");
+    /** When each player last ran /settlement beds, for the cooldown. */
+    private final java.util.Map<java.util.UUID, Long> lastBedsCommand = new java.util.HashMap<>();
+    private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate", "buildings", "beds");
     private static final int EVENTS_PER_PAGE = 3;
     /** Vanilla's limit for a written book; more and the client refuses it. */
     private static final int MAX_BOOK_PAGES = 100;
@@ -71,6 +76,7 @@ final class SettlementCommand implements TabExecutor {
             case "residents" -> residents(player, settlement);
             case "donate" -> donate(player, settlement, args);
             case "buildings" -> buildings(player, settlement);
+            case "beds" -> beds(player, settlement);
             default -> {
                 return false;
             }
@@ -190,6 +196,65 @@ final class SettlementCommand implements TabExecutor {
                     : "child";
             player.sendMessage(Component.text(" " + r.fullName(), NamedTextColor.WHITE)
                     .append(Component.text(" — " + role + " (" + r.gender().pronouns() + ")", NamedTextColor.GRAY)));
+        }
+    }
+
+    /**
+     * R2.2: /settlement beds lists the beds in the settlement's area, which are free and which a villager has claimed,
+     * nearest to you first. A villager claims a bed when it picks it as its home; free beds are where newcomers can
+     * settle. Searching can read chunks from disk, so the command waits a few seconds between uses.
+     */
+    private void beds(Player player, Settlement s) {
+        World world = Bukkit.getWorld(s.world());
+        if (world == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Long last = lastBedsCommand.get(player.getUniqueId());
+        if (last != null && now - last < 5_000) {
+            player.sendMessage(Component.text("Give it a few seconds between bed checks.", NamedTextColor.GRAY));
+            return;
+        }
+        lastBedsCommand.put(player.getUniqueId(), now);
+        long radiusSquared = (long) service.settlementRadius() * service.settlementRadius();
+        List<Location> free = new ArrayList<>();
+        for (Location bed : service.bedsAround(s, world, PoiType.Occupancy.HAS_SPACE, player.getLocation().getBlockY())) {
+            if (s.distanceSquared(bed.getBlockX(), bed.getBlockZ()) <= radiusSquared) {
+                free.add(bed);
+            }
+        }
+        List<Location> taken = new ArrayList<>();
+        for (Location bed : service.bedsAround(s, world, PoiType.Occupancy.IS_OCCUPIED, player.getLocation().getBlockY())) {
+            if (s.distanceSquared(bed.getBlockX(), bed.getBlockZ()) <= radiusSquared) {
+                taken.add(bed);
+            }
+        }
+        Location here = player.getLocation();
+        java.util.Comparator<Location> nearest = java.util.Comparator.comparingDouble(
+                bed -> bed.getWorld() == here.getWorld() ? bed.distanceSquared(here) : Double.MAX_VALUE);
+        free.sort(nearest);
+        taken.sort(nearest);
+        player.sendMessage(Component.text("Beds in " + s.name() + ": " + (free.size() + taken.size()) + " in all, "
+                + taken.size() + " claimed, " + free.size() + " free. " + s.population() + " residents.", NamedTextColor.GOLD));
+        bedLines(player, "Free", free, NamedTextColor.GREEN, here);
+        bedLines(player, "Claimed", taken, NamedTextColor.GRAY, here);
+        if (free.isEmpty() && taken.isEmpty()) {
+            player.sendMessage(Component.text("No beds found within " + service.settlementRadius()
+                    + " blocks of the village centre.", NamedTextColor.GRAY));
+        }
+    }
+
+    private static void bedLines(Player player, String label, List<Location> beds, NamedTextColor colour, Location here) {
+        int shown = 0;
+        for (Location bed : beds) {
+            if (shown++ == 8) {
+                player.sendMessage(Component.text("  ...and " + (beds.size() - 8) + " more " + label.toLowerCase(Locale.ROOT)
+                        + ".", NamedTextColor.GRAY));
+                break;
+            }
+            long blocks = Math.round(Math.sqrt(bed.getWorld() == here.getWorld() ? bed.distanceSquared(here) : 0));
+            player.sendMessage(Component.text("  " + label + ": " + bed.getBlockX() + ", " + bed.getBlockY() + ", "
+                    + bed.getBlockZ() + " (" + blocks + " blocks)", colour));
         }
     }
 

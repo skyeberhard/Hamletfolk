@@ -70,6 +70,8 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
 - **The tool penalty is a setting** (`economy.tool-penalty`, on in the Paper config, off by default in
   `new SettlementSimulator()` so core tests are unaffected; `SettlementSimulator.configured(oldAge, toolPenalty)`).
   A village with no mine has no metal and so no new tools: that is the pressure to build one.
+- **Beds are not block entities in 26.2** (there is no bed block entity class), so `Chunk.getTileEntities` never finds one.
+  Count them through points of interest (`World.locateAllPoiInRange` with `PoiTypes.HOME`), which also says which are claimed.
 - **`SettlementService.track()` returns null** for a world excluded by `worlds.allow/deny`
   (R1.10); callers must handle it.
 - **Line endings:** working copies are CRLF (autocrlf) while the repo stores LF, so git warns

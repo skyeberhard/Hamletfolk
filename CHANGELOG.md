@@ -4,6 +4,13 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R2.2 (fix): Beds are now counted through the game's points of interest, the registry villagers use to claim
+  a bed, instead of through block entities. Minecraft 26.2 beds are no longer block entities, so the old scan
+  found none and every village showed "0 beds". New command `/settlement beds` lists the beds in the village's
+  area, which are claimed and which are free, with coordinates and distance, nearest first. The count is a
+  sphere around the village centre, looking 48 blocks above and below the surface there, so beds further above or
+  below are missed. Bed counting only runs while the village centre is loaded; the command waits 5 seconds between uses.
+  Paper-side and unverified until a playtest (T33).
 - R5.1: Sustained danger now turns a resident into a guard. When a village's danger stays high (50 or more,
   "frightened" or worse) for three days after it first was, which a raid the village wins does not do but a
   lost raid, or attacks and deaths that keep coming, do, its bravest suitable adult takes up arms, one a day,

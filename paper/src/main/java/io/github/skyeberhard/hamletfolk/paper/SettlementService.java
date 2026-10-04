@@ -21,14 +21,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
+import io.papermc.paper.entity.poi.PoiSearchResult;
+import io.papermc.paper.entity.poi.PoiType;
+import io.papermc.paper.entity.poi.PoiTypes;
 import org.bukkit.Bukkit;
 import org.bukkit.HeightMap;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Tag;
 import org.bukkit.World;
-import org.bukkit.block.BlockState;
-import org.bukkit.block.data.type.Bed;
 import org.bukkit.entity.Villager;
 import org.bukkit.entity.memory.MemoryKey;
 import org.bukkit.inventory.ItemStack;
@@ -54,6 +55,11 @@ final class SettlementService {
         this.registry = registry;
         this.config = config;
         this.simulator = SettlementSimulator.configured(config.oldAgeDeaths(), config.toolPenalty(), config.treasuryBase());
+    }
+
+    /** The radius of a settlement's area, in blocks, from the config. */
+    int settlementRadius() {
+        return config.settlementRadius();
     }
 
     /** R2.6: the most emeralds this settlement can bank. */
@@ -383,31 +389,67 @@ final class SettlementService {
     }
 
     /**
-     * R2.2: counts beds chunk by chunk in the loaded chunks within the settlement radius. A chunk that
-     * is not loaded keeps its last known count, so housing does not vanish when nobody is nearby.
+     * R2.2: counts the beds in a settlement's area through the game's own points of interest (the same registry
+     * villagers use to claim a bed), because beds are no longer block entities and cannot be found that way. Only
+     * chunks that are loaded are updated, so a chunk nobody is near keeps its last known count.
      */
     private void scanBeds(Settlement settlement, World world) {
+        // Searching points of interest can read unloaded chunks from disk on the main thread, so only do it while the
+        // village is in use: with its centre loaded. Otherwise every count stays as last known.
+        if (!world.isChunkLoaded(settlement.centerX() >> 4, settlement.centerZ() >> 4)) {
+            return;
+        }
         int radius = config.settlementRadius();
         long radiusSquared = (long) radius * radius;
+        Map<Long, Integer> perChunk = new HashMap<>();
+        for (Location bed : bedsAround(settlement, world, null, 0)) {
+            if (settlement.distanceSquared(bed.getBlockX(), bed.getBlockZ()) <= radiusSquared) {
+                perChunk.merge(chunkKey(bed.getBlockX() >> 4, bed.getBlockZ() >> 4), 1, Integer::sum);
+            }
+        }
         for (int cx = (settlement.centerX() - radius) >> 4; cx <= (settlement.centerX() + radius) >> 4; cx++) {
             for (int cz = (settlement.centerZ() - radius) >> 4; cz <= (settlement.centerZ() + radius) >> 4; cz++) {
-                if (!world.isChunkLoaded(cx, cz)) {
-                    continue;
+                if (world.isChunkLoaded(cx, cz)) {
+                    settlement.housing().setChunk(cx, cz, perChunk.getOrDefault(chunkKey(cx, cz), 0));
                 }
-                int beds = 0;
-                // Each bed is two blocks; count only the head so a bed counts once.
-                for (BlockState state : world.getChunkAt(cx, cz).getTileEntities(
-                        block -> block.getBlockData() instanceof Bed bed && bed.getPart() == Bed.Part.HEAD, false)) {
-                    if (settlement.distanceSquared(state.getX(), state.getZ()) <= radiusSquared) {
-                        beds++;
-                    }
-                }
-                settlement.housing().setChunk(cx, cz, beds);
             }
         }
         // A smaller radius than before must not leave counts for chunks that are no longer in range.
         settlement.housing().retainWithin((settlement.centerX() - radius) >> 4, (settlement.centerX() + radius) >> 4,
                 (settlement.centerZ() - radius) >> 4, (settlement.centerZ() + radius) >> 4);
+    }
+
+    private static long chunkKey(int cx, int cz) {
+        return ((long) cx << 32) ^ (cz & 0xffffffffL);
+    }
+
+    /** How far above or below the village's surface a bed is still looked for. */
+    private static final int BED_HEIGHT = 48;
+
+    /**
+     * R2.2: the beds around a settlement's centre: every one, or only the free or only the taken ones. A bed is
+     * a point of interest of the {@code home} type, one for each bed. The game searches a sphere, so it is made
+     * large enough to cover the whole circle of the settlement radius for {@link #BED_HEIGHT} blocks above and
+     * below the surface at the centre, and the caller keeps what lies inside the radius. Beds further above or
+     * below that are missed. {@code fallbackY} stands in for the surface height when the centre chunk is not
+     * loaded (a loaded chunk's height costs nothing; an unloaded one would be loaded to find it).
+     */
+    List<Location> bedsAround(Settlement settlement, World world, PoiType.Occupancy occupancy, int fallbackY) {
+        int x = settlement.centerX();
+        int z = settlement.centerZ();
+        int y = world.isChunkLoaded(x >> 4, z >> 4)
+                ? world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES) : fallbackY;
+        int radius = config.settlementRadius();
+        int search = (int) Math.ceil(Math.sqrt((double) radius * radius + (double) BED_HEIGHT * BED_HEIGHT));
+        List<Location> beds = new ArrayList<>();
+        for (PoiSearchResult found : world.locateAllPoiInRange(new Location(world, x + 0.5, y, z + 0.5),
+                type -> type == PoiTypes.HOME, search, occupancy == null ? PoiType.Occupancy.ANY : occupancy)) {
+            Location bed = found.location();
+            if (Math.abs(bed.getBlockY() - y) <= BED_HEIGHT) {
+                beds.add(bed);
+            }
+        }
+        return beds;
     }
 
     void trackLoadedVillagers() {
