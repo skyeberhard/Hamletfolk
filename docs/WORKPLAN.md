@@ -57,6 +57,7 @@ Dependency-ordered. `Next` is where to start.
 | 12 | **R2.5, R2.6, R2.7** Storefront, treasury building, bank counter (#85, #86, #88) | Building-dependent economy rules | R2.1, R2.3 | Done |
 | 13 | **R5.1** Guards (#36) | Sustained threat makes a guard that consumes tools and food | R2.3 | Done |
 | 13b | **R5.5** Guards respond to a pattern of attacks (#109) | Earlier, scaled response from recent attacks; the playtest showed R5.1 waits too long. Needs no brain code | R5.1 | Done |
+| 13c | **R1.30** Villagers can be left alone (#114) | Protects trading halls and shop rigs from enrolment, re-pricing and migration; do it before builders or placement. Core rule, Paper tag and command | none | Next |
 | 14 | **R6.1** Households and marriage (#39) | Builds on genders, parents, ages | none | Planned |
 | 15 | **R6.4** Village leadership (#42), then **R6.6** Steward (#90) | Elder sets a policy; steward from town size | R6.1 | Planned |
 | 16 | **R6.5** Trade between settlements (#43) | Surplus for shortage along routes; the merchant bridges | R3.2, R3.9 | Planned |
