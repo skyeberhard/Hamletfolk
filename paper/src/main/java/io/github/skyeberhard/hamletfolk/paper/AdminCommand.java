@@ -15,8 +15,8 @@ import org.bukkit.entity.Player;
  */
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
-    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name]";
+    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "replan");
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | replan [name]";
 
     private final SettlementService service;
     private final TemplateCommand templates;
@@ -42,6 +42,8 @@ final class AdminCommand {
             case "capture" -> templates.capture(sender, args);
             case "build" -> templates.build(sender, args);
             case "cancelproject" -> cancelProject(sender, args);
+            case "found" -> found(sender, args);
+            case "replan" -> replan(sender, args);
             default -> sender.sendMessage(USAGE);
         }
     }
@@ -75,6 +77,40 @@ final class AdminCommand {
         sender.sendMessage(service.toggleIgnoreTag(villager)
                 ? "That villager is now left alone: not in any village, not re-priced, not moved."
                 : "That villager is no longer exempt (it may still be inside an [Exempt] sign's area).");
+    }
+
+    /** R8.10: /settlement admin found [name] [residents]: a new village where the admin stands. */
+    private void found(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("Stand where the village should go: this needs a player in game.");
+            return;
+        }
+        int to = args.length;
+        int founders = 6;
+        // A last word of digits is the number of founders, so a name that ends in a number needs a count after it.
+        if (to > 2 && !args[to - 1].isEmpty() && args[to - 1].chars().allMatch(Character::isDigit)) {
+            founders = Math.max(1, Math.min(SettlementService.MAX_FOUNDERS, Integer.parseInt(args[to - 1].length() > 3 ? "999" : args[to - 1])));
+            to--;
+        }
+        String name = to > 2 ? words(args, 2, to) : null;
+        SettlementService.Founding result = service.foundVillage(player.getLocation(), name, founders);
+        if (result.problem() != null) {
+            sender.sendMessage(result.problem());
+            return;
+        }
+        if (result.nameNote() != null) {
+            sender.sendMessage("Could not use that name (" + result.nameNote() + "), so it has a generated one.");
+        }
+        sender.sendMessage("Founded " + result.settlement().name() + " here with " + result.settlement().population()
+                + " villagers, food, wood and stone."
+                + (result.settlement().plan() == null ? " Its layout will be planned once the ground around it is loaded."
+                        : " Its layout is planned: /settlement lots shows it. The builders start when it needs something."));
+    }
+
+    /** R8.10: forgets a village's plan and plans it again. */
+    private void replan(CommandSender sender, String[] args) {
+        Optional<Settlement> target = args.length >= 3 ? lookup(sender, words(args, 2, args.length)) : here(sender);
+        target.ifPresent(settlement -> sender.sendMessage(service.replan(settlement)));
     }
 
     /** R4.7: gives up the village's open building project (the builder goes back to being jobless). */

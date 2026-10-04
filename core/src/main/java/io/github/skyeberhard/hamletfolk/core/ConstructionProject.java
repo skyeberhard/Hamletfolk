@@ -27,7 +27,7 @@ public final class ConstructionProject {
     private final int x;
     private final int y;
     private final int z;
-    private final int lotId;
+    private int lotId;
     private final long queuedDay;
     private Status status;
     private UUID builder;
@@ -97,6 +97,11 @@ public final class ConstructionProject {
 
     public int lotId() {
         return lotId;
+    }
+
+    /** The plan the lot belonged to is gone (a re-plan): the project stays on record but is tied to no lot. */
+    public void forgetLot() {
+        this.lotId = -1;
     }
 
     public long queuedDay() {

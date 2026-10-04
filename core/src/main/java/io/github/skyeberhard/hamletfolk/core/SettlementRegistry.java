@@ -25,6 +25,14 @@ public final class SettlementRegistry {
         return Collections.unmodifiableCollection(settlements.values());
     }
 
+    /** Forgets a settlement (one just founded that could not be set up) and its residents' index entries. */
+    public void discard(Settlement settlement) {
+        settlements.remove(settlement.id());
+        for (Resident resident : settlement.residents()) {
+            residentIndex.remove(resident.id());
+        }
+    }
+
     public void add(Settlement settlement) {
         settlements.put(settlement.id(), settlement);
         for (Resident resident : settlement.residents()) {

@@ -175,7 +175,7 @@ final class SettlementService {
      * village reaches {@link #STAGE_TWO_POPULATION}. Lots over bad ground are dropped for good, so this waits until the
      * whole area can be measured instead of planning from part of it.
      */
-    private void ensurePlan(Settlement settlement) {
+    void ensurePlan(Settlement settlement) {
         World world = Bukkit.getWorld(settlement.world());
         if (world == null || !inScope(world) || settlement.isAbandoned() || settlement.population() == 0) {
             return;
@@ -584,6 +584,104 @@ final class SettlementService {
         if (newcomer.isValid()) {
             track(newcomer);
         }
+    }
+
+    /** R8.10: the outcome of an admin founding a village: the settlement, or the reason it was refused. */
+    record Founding(Settlement settlement, String problem, String nameNote) {
+        Founding(Settlement settlement, String problem) {
+            this(settlement, problem, null);
+        }
+    }
+
+    /** Most villagers an admin can found a village with. */
+    static final int MAX_FOUNDERS = 20;
+    /** The starter kit of building materials for a new admin-founded village, per founder. */
+    private static final int KIT_WOOD_PER_FOUNDER = 12;
+    private static final int KIT_STONE_PER_FOUNDER = 8;
+
+    /**
+     * R8.10: founds a village at a spot: refuses (with the reason) inside or near another village, in an excluded world
+     * or in an exempt zone; otherwise creates the settlement, spawns its founders around the centre, gives it the
+     * founding food and a kit of wood and stone, and plans its streets and lots so the builders can start.
+     */
+    Founding foundVillage(Location at, String name, int founders) {
+        World world = at.getWorld();
+        if (!inScope(world)) {
+            return new Founding(null, "Hamletfolk is not active in this world.");
+        }
+        int x = at.getBlockX();
+        int z = at.getBlockZ();
+        Optional<Settlement> near = registry.nearest(world.getName(), x, z, config.settlementRadius() * 2);
+        if (near.isPresent()) {
+            return new Founding(null, "That is too close to " + near.get().name() + " (villages need at least "
+                    + config.settlementRadius() * 2 + " blocks between them).");
+        }
+        if (world.getEnvironment() != World.Environment.NORMAL) {
+            return new Founding(null, "Villages can only be founded in the overworld.");
+        }
+        if (zonesOf(world).covers(x, at.getBlockY(), z)) {
+            return new Founding(null, "That is inside an exempt zone, where villagers are left alone.");
+        }
+        if (groundLoaded(world, x, z, 112) && !PlanGenerator.siteUsable(terrainOf(world), x, z)) {
+            return new Founding(null, "The ground here is water or too broken to plan a village on.");
+        }
+        long today = day(world);
+        Settlement settlement = registry.found(world.getName(), x, z, today);
+        String nameProblem = null;
+        if (name != null && !name.isBlank()) {
+            try {
+                registry.rename(settlement, name, today);
+            } catch (IllegalArgumentException e) {
+                nameProblem = e.getMessage(); // the village keeps its generated name
+            }
+        }
+        settlement.record(today, HistoryEvent.Kind.MILESTONE, settlement.name() + " was founded by an admin.");
+        for (int i = 0; i < founders; i++) {
+            double angle = 2 * Math.PI * i / founders;
+            int vx = x + (int) Math.round(Math.cos(angle) * 3);
+            int vz = z + (int) Math.round(Math.sin(angle) * 3);
+            int vy = world.getHighestBlockYAt(vx, vz, HeightMap.MOTION_BLOCKING_NO_LEAVES) + 1;
+            if (zonesOf(world).covers(vx, vy, vz)) {
+                continue; // a zone nearby: nobody is spawned into it
+            }
+            Villager villager = world.spawn(new Location(world, vx + 0.5, vy, vz + 0.5), Villager.class);
+            if (villager.isValid()) {
+                track(villager); // founders: the first villagers bring the starting food (R3.14)
+            }
+        }
+        if (settlement.population() == 0) {
+            registry.discard(settlement);
+            return new Founding(null, "No villager could be placed there (an exempt zone is nearby or the spawn was refused).");
+        }
+        // The kit goes in once there is someone to use it.
+        settlement.ledger().add(ResourceType.WOOD, KIT_WOOD_PER_FOUNDER * settlement.population());
+        settlement.ledger().add(ResourceType.STONE, KIT_STONE_PER_FOUNDER * settlement.population());
+        try {
+            ensurePlan(settlement);
+        } catch (RuntimeException e) {
+            plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not plan the layout of " + settlement.name(), e);
+        }
+        plugin.requestSave();
+        return new Founding(settlement, null, nameProblem);
+    }
+
+    /** R8.10: forgets a village's plan and any building in progress, and plans it again from the ground as it is now. */
+    String replan(Settlement settlement) {
+        if (settlement.isAbandoned() || settlement.population() == 0) {
+            return settlement.name() + " has nobody living in it, so there is nothing to plan for.";
+        }
+        // Buildings the village finished stay on record, but the lots they stood on belong to the old plan.
+        settlement.projects().forEach(io.github.skyeberhard.hamletfolk.core.ConstructionProject::forgetLot);
+        settlement.openProject().ifPresent(p -> {
+            io.github.skyeberhard.hamletfolk.core.Construction.cancel(settlement, p, settlement.lastSimulatedDay(),
+                    "the village was re-planned", false);
+        });
+        settlement.setPlan(null);
+        ensurePlan(settlement);
+        plugin.requestSave();
+        return settlement.plan() == null
+                ? "Could not plan yet: the ground around the centre has to be loaded (stay nearby) and not water."
+                : "Planned " + settlement.name() + " again: " + settlement.plan().reservedCount() + " lots reserved.";
     }
 
     /** How often a settlement's beds are recounted while the server runs: beds change rarely and the scan is not free. */
