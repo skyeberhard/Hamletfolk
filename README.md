@@ -64,6 +64,7 @@ Place a sign reading one of these inside a village and the village notices:
 | `[Shop]` | One place for a merchant. Without a shop nobody sells. |
 | `[Treasury]` | Raises how many emeralds the village can bank (by 500 each, above a base of 200), and is where donations are made once one exists. |
 | `[House]`, `[Guard Post]` | Registered, for the planner and later systems. |
+| `[Exempt]` (or `[Ignore]`) | Works anywhere, in a village or not. Leaves the villagers within its radius alone: the number on the second line, 24 blocks if none, 4 to 64. For trading halls and shop rigs: they are never enrolled, named, re-priced or moved. It does not take a village's own residents out of the village unless an admin places it. Break the sign to end it. |
 
 Beds set how many people a village can house. Nothing checks that a sign is on a real building yet.
 
@@ -118,8 +119,8 @@ off the ones you do not want:
 - `economy.migration`, `membership.follows-residents`: villagers moving between villages.
 - `economy.tool-penalty`, `economy.treasury-base`, `aging.*`, `appearance.*`, `show-names`, `backups.*`.
 
-A way to exclude particular villagers or areas (for trading halls and shop rigs) is planned (R1.30). Until
-then those switches are server-wide.
+To leave particular villagers alone (a trading hall, a shop rig), put an `[Exempt]` sign near them, or look at one
+and run `/settlement admin ignore`.
 
 ## Where it's going
 
@@ -133,7 +134,7 @@ struggled and remembered.
 | Milestone | What it covers | Done |
 | --- | --- | --- |
 | M0 Foundation | The simulation, the Paper layer, CI, a local test server | 7 of 7 |
-| M1 Playtest-ready | Safety and stability on a real server | 24 of 30 |
+| M1 Playtest-ready | Safety and stability on a real server | 25 of 30 |
 | M2 Buildings | Signs, beds, jobs and shops, treasury, bank counter | 6 of 7 |
 | M3 Economy | Prices, requests, reputation, wealth, merchants, storage, trades | 14 of 14 |
 | M4 Growth and migration | Newcomers, migration, jobs, apprentices, templates and construction | 10 of 18 |
@@ -145,18 +146,16 @@ struggled and remembered.
 
 ### Up next
 
-1. **Leave villagers alone (R1.30).** A tag and ignore areas so trading halls and shop rigs are not
-   enrolled, re-priced or moved.
-2. **Smarter villagers (M9).** The game's villager brain cannot be changed through the public API, so
+1. **Smarter villagers (M9).** The game's villager brain cannot be changed through the public API, so
    guards cannot fight and villagers cannot visibly work. M9 adds an isolated module built against
    Paper 26.2 with a startup self-check, a live on/off switch for the whole module and for each kind of
    behaviour, and troubleshooting tools, then guards that fight, workers who walk to their jobs, builders,
    stewards and elders. Design: [docs/SMART_VILLAGERS.md](docs/SMART_VILLAGERS.md).
-3. **Building (M4, M8).** A catalogue of building templates (the game's own village pieces plus generated
+2. **Building (M4, M8).** A catalogue of building templates (the game's own village pieces plus generated
    ones for what it does not ship), a builder who places the planned buildings over time, and players
    founding villages. Design: [docs/VILLAGE_PLANNING.md](docs/VILLAGE_PLANNING.md) and
    [docs/BUILDING_LIBRARY.md](docs/BUILDING_LIBRARY.md).
-4. **Defense and society.** Walls and lighting that reduce damage, calls for help, villages that prepare
+3. **Defense and society.** Walls and lighting that reduce damage, calls for help, villages that prepare
    before danger peaks, then households, businesses, leadership and trade between villages.
 
 The detailed plan, with acceptance criteria for every item, is in [ROADMAP.md](ROADMAP.md), and the order

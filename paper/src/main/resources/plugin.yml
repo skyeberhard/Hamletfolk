@@ -14,6 +14,12 @@ permissions:
   hamletfolk.use:
     description: Use /settlement and talk to residents.
     default: true
+  hamletfolk.ignore:
+    description: Place an [Exempt] sign, which leaves the villagers around it that are not part of a village alone.
+    default: true
+  hamletfolk.ignore.village:
+    description: An [Exempt] sign that also leaves alone villagers who already belong to a village.
+    default: op
   hamletfolk.admin:
-    description: Use /settlement admin (list, inspect, rename, save), including from the console.
+    description: Use /settlement admin (list, inspect, rename, save, ignore), including from the console.
     default: op

@@ -124,7 +124,8 @@ final class VillagerListener implements Listener {
             return;
         }
         Player player = event.getPlayer();
-        if (!player.isSneaking() || !player.hasPermission("hamletfolk.use") || !service.inScope(villager.getWorld())) {
+        if (!player.isSneaking() || !player.hasPermission("hamletfolk.use") || !service.inScope(villager.getWorld())
+                || service.isIgnored(villager)) { // R1.30: an exempt villager is left to vanilla
             return; // A normal right-click still opens trading (its prices are set when the window opens, below).
         }
         event.setCancelled(true);

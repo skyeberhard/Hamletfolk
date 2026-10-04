@@ -15,8 +15,8 @@ import org.bukkit.entity.Player;
  */
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
-    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save";
+    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore");
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager)";
 
     private final SettlementService service;
 
@@ -36,6 +36,7 @@ final class AdminCommand {
             case "inspect" -> inspect(sender, args);
             case "rename" -> rename(sender, args);
             case "save" -> save(sender);
+            case "ignore" -> ignore(sender);
             default -> sender.sendMessage(USAGE);
         }
     }
@@ -54,6 +55,21 @@ final class AdminCommand {
                     .filter(n -> n.toLowerCase(Locale.ROOT).startsWith(prefix)).toList();
         }
         return List.of();
+    }
+
+    /** R1.30: toggles leaving the villager you are looking at alone, whatever village it is in. */
+    private void ignore(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("Look at a villager in game to use this.");
+            return;
+        }
+        if (!(player.getTargetEntity(6) instanceof org.bukkit.entity.Villager villager)) {
+            sender.sendMessage("Look at a villager (within 6 blocks) first.");
+            return;
+        }
+        sender.sendMessage(service.toggleIgnoreTag(villager)
+                ? "That villager is now left alone: not in any village, not re-priced, not moved."
+                : "That villager is no longer exempt (it may still be inside an [Exempt] sign's area).");
     }
 
     private void list(CommandSender sender) {

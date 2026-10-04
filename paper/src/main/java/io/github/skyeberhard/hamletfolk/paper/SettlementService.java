@@ -9,6 +9,7 @@ import io.github.skyeberhard.hamletfolk.core.PriceModel;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.ResourceType;
 import io.github.skyeberhard.hamletfolk.core.HeightSource;
+import io.github.skyeberhard.hamletfolk.core.IgnoreZones;
 import io.github.skyeberhard.hamletfolk.core.Membership;
 import io.github.skyeberhard.hamletfolk.core.Migration;
 import io.github.skyeberhard.hamletfolk.core.PlanGenerator;
@@ -257,7 +258,7 @@ final class SettlementService {
     private void completeMove(Villager villager, Resident resident) {
         Settlement home = registry.settlementOf(resident.id()).orElse(null);
         String marker = Migration.MOVING + resident.id();
-        if (home == null || !home.hasCondition(marker) || !villager.isValid()
+        if (home == null || !home.hasCondition(marker) || !villager.isValid() || isIgnored(villager)
                 || villager.isTrading() || villager.isLeashed() || villager.isInsideVehicle()
                 || !movesInFlight.add(resident.id())) {
             return;
@@ -269,6 +270,10 @@ final class SettlementService {
         }
         int x = home.centerX();
         int z = home.centerZ();
+        if (zonesOf(world).coveringZone(x, world.getHighestBlockYAt(x, z), z).filter(IgnoreZones.Zone::overridesVillages).isPresent()) {
+            movesInFlight.remove(resident.id());
+            return; // the destination is inside an admin's exempt zone: nobody is moved into it
+        }
         // Load the destination first (it is often far from anyone), then pick the spot: leaves are skipped so
         // a village centre under a tree does not put the villager in the canopy (as for newcomers).
         world.getChunkAtAsync(x >> 4, z >> 4).thenAccept(chunk -> {
@@ -299,12 +304,149 @@ final class SettlementService {
         });
     }
 
+    // ----- R1.30: villagers that are left alone -----
+
+    private final Map<UUID, IgnoreZones> ignoreZones = new HashMap<>();
+
+    private org.bukkit.NamespacedKey zonesKey() {
+        return new org.bukkit.NamespacedKey(plugin, "ignore_zones");
+    }
+
+    private org.bukkit.NamespacedKey ignoreTagKey() {
+        return new org.bukkit.NamespacedKey(plugin, "ignored");
+    }
+
+    /** The exempt zones of a world, read from the world's own data the first time. */
+    IgnoreZones zonesOf(World world) {
+        return ignoreZones.computeIfAbsent(world.getUID(), id -> {
+            String stored = world.getPersistentDataContainer().get(zonesKey(), org.bukkit.persistence.PersistentDataType.STRING);
+            return stored == null || stored.isBlank() ? new IgnoreZones() : IgnoreZones.decode(List.of(stored.split("\n")));
+        });
+    }
+
+    /** Writes a world's exempt zones back into its data. */
+    void saveZones(World world) {
+        IgnoreZones zones = zonesOf(world);
+        if (zones.isEmpty()) {
+            world.getPersistentDataContainer().remove(zonesKey());
+        } else {
+            world.getPersistentDataContainer().set(zonesKey(), org.bukkit.persistence.PersistentDataType.STRING,
+                    String.join("\n", zones.encode()));
+        }
+    }
+
+    /** True if this villager is to be left alone: tagged, or inside an exempt zone. */
+    boolean isIgnored(Villager villager) {
+        if (villager.getPersistentDataContainer().has(ignoreTagKey(), org.bukkit.persistence.PersistentDataType.BYTE)) {
+            return true;
+        }
+        Location at = villager.getLocation();
+        IgnoreZones.Zone zone = zonesOf(at.getWorld()).coveringZone(at.getBlockX(), at.getBlockY(), at.getBlockZ()).orElse(null);
+        // An ordinary player's zone leaves out anyone who already belongs to a village.
+        return zone != null && (zone.overridesVillages() || registry.resident(villager.getUniqueId()).isEmpty());
+    }
+
+    /** Toggles the tag on one villager; returns true if it is now left alone. A tagged villager is released at once. */
+    boolean toggleIgnoreTag(Villager villager) {
+        var data = villager.getPersistentDataContainer();
+        if (data.has(ignoreTagKey(), org.bukkit.persistence.PersistentDataType.BYTE)) {
+            data.remove(ignoreTagKey());
+            return false;
+        }
+        data.set(ignoreTagKey(), org.bukkit.persistence.PersistentDataType.BYTE, (byte) 1);
+        release(villager);
+        return true;
+    }
+
+    /**
+     * Takes a villager out of its settlement, if it was in one, and removes the name this plugin gave it (a name an
+     * owner chose is kept). Nothing else about the villager is touched.
+     */
+    private void release(Villager villager) {
+        Resident resident = registry.remove(villager.getUniqueId()).orElse(null);
+        if (resident == null) {
+            return;
+        }
+        clearAppearance(villager, resident);
+        if (villager.customName() != null && net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                .serialize(villager.customName()).equals(resident.fullName())) {
+            villager.customName(null);
+        }
+        plugin.requestSave();
+    }
+
+    /** Takes the plugin's appearance data off a villager, and puts back the look it had if the plugin changed its type. */
+    private void clearAppearance(Villager villager, Resident resident) {
+        var data = villager.getPersistentDataContainer();
+        long day = day(villager.getWorld());
+        Appearance.tags(resident, day).keySet().forEach(name -> data.remove(new NamespacedKey(plugin, name)));
+        NamespacedKey originalKey = new NamespacedKey(plugin, "original_type");
+        String original = data.get(originalKey, PersistentDataType.STRING);
+        if (original != null) {
+            villager.setVillagerType(villagerType(original));
+            data.remove(originalKey);
+        }
+    }
+
+    /** How many loaded villagers inside a zone belong to a village (and so are not exempted by an ordinary player's sign). */
+    int registeredWithin(World world, IgnoreZones.Zone zone) {
+        int count = 0;
+        Location centre = new Location(world, zone.x() + 0.5, zone.y() + 0.5, zone.z() + 0.5);
+        for (Villager villager : world.getNearbyEntitiesByType(Villager.class, centre, zone.radius(), zone.radius(), zone.radius())) {
+            Location at = villager.getLocation();
+            long dx = at.getBlockX() - zone.x();
+            long dz = at.getBlockZ() - zone.z();
+            if (dx * dx + dz * dz <= (long) zone.radius() * zone.radius() && registry.resident(villager.getUniqueId()).isPresent()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Releases residents whose loaded villager has become exempt (a tag, or an admin's sign it walked into). */
+    private void releaseExemptResidents(Settlement settlement) {
+        for (Resident resident : new ArrayList<>(settlement.residents())) {
+            if (Bukkit.getEntity(resident.id()) instanceof Villager villager && isIgnored(villager)) {
+                release(villager);
+            }
+        }
+    }
+
+    /** Releases every loaded villager now inside a zone; returns how many were in a village. */
+    int releaseWithin(World world, IgnoreZones.Zone zone) {
+        int released = 0;
+        Location centre = new Location(world, zone.x() + 0.5, zone.y() + 0.5, zone.z() + 0.5);
+        for (Villager villager : world.getNearbyEntitiesByType(Villager.class, centre, zone.radius(), zone.radius(), zone.radius())) {
+            if (isIgnored(villager) && registry.resident(villager.getUniqueId()).isPresent()) {
+                release(villager);
+                released++;
+            }
+        }
+        return released;
+    }
+
+    /** Drops exempt zones whose sign is gone (destroyed by physics, an explosion or an editing tool), in loaded chunks. */
+    private void pruneIgnoreZones(World world) {
+        IgnoreZones zones = zonesOf(world);
+        boolean pruned = false;
+        for (IgnoreZones.Zone zone : zones.zones()) {
+            if (world.isChunkLoaded(zone.x() >> 4, zone.z() >> 4)
+                    && !Tag.ALL_SIGNS.isTagged(world.getBlockAt(zone.x(), zone.y(), zone.z()).getType())) {
+                zones.removeAt(zone.x(), zone.y(), zone.z());
+                pruned = true;
+            }
+        }
+        if (pruned) {
+            saveZones(world);
+        }
+    }
+
     /**
      * R3.14: false when this trade sells the player something the stores can no longer spare. Checked as the
      * trade happens, because several offers can draw on the same stock.
      */
     boolean storesCover(Villager villager, String costMaterial, String resultMaterial, int resultAmount) {
-        if (!config.tradesNeedStock()) {
+        if (!config.tradesNeedStock() || isIgnored(villager)) {
             return true;
         }
         Resident resident = registry.resident(villager.getUniqueId()).orElse(null);
@@ -383,6 +525,11 @@ final class SettlementService {
     }
 
     void simulateAll() {
+        for (World world : Bukkit.getWorlds()) {
+            if (inScope(world)) {
+                pruneIgnoreZones(world); // R1.30
+            }
+        }
         for (Settlement settlement : registry.settlements()) {
             simulate(settlement);
             World bedWorld = Bukkit.getWorld(settlement.world());
@@ -390,6 +537,7 @@ final class SettlementService {
                 scanBedsIfDue(settlement, bedWorld);
             }
             considerNewcomer(settlement);
+            releaseExemptResidents(settlement); // R1.30
             considerMigration(settlement);
             considerMembership(settlement);
             try {
@@ -426,6 +574,9 @@ final class SettlementService {
         }
         // Leaves are skipped so a settlement centre under a tree doesn't put the newcomer in the canopy.
         int y = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES) + 1;
+        if (zonesOf(world).covers(x, y, z)) {
+            return; // R1.30: nobody is spawned into an exempt zone, where they would be left alone and never counted
+        }
         Villager newcomer = world.spawn(new Location(world, x + 0.5, y, z + 0.5), Villager.class);
         simulator.newcomerArrived(settlement);
         // Enroll now rather than wait for the add-to-world event, so the arrival is recorded and
@@ -542,6 +693,11 @@ final class SettlementService {
      */
     Resident track(Villager villager) {
         if (!inScope(villager.getWorld())) {
+            return null;
+        }
+        if (isIgnored(villager)) {
+            release(villager); // R1.30: tagged or inside an exempt zone: left completely alone
+            pendingParents.remove(villager.getUniqueId());
             return null;
         }
         if (registry.isDeparted(villager.getUniqueId())) {

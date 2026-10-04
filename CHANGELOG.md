@@ -4,6 +4,18 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R1.30: A sign now exempts villagers. A sign reading `[Exempt]` (or `[Ignore]`) leaves the villagers within its radius
+  alone, anywhere, in a village or not: the radius is the number on the second line (24 blocks if none, from 4 to 64).
+  An exempt villager is never enrolled in a settlement, named, tagged for appearance, re-priced, refused a sale, migrated
+  or re-homed, and does not count toward any population, so trading halls and shop rigs keep working as vanilla. An
+  ordinary player's sign only exempts villagers that are not already part of a village (so a sign cannot be used to take a
+  village's people out of it); a sign placed by someone with `hamletfolk.ignore.village` (ops by default) exempts everyone
+  inside, and releases villagers already in a village (their record is removed, they lose the name this plugin gave them and
+  its appearance data, and a name an owner chose stays). Breaking the sign ends the exemption (a sign destroyed any other way is
+  noticed). A player may have at most five signs (100 in a world); editing someone else's counts as one of yours. No newcomer is
+  spawned into an exempt zone and nobody is migrated into one. `/settlement admin ignore`, run while looking at a villager,
+  toggles the exemption for that one villager. The zones are kept in the world's own data. No save format change. The rules are
+  in core and tested; the sign and the villager checks are Paper-side, checked by T48.
 - R8.4: Terrain pads. For a lot, given the heights of its footprint and a buffer around it, a pure function works out the
   grading as a plan of blocks: a target height (the median of the footprint), the blocks to cut above it, the fill below it
   (soil under the surface, foundation below that) running all the way down to solid ground, through shallow water if the
