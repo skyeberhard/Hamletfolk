@@ -54,8 +54,8 @@ Dependency-ordered. `Next` is where to start.
 | 9 | **R3.5** Resident wealth and wages (#32) | Residents earn and spend; wealth shows in dialogue | R3.9 done | Done |
 | 10 | **R4.2** Migration (#34) | Unemployed or unhappy residents leave for a better-off settlement; core moves the record, Paper moves the villager later | none | Done |
 | 11 | **R1.8** Membership follows residents (#23) | A resident in another settlement's area for 3 days moves there | R4.2 (shares the move) | Done |
-| 12 | **R2.5, R2.6, R2.7** Storefront, treasury building, bank counter (#85, #86, #88) | Building-dependent economy rules | R2.1, R2.3 | Next |
-| 13 | **R5.1** Guards (#36) | Sustained threat makes a guard that consumes tools and food | R2.3 | Planned |
+| 12 | **R2.5, R2.6, R2.7** Storefront, treasury building, bank counter (#85, #86, #88) | Building-dependent economy rules | R2.1, R2.3 | Done |
+| 13 | **R5.1** Guards (#36) | Sustained threat makes a guard that consumes tools and food | R2.3 | Next |
 | 14 | **R6.1** Households and marriage (#39) | Builds on genders, parents, ages | none | Planned |
 | 15 | **R6.4** Village leadership (#42), then **R6.6** Steward (#90) | Elder sets a policy; steward from town size | R6.1 | Planned |
 | 16 | **R6.5** Trade between settlements (#43) | Surplus for shortage along routes; the merchant bridges | R3.2, R3.9 | Planned |
@@ -142,4 +142,4 @@ Settled on 2026-10-02:
   was `toollessGatherersProduceLess` comparing two independently random villages: fixed (`3af668e`).
   R1.15 closed. R4.6 reworded for per-biome template sets (`1182f81`). R3.11 (`ab82bb6`) and R2.1
   (`2d5af13`) committed. M8 (plan-owned villages, #93, R8.1 to R8.9) added from the design notes.
-  R2.2 (`6e044ef`), R2.3 (`55d880b`) and R3.4 and R3.2 done. R3.14 (#103, villagers sell only what the village can spare, seeded founding stores) added and done. R3.5 done (resident wealth, save format 12). R4.2 done (migration, no save change). R1.8 done (membership follows residents, no save change). R2.5 and R2.6 done (shops; treasury limit, save format 14). Next: R2.7.
+  R2.2 (`6e044ef`), R2.3 (`55d880b`) and R3.4 and R3.2 done. R3.14 (#103, villagers sell only what the village can spare, seeded founding stores) added and done. R3.5 done (resident wealth, save format 12). R4.2 done (migration, no save change). R1.8 done (membership follows residents, no save change). R2.5, R2.6 and R2.7 done (shops; treasury limit, save format 14; bank counter). Next: R5.1.

@@ -4,6 +4,13 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R2.7: Once a village has a treasury building, donating and the payout for a filled request happen at its
+  counter. `/settlement donate` with an amount now only works within 12 blocks (and 8 up or down) of a
+  `[Treasury]` sign; anywhere else it says how far the nearest one is and its coordinates, and takes
+  nothing. Telling you what the stack in your hand is worth (`/settlement donate` with no amount) still
+  works anywhere. A village with no treasury building keeps the old rule, anywhere inside it, so existing
+  villages still work, and breaking the last treasury sign goes back to it. The rule is in core and
+  tested; the command check is Paper-side and unverified until a playtest (T43).
 - R2.6: The treasury now has a limit. Without a treasury building a village can bank only a base amount
   (`economy.treasury-base`, 200 emeralds by default), and each sign reading `[Treasury]` inside the village
   adds 500. Rewards set aside for open requests count against it (requests are paid from the treasury, so a

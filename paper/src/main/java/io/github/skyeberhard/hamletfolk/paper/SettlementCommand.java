@@ -1,5 +1,6 @@
 package io.github.skyeberhard.hamletfolk.paper;
 
+import io.github.skyeberhard.hamletfolk.core.Bank;
 import io.github.skyeberhard.hamletfolk.core.Building;
 import io.github.skyeberhard.hamletfolk.core.Donation;
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
@@ -24,6 +25,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -255,6 +257,16 @@ final class SettlementCommand implements TabExecutor {
         if (quantity.isEmpty()) {
             player.sendMessage(Component.text("Say how many to donate: a number from 1 to " + held
                     + ", or \"all\".", NamedTextColor.GRAY));
+            return;
+        }
+        // R2.7: with a treasury building, donating and the payout for a request are done at its counter.
+        Location at = player.getLocation();
+        Bank.Access counter = Bank.check(s, at.getBlockX(), at.getBlockY(), at.getBlockZ());
+        if (!counter.allowed()) {
+            Building bank = counter.nearest().orElseThrow();
+            player.sendMessage(Component.text("Donations are taken at the treasury of " + s.name() + ". The nearest is about "
+                    + counter.distance() + " blocks away, at " + bank.x() + ", " + bank.y() + ", " + bank.z() + ".",
+                    NamedTextColor.GRAY));
             return;
         }
         int offered = quantity.getAsInt();
