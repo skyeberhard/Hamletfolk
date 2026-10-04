@@ -4,6 +4,7 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R4.6 / R4.18 (core half, not yet done): buildings as block lists (`Blueprint`) with a resource cost from their blocks, a block diff against the world, and per-biome material substitution (`BiomeSet`); generated plains-palette mine, guard post, shop and treasury in two tiers (`BuildingGenerator`); and a `TemplateCatalog` of tier ladders per type and style (vanilla keys, generated, or captured builds that replace them) that picks the best affordable tier. The Paper startup check, placement and `/settlement admin capture` are still to do.
 - R1.30: A sign now exempts villagers. A sign reading `[Exempt]` (or `[Ignore]`) leaves the villagers within its radius
   alone, anywhere, in a village or not: the radius is the number on the second line (24 blocks if none, from 4 to 64).
   An exempt villager is never enrolled in a settlement, named, tagged for appearance, re-priced, refused a sale, migrated
