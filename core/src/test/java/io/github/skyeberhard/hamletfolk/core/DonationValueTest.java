@@ -147,6 +147,7 @@ class DonationValueTest {
                 s.ledger().add(type, 100);
             }
             s.ledger().addTreasury(200);
+            s.conditions().put(SettlementSimulator.TREASURY_LEGACY, 100_000L); // R2.6: room for what the test banks
             simulator.simulateTo(s, 1, 100);
             int units = ResourceMapper.value("IRON_PICKAXE", condition[i]).orElseThrow().unitsFor(1);
             paid[i] = simulator.fulfil(s, ResourceType.TOOLS, units, 1, "Skye");
@@ -170,6 +171,7 @@ class DonationValueTest {
                         Occupation.NITWIT, true, 10_000, null, null, Needs.initial()));
             }
             s.ledger().addTreasury(100);
+            s.conditions().put(SettlementSimulator.TREASURY_LEGACY, 100_000L); // R2.6: room for what the test banks
             simulator.simulateTo(s, 1, 100);
             paid[i] = simulator.fulfil(s, ResourceType.WOOD, value(forms[i]).unitsFor(counts[i]), 1, "Skye");
         }

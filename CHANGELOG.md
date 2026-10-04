@@ -4,6 +4,17 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R2.6: The treasury now has a limit. Without a treasury building a village can bank only a base amount
+  (`economy.treasury-base`, 200 emeralds by default), and each sign reading `[Treasury]` inside the village
+  adds 500. Rewards set aside for open requests count against it (requests are paid from the treasury, so a
+  small limit caps how much a village can ask for). Income beyond the limit (merchant sales, donations) is
+  wasted, as goods are over a storage limit: a merchant simply stops selling while the treasury is full, an emerald
+  donation only takes what fits (the rest stays in your hand, and the message says so), and anything over
+  is trimmed each day, so breaking a sign lowers the limit again. `/settlement` shows "Treasury: 12 of 200
+  emeralds". So that no existing village loses emeralds, a village that already holds more than the base
+  keeps room for what it holds, including rewards set aside for open requests (saved as a condition); new growth beyond it needs a treasury building.
+  Save format is now 14. The rules are in core and tested; the sign and the donation message are checked
+  in game by T42.
 - R2.5: Merchants now work from a storefront. A sign reading `[Shop]` inside a village registers one (and
   breaking the sign removes it); `/settlement buildings` lists it. A merchant needs a free storefront, one
   merchant per storefront, so a village with no shop has no merchant selling: nobody new is made a

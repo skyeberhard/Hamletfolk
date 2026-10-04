@@ -18,6 +18,15 @@ public final class Donation {
     }
 
     /**
+     * R2.6: how many emerald items (or blocks) the treasury takes: as many as fit in its room, each worth
+     * {@code perItem} emeralds. The room is how many more emeralds it can hold (the limit less what it has).
+     */
+    public static Plan planEmeralds(int room, int perItem, int offered) {
+        int items = Math.min(Math.max(0, offered), Math.max(0, room) / Math.max(1, perItem));
+        return new Plan(items, items * perItem, Math.max(0, room), items < offered);
+    }
+
+    /**
      * Works out how much of {@code offered} items, valued as {@code value}, the settlement takes: as
      * many as are worth something and fit in the room left, and no more than their worth needs. A stack
      * is valued whole and rounded down (R3.12), so the player never pays for an item that earns nothing.

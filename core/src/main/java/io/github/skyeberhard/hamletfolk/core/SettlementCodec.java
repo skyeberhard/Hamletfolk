@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 13;
+    public static final int FORMAT_VERSION = 14;
 
     private SettlementCodec() {
     }
@@ -257,6 +257,9 @@ public final class SettlementCodec {
         // v11 -> v12: "wealth" (R3.5) on residents is optional, so an old save's residents start with nothing put by.
         // v12 -> v13: history gained the DEPARTURE kind (R4.2); an old save has none, so nothing to convert, but an
         // older build must refuse a save that may contain it rather than fail on an unknown kind.
+        // v13 -> v14: the treasury got a limit (R2.6). So that no existing village loses emeralds, what it holds now (the
+        // treasury and the rewards set aside for open requests) is kept as the room it may keep ("treasuryLegacy"); a
+        // new village starts with just the base amount.
         if (version < 5) {
             // v4 -> v5: residents gain a gender (R4.14).
             migrated.put("residents", withGenders(migrated.get("residents")));
@@ -288,6 +291,18 @@ public final class SettlementCodec {
             asMap(migrated.get("turned")).forEach((zombie, resident) ->
                     turned.put(zombie.toString(), withTwoGenders(asMap(resident))));
             migrated.put("turned", turned);
+        }
+        if (version < 14) {
+            long held = num(raw, "treasury").longValue();
+            for (Object o : asList(raw.get("requests"))) {
+                Map<?, ?> request = asMap(o);
+                held += Math.max(0, num(request, "reward").longValue() - num(request, "paid").longValue());
+            }
+            if (held > 0) {
+                Map<String, Object> conditions = new LinkedHashMap<>(asStringKeyed(asMap(migrated.get("conditions"))));
+                conditions.put(SettlementSimulator.TREASURY_LEGACY, held);
+                migrated.put("conditions", conditions);
+            }
         }
         migrated.put("format", FORMAT_VERSION);
         return migrated;

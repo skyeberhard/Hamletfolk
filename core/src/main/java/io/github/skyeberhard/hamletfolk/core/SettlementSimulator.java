@@ -99,27 +99,69 @@ public final class SettlementSimulator {
      */
     private final boolean oldAgeDeaths;
 
+    /** R2.6: emeralds a settlement can bank with no treasury building. Each [Treasury] adds {@link #TREASURY_PER_BUILDING}. */
+    public static final int DEFAULT_TREASURY_BASE = 200;
+    public static final int TREASURY_PER_BUILDING = 500;
+    /** Condition key holding what a settlement's treasury held when R2.6 arrived, which it keeps the room for. */
+    public static final String TREASURY_LEGACY = "treasuryLegacy";
+    private final int treasuryBase;
+
     public SettlementSimulator() {
         this(false);
     }
 
     SettlementSimulator(boolean toollessPenalty) {
-        this(BUILDINGS, toollessPenalty, true);
+        this(BUILDINGS, toollessPenalty, true, DEFAULT_TREASURY_BASE);
     }
 
     SettlementSimulator(boolean toollessPenalty, Predicate<Occupation> workstationFree) {
-        this((settlement, occupation) -> workstationFree.test(occupation), toollessPenalty, true);
+        this((settlement, occupation) -> workstationFree.test(occupation), toollessPenalty, true, DEFAULT_TREASURY_BASE);
     }
 
-    private SettlementSimulator(BiPredicate<Settlement, Occupation> workstationFree, boolean toollessPenalty, boolean oldAgeDeaths) {
+    private SettlementSimulator(BiPredicate<Settlement, Occupation> workstationFree, boolean toollessPenalty,
+            boolean oldAgeDeaths, int treasuryBase) {
         this.toollessPenalty = toollessPenalty;
         this.workstationFree = workstationFree;
         this.oldAgeDeaths = oldAgeDeaths;
+        this.treasuryBase = Math.max(0, treasuryBase);
     }
 
     /** The simulator the Paper layer uses: jobs need registered buildings, with the two settings as configured. */
     public static SettlementSimulator configured(boolean oldAgeDeaths, boolean toollessPenalty) {
-        return new SettlementSimulator(BUILDINGS, toollessPenalty, oldAgeDeaths);
+        return configured(oldAgeDeaths, toollessPenalty, DEFAULT_TREASURY_BASE);
+    }
+
+    /** As above, with how many emeralds a settlement can bank before it has a treasury building (R2.6). */
+    public static SettlementSimulator configured(boolean oldAgeDeaths, boolean toollessPenalty, int treasuryBase) {
+        return new SettlementSimulator(BUILDINGS, toollessPenalty, oldAgeDeaths, treasuryBase);
+    }
+
+    /**
+     * R2.6: the most emeralds a settlement can bank: the base amount (or what its treasury already held
+     * when this rule arrived, if more), plus {@link #TREASURY_PER_BUILDING} for each registered treasury building.
+     */
+    public int treasuryLimit(Settlement settlement) {
+        long legacy = settlement.conditions().getOrDefault(TREASURY_LEGACY, 0L);
+        long limit = Math.max(treasuryBase, legacy)
+                + (long) TREASURY_PER_BUILDING * settlement.buildingCount(BuildingType.TREASURY);
+        return (int) Math.min(Integer.MAX_VALUE, limit);
+    }
+
+    /**
+     * R2.6: the emeralds a settlement is holding: its treasury plus the rewards set aside for open requests (R3.3),
+     * which come back to the treasury if a request closes unfilled, so they count against the limit.
+     */
+    public static int banked(Settlement settlement) {
+        long total = settlement.ledger().treasury();
+        for (Request request : settlement.requests()) {
+            total += request.unpaid();
+        }
+        return (int) Math.min(Integer.MAX_VALUE, total);
+    }
+
+    /** R2.6: how many more emeralds the settlement can bank; 0 if it is at or over its limit. */
+    public int treasuryRoom(Settlement settlement) {
+        return Math.max(0, treasuryLimit(settlement) - banked(settlement));
     }
 
     /** As {@link #configured} with the tool penalty off (what core tests use). */
@@ -200,7 +242,7 @@ public final class SettlementSimulator {
         boolean penalty = toollessPenalty && settlement.buildingCount(BuildingType.MINE) > 0;
         for (Resident resident : workOrder(settlement)) {
             if (resident.adult() && resident.occupation() == Occupation.MERCHANT) {
-                sell(settlement, resident, day);
+                sell(settlement, resident, day, treasuryRoom(settlement));
                 continue;
             }
             work(resident, settlement.flow(), ledger, day, random, wearRandom, idleForLack, penalty);
@@ -222,6 +264,7 @@ public final class SettlementSimulator {
         }
 
         spoilAndCap(settlement);
+        wasteBeyondTreasuryLimit(settlement);
         updateRequests(settlement, day);
 
         settlement.setThreat(settlement.threat() * THREAT_DECAY);
@@ -663,11 +706,22 @@ public final class SettlementSimulator {
     }
 
     /**
+     * R2.6: emeralds beyond what the settlement can hold are wasted, as goods beyond a storage limit are (R3.10).
+     * Only the treasury is trimmed: a reward set aside for an open request is a promise, and is not touched.
+     */
+    private void wasteBeyondTreasuryLimit(Settlement settlement) {
+        int over = banked(settlement) - treasuryLimit(settlement);
+        if (over > 0) {
+            settlement.ledger().spendTreasury(Math.min(over, settlement.ledger().treasury()));
+        }
+    }
+
+    /**
      * R3.9: a merchant sells surplus for emeralds into the treasury. Each batch is a fixed number
      * of units of whichever resource has the most surplus worth, so what is most plentiful goes first.
      * Only whole batches are sold, and never stock the village needs to keep.
-     */
-    private static void sell(Settlement settlement, Resident merchant, long day) {
+     * {@code room} is how many emeralds the treasury can still take (R2.6): a merchant stops when it is full. */
+    private static void sell(Settlement settlement, Resident merchant, long day, int room) {
         Ledger ledger = settlement.ledger();
         double pace = (merchant.stage(day) == LifeStage.ELDER ? ELDER_OUTPUT : 1.0) * needsFactor(merchant.needs());
         int batches = (int) Math.round(MERCHANT_BATCHES_PER_DAY * pace);
@@ -683,7 +737,7 @@ public final class SettlementSimulator {
                     bestWorth = (double) available / each;
                 }
             }
-            if (best == null) {
+            if (best == null || sold >= room) {
                 break;
             }
             int units = unitsPerEmerald(best);

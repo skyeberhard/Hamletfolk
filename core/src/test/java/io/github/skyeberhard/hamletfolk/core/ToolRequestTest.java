@@ -23,6 +23,7 @@ class ToolRequestTest {
             s.ledger().add(type, 100);
         }
         s.ledger().addTreasury(500);
+        s.conditions().put(SettlementSimulator.TREASURY_LEGACY, 100_000L); // R2.6: room for what the test banks
         simulator.simulateTo(s, 1, 100);
         return s;
     }
@@ -77,6 +78,7 @@ class ToolRequestTest {
         woodVillage.ledger().add(ResourceType.FOOD, 100);
         woodVillage.ledger().add(ResourceType.STONE, 100);
         woodVillage.ledger().addTreasury(500);
+        woodVillage.conditions().put(SettlementSimulator.TREASURY_LEGACY, 100_000L); // R2.6: room for what the test banks
         simulator.simulateTo(woodVillage, 1, 100);
         int rawWood = simulator.fulfil(woodVillage, ResourceType.WOOD, 1, 1, "Skye");
 
@@ -101,6 +103,7 @@ class ToolRequestTest {
             }
         }
         s.ledger().addTreasury(500);
+        s.conditions().put(SettlementSimulator.TREASURY_LEGACY, 100_000L); // R2.6: room for what the test banks
         simulator.simulateTo(s, 1, 100);
         return simulator.fulfil(s, type, units, 1, "Skye");
     }

@@ -77,6 +77,11 @@ prices:
 economy:
   tool-penalty: true
   trades-need-stock: true
+  # R2.6: how many emeralds a village can bank before it has a treasury building. Place a sign reading
+  # [Treasury] inside the village to add 500 more per sign. Rewards set aside for open requests count against
+  # it (requests are paid from the treasury, so a small limit caps what a village can ask for). Income beyond
+  # the limit (merchant sales, donations) is wasted, and merchants stop selling while it is full.
+  treasury-base: 200
   # R4.2: an unemployed or unhappy adult may leave, at most one a day from a village, for the nearest
   # better-off village within 600 blocks that has a free bed and no famine. Both histories record it and
   # the villager is brought over the next time it is loaded. Turn off to keep everyone where they are.

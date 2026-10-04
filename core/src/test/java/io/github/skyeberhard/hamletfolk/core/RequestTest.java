@@ -29,6 +29,7 @@ class RequestTest {
             s.addResident(person());
         }
         s.ledger().addTreasury(treasury);
+        s.conditions().put(SettlementSimulator.TREASURY_LEGACY, 100_000L); // R2.6: room for what the test banks
         return s;
     }
 

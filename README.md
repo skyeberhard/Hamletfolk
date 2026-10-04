@@ -39,6 +39,8 @@ the villager's own trade screen.
   donations the forges go cold, the village records a shortage, and the smith will tell you so.
 - **Merchants need a shop.** Place a sign reading `[Shop]` inside the village; each shop gives one
   merchant a place to sell the village's surplus for emeralds. Without one nobody sells.
+- **The treasury has a limit.** A village banks only a few emeralds until someone places a sign reading
+  `[Treasury]` inside it; each one raises the limit, and income beyond it is wasted.
 - Everyone eats. When the stores run out, famine starts and goes into the history, and
   residents talk about it until it ends.
 - Deaths from monsters, zombie infections and raids raise the village's sense of danger,

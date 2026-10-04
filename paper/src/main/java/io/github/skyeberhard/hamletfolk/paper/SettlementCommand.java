@@ -117,7 +117,7 @@ final class SettlementCommand implements TabExecutor {
             stock.append(s.ledger().get(type)).append(' ').append(type.name().toLowerCase(Locale.ROOT));
         }
         line(player, "Stores", stock.toString());
-        line(player, "Treasury", s.ledger().treasury() + " emeralds");
+        line(player, "Treasury", s.ledger().treasury() + " of " + service.treasuryLimit(s) + " emeralds");
         for (Request request : s.requests()) {
             line(player, "Wanted", request.remaining() + " more " + request.type().name().toLowerCase(Locale.ROOT)
                     + " (" + request.unpaid() + " emeralds on offer), /settlement donate");
@@ -195,7 +195,7 @@ final class SettlementCommand implements TabExecutor {
     private void buildings(Player player, Settlement s) {
         if (s.buildings().isEmpty()) {
             player.sendMessage(Component.text("No buildings are registered in " + s.name() + ". Place a sign reading "
-                    + "[Farm], [Smithy], [Mine], [Shop], [House] or [Guard Post] inside the village to register one.", NamedTextColor.GRAY));
+                    + "[Farm], [Smithy], [Mine], [Shop], [Treasury], [House] or [Guard Post] inside the village to register one.", NamedTextColor.GRAY));
             return;
         }
         player.sendMessage(Component.text("Buildings of " + s.name() + ":", NamedTextColor.GOLD));
@@ -262,7 +262,19 @@ final class SettlementCommand implements TabExecutor {
         int credited;
         boolean limitedByRoom = false;
         if (emeralds > 0) {
-            credited = offered * emeralds;
+            // R2.6: the treasury only takes what it has room for; the rest stays with the player.
+            Donation.Plan plan = Donation.planEmeralds(service.treasuryRoom(s), emeralds, offered);
+            amount = plan.items();
+            credited = plan.units();
+            limitedByRoom = plan.limitedByRoom();
+            if (credited == 0) {
+                player.sendMessage(Component.text(plan.room() == 0
+                        ? "The treasury of " + s.name() + " is full (" + service.treasuryLimit(s)
+                                + " emeralds). A [Treasury] sign raises the limit. Nothing taken."
+                        : s.name() + "'s treasury only has room for " + plan.room() + " more emeralds, less than one "
+                                + itemName + " is worth. Nothing taken.", NamedTextColor.GRAY));
+                return;
+            }
         } else {
             // Only as many items as are worth something and fit in the room left: the rest stay with the player.
             Donation.Plan plan = Donation.plan(s, value.get(), offered);
