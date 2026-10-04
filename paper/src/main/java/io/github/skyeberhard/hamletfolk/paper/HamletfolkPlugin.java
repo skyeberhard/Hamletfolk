@@ -18,6 +18,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
 
     private SettlementStore store;
     private SettlementService service;
+    private TemplateLibrary templates;
     private boolean saveRequested;
     private Path saveFile;
     private Path backupDirectory;
@@ -51,6 +52,8 @@ public final class HamletfolkPlugin extends JavaPlugin {
             return;
         }
 
+        templates = new TemplateLibrary(this);
+        templates.load();
         service = new SettlementService(this, registry, HamletfolkConfig.from(getConfig()));
         getServer().getPluginManager().registerEvents(new VillagerListener(this, service), this);
         getServer().getPluginManager().registerEvents(new RaidListener(service), this);
@@ -62,6 +65,8 @@ public final class HamletfolkPlugin extends JavaPlugin {
         settlement.setExecutor(command);
         settlement.setTabCompleter(command);
 
+        // Structures are only loadable once the server has finished starting.
+        getServer().getScheduler().runTask(this, templates::verifyVanilla);
         service.trackLoadedVillagers();
         getServer().getScheduler().runTaskTimer(this, service::simulateAll, SIMULATION_PERIOD_TICKS, SIMULATION_PERIOD_TICKS);
 
@@ -76,6 +81,10 @@ public final class HamletfolkPlugin extends JavaPlugin {
         }
 
         getLogger().info("Tracking " + registry.settlements().size() + " settlements.");
+    }
+
+    TemplateLibrary templates() {
+        return templates;
     }
 
     @Override

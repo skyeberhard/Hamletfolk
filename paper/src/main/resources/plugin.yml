@@ -21,5 +21,5 @@ permissions:
     description: An [Exempt] sign that also leaves alone villagers who already belong to a village.
     default: op
   hamletfolk.admin:
-    description: Use /settlement admin (list, inspect, rename, save, ignore), including from the console.
+    description: Use /settlement admin (list, inspect, rename, save, ignore, capture, build), including from the console.
     default: op

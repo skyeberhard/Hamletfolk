@@ -136,4 +136,41 @@ public record Blueprint(String key, int width, int height, int depth, List<Block
     public static Map<ResourceType, Integer> costOf(List<Block> toPlace) {
         return new Blueprint("diff", 1, 1, 1, toPlace).cost();
     }
+
+    /** R4.18: a plain-text form, one block per line, for saving a captured building ({@link #fromText}). */
+    public String toText() {
+        StringBuilder out = new StringBuilder("hamletfolk-blueprint 1\n");
+        out.append("key ").append(key).append('\n');
+        out.append("size ").append(width).append(' ').append(height).append(' ').append(depth).append('\n');
+        for (Block block : blocks) {
+            out.append(block.x()).append(' ').append(block.y()).append(' ').append(block.z()).append(' ')
+                    .append(block.material()).append('\n');
+        }
+        return out.toString();
+    }
+
+    /** Reads {@link #toText}; any malformed line is an {@link IllegalArgumentException} naming it. */
+    public static Blueprint fromText(String text) {
+        String[] lines = text.split("\\R");
+        if (lines.length < 3 || !lines[0].trim().equals("hamletfolk-blueprint 1")
+                || !lines[1].startsWith("key ") || !lines[2].startsWith("size ")) {
+            throw new IllegalArgumentException("not a blueprint file");
+        }
+        try {
+            String[] size = lines[2].trim().split(" ");
+            List<Block> blocks = new ArrayList<>();
+            for (int i = 3; i < lines.length; i++) {
+                if (lines[i].isBlank()) {
+                    continue;
+                }
+                String[] part = lines[i].trim().split(" ", 4);
+                blocks.add(new Block(Integer.parseInt(part[0]), Integer.parseInt(part[1]), Integer.parseInt(part[2]),
+                        part[3]));
+            }
+            return new Blueprint(lines[1].substring(4).trim(), Integer.parseInt(size[1]), Integer.parseInt(size[2]),
+                    Integer.parseInt(size[3]), blocks);
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("bad blueprint file: " + e.getMessage(), e);
+        }
+    }
 }

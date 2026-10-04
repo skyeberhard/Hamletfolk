@@ -154,4 +154,13 @@ class TemplateCatalogTest {
         assertTrue(rest.stream().allMatch(k -> k.y() >= 4 || k.material().equals("AIR")));
         assertTrue(b.diff(Blueprint.Block::material).isEmpty(), "finished building needs nothing");
     }
+
+    @Test
+    void aBlueprintSurvivesBeingWrittenAsText() {
+        Blueprint mine = BuildingGenerator.generate(BuildingType.MINE, 2).orElseThrow();
+        assertEquals(mine, Blueprint.fromText(mine.toText()));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> Blueprint.fromText("junk"));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> Blueprint.fromText("hamletfolk-blueprint 1\nkey k\nsize 1 1 1\n0 0 x STONE"));
+    }
 }

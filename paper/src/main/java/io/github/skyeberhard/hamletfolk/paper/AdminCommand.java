@@ -15,13 +15,15 @@ import org.bukkit.entity.Player;
  */
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
-    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager)";
+    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build");
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ...";
 
     private final SettlementService service;
+    private final TemplateCommand templates;
 
     AdminCommand(SettlementService service) {
         this.service = service;
+        this.templates = new TemplateCommand(service);
     }
 
     /** Args are the full command args, starting with "admin". */
@@ -37,6 +39,8 @@ final class AdminCommand {
             case "rename" -> rename(sender, args);
             case "save" -> save(sender);
             case "ignore" -> ignore(sender);
+            case "capture" -> templates.capture(sender, args);
+            case "build" -> templates.build(sender, args);
             default -> sender.sendMessage(USAGE);
         }
     }
