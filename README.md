@@ -37,6 +37,9 @@ the villager's own trade screen.
 - **Smiths need metal**, and no vanilla profession produces it. Place a sign reading `[Mine]` inside
   the village and unemployed residents become miners who dig stone and metal; without a mine or player
   donations the forges go cold, the village records a shortage, and the smith will tell you so.
+- **Danger makes guards.** When a village's danger stays high for days (a lost raid, or attacks and deaths
+  that keep coming), a brave adult who is not feeding the village takes up arms: guards eat extra and wear out tools,
+  and calm the village faster. They stand down when it is quiet again.
 - **Merchants need a shop.** Place a sign reading `[Shop]` inside the village; each shop gives one
   merchant a place to sell the village's surplus for emeralds. Without one nobody sells.
 - **The treasury has a limit.** A village banks only a few emeralds until someone places a sign reading

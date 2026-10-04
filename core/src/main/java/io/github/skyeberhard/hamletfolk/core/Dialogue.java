@@ -84,6 +84,14 @@ public final class Dialogue {
                     + "the larder from running bare while I wait for work.");
         } else if (occupation == Occupation.NITWIT) {
             options.add("Work? No, no. I'm more of a thinker.");
+        } else if (occupation == Occupation.GUARD) {
+            options.add("Someone has to watch the road. It might as well be me.");
+            if (settlement.ledger().get(ResourceType.TOOLS) == 0) {
+                options.add("I'm standing watch with nothing in my hands. " + settlement.name() + " needs tools.");
+            }
+            if (settlement.threat() < 10) {
+                options.add("It's been quiet. I don't mind the quiet.");
+            }
         } else {
             options.add("I'm " + resident.age(day) + " days old, and the " + occupation.title() + "'s trade is all I know.");
             if (occupation == Occupation.MERCHANT) {

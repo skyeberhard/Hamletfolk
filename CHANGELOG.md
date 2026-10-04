@@ -4,6 +4,18 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R5.1: Sustained danger now turns a resident into a guard. When a village's danger stays high (50 or more,
+  "frightened" or worse) for three days after it first was, which a raid the village wins does not do but a
+  lost raid, or attacks and deaths that keep coming, do, its bravest suitable adult takes up arms, one a day,
+  up to one guard per ten residents. Nobody is called up in a famine or while food is short. Jobless adults
+  are called up first, then idlers, then anyone who is not feeding the village (farmers, fishers and butchers
+  are never taken); children, elders and the timid (bravery under 40) never are. A guard eats an extra ration
+  a day and wears out tools as gatherers do; with no food they cannot stand watch, and with no tools they
+  stand it unarmed. A guard with food and tools makes danger fall about 3% a day faster each, for up to three,
+  so the cost buys something. Once danger is below 10 ("peaceful") guards stand down, one a day, and the
+  history records both. Guards need no building yet (a `[Guard Post]` sign still does nothing). Save format
+  is now 15 (a new occupation; the count of high days is a settlement condition). The rule is in core and
+  tested; raising danger in game (raids, deaths) is checked by T44.
 - R2.7: Once a village has a treasury building, donating and the payout for a filled request happen at its
   counter. `/settlement donate` with an amount now only works within 12 blocks (and 8 up or down) of a
   `[Treasury]` sign; anywhere else it says how far the nearest one is and its coordinates, and takes

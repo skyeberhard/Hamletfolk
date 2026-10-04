@@ -30,7 +30,10 @@ public enum Occupation {
     TOOLSMITH("toolsmith", "toolsmith", ResourceType.TOOLS, 1, ResourceType.METAL),
     CARTOGRAPHER("cartographer", "cartographer", ResourceType.GOODS, 1, null),
     CLERIC("cleric", "cleric", ResourceType.GOODS, 1, null),
-    LIBRARIAN("librarian", "librarian", ResourceType.GOODS, 1, null);
+    LIBRARIAN("librarian", "librarian", ResourceType.GOODS, 1, null),
+    // R5.1: makes nothing; eats an extra ration and wears out tools while on watch, and speeds the fall of threat
+    // (see SettlementSimulator.guard). Taken up when threat stays high; no vanilla profession backs it.
+    GUARD("guard", "guard", null, 0, ResourceType.FOOD);
 
     private final String vanillaKey;
     private final String title;
@@ -75,7 +78,7 @@ public enum Occupation {
 
     /** True for occupations no vanilla profession backs, so the simulation alone hands them out (R4.3). */
     public boolean simOwned() {
-        return this == LUMBERJACK || this == MERCHANT || this == MINER;
+        return this == LUMBERJACK || this == MERCHANT || this == MINER || this == GUARD;
     }
 
     public String title() {

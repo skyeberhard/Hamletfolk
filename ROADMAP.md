@@ -137,7 +137,7 @@ Goal: danger creates demand, and the village responds.
 
 | ID | Issue | Item | Done when | Status |
 |---|---|---|---|---|
-| R5.1 | [#36](https://github.com/skyeberhard/Hamletfolk/issues/36) | Guards | Sustained high threat turns a resident into a guard who consumes tools and food | Planned |
+| R5.1 | [#36](https://github.com/skyeberhard/Hamletfolk/issues/36) | Guards | Sustained high threat turns a resident into a guard, who consumes tools and food. | Done |
 | R5.2 | [#37](https://github.com/skyeberhard/Hamletfolk/issues/37) | Defenses reduce threat | Recognized walls, lighting and towers lower how much threat each attack adds | Planned |
 | R5.3 | [#38](https://github.com/skyeberhard/Hamletfolk/issues/38) | Calls for help | When threat is high, residents ask nearby players for help, and defending the village raises reputation | Planned |
 | R5.4 | [#89](https://github.com/skyeberhard/Hamletfolk/issues/89) | Vault break-ins and their consequences | Taking items from a registered vault (the treasury building, R2.6) or breaking its protected blocks without the settlement's leave counts as a break-in. The stores fall by what was actually taken, the history records a major event naming who did it, residents' mood and the settlement's threat worsen, and a player's reputation (R3.4) falls. Mobs or raiders that break in have the same effects without a reputation penalty. | Planned |
