@@ -4,6 +4,14 @@ Each entry lists the roadmap items it delivers. See [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- R8.4: Terrain pads. For a lot, given the heights of its footprint and a buffer around it, a pure function works out the
+  grading as a plan of blocks: a target height (the median of the footprint), the blocks to cut above it, the fill below it
+  (soil under the surface, foundation below that) running all the way down to solid ground, through shallow water if the
+  lot is wet, so nothing floats, and a blended edge that climbs or falls no more than a block per block from the pad out
+  to the natural ground. A lot that needs more than eight blocks of cut or fill, stands in water deeper than three, or is on
+  ground nobody measured is refused. Roads get a profile that rises or falls at most one block a step, with stairs for a
+  single step and slabs inside a longer slope. Nothing is placed yet: this is the plan that placement (R8.6) will carry out,
+  when a building is built and not at founding. No save format change; tested in core only (heights in, blocks out).
 - R8.3: Villages now have a plan of streets and lots. Once the ground around a village is loaded (every chunk within
   112 blocks), it is given a 15 by 15 main square at its centre, a main street through it along whichever axis is
   flatter, two branches across the street, and reserved lots along both sides of every street, each tied to a

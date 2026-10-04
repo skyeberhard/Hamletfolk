@@ -20,6 +20,11 @@ public interface HeightSource {
         return false;
     }
 
+    /** The height of the solid ground at this column: under the water if it is wet, otherwise the surface. */
+    default int floor(int x, int z) {
+        return height(x, z);
+    }
+
     static HeightSource flat(int height) {
         return (x, z) -> height;
     }
@@ -34,6 +39,26 @@ public interface HeightSource {
             @Override
             public boolean water(int x, int z) {
                 return water.test(x, z);
+            }
+        };
+    }
+
+    /** Ground with a water surface above a solid floor (a lake bed): the first function is the surface, the last the bed. */
+    static HeightSource withFloor(IntBinaryOperator height, BiPredicate<Integer, Integer> water, IntBinaryOperator floor) {
+        return new HeightSource() {
+            @Override
+            public int height(int x, int z) {
+                return height.applyAsInt(x, z);
+            }
+
+            @Override
+            public boolean water(int x, int z) {
+                return water.test(x, z);
+            }
+
+            @Override
+            public int floor(int x, int z) {
+                return floor.applyAsInt(x, z);
             }
         };
     }
