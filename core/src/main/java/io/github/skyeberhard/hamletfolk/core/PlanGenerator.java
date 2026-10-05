@@ -44,7 +44,9 @@ public final class PlanGenerator {
             case HOUSE, GUARD_POST -> new int[] {9, 9};
             case FARM -> new int[] {17, 13};
             case SHOP -> new int[] {11, 9};
-            case SMITHY, TREASURY -> new int[] {11, 11};
+            case TREASURY -> new int[] {11, 11};
+            // The game's smithies are up to 9 by 12 blocks, so the lot has to be at least 13 each way.
+            case SMITHY -> new int[] {13, 13};
             case MINE -> new int[] {13, 13};
         };
     }
