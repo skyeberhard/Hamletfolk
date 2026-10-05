@@ -132,7 +132,7 @@ class ConstructionTest {
         Optional<ConstructionProject> project = propose(s, 5);
         assertTrue(project.isPresent());
         assertEquals(BuildingType.FARM, project.get().type());
-        assertEquals(2, project.get().tier(), "the best tier the stores can pay for");
+        assertEquals(1, project.get().tier(), "the plainest design, even though the stores could pay for more");
         assertEquals(ConstructionProject.Status.QUEUED, project.get().status());
         VillagePlan.Lot lot = s.plan().lots().stream().filter(l -> l.id() == project.get().lotId()).findFirst().orElseThrow();
         assertTrue(lot.rect().contains(project.get().x(), project.get().z()));
@@ -251,7 +251,7 @@ class ConstructionTest {
         s.ledger().add(ResourceType.FOOD, 1000);
         s.ledger().add(ResourceType.STONE, 100);
         s.housing().setChunk(0, 0, 20);
-        Optional<ConstructionProject> upgrade = propose(s, 7);
+        Optional<ConstructionProject> upgrade = propose(s, 15);
         assertTrue(upgrade.isPresent(), "a large farm");
         assertTrue(upgrade.get().isUpgrade());
         assertEquals(2, upgrade.get().tier());
@@ -267,7 +267,7 @@ class ConstructionTest {
             other.registerBuilding(new Building(type, 1000 + type.ordinal(), 64, 1000, 0, "a player"));
         }
         other.housing().setChunk(0, 0, 20);
-        assertTrue(propose(other, 7).isEmpty());
+        assertTrue(propose(other, 15).isEmpty());
     }
 
     @Test
@@ -317,13 +317,13 @@ class ConstructionTest {
         s.ledger().add(ResourceType.STONE, 100);
         s.housing().setChunk(0, 0, 20);
         // The ground now reads as the old roof, four blocks up: the upgrade must not build on it.
-        ConstructionProject upgrade = Construction.propose(s, 7, "plains", 200, catalog, this::blueprints, (x, z) -> 68).orElseThrow();
+        ConstructionProject upgrade = Construction.propose(s, 15, "plains", 200, catalog, this::blueprints, (x, z) -> 68).orElseThrow();
         assertEquals(64, upgrade.y());
         assertEquals(farm.x(), upgrade.x() + upgrade.shiftX());
         assertEquals(farm.z(), upgrade.z() + upgrade.shiftZ());
         // Given up, it is not proposed again on that lot.
-        Construction.cancel(s, upgrade, 8, "test");
-        assertTrue(Construction.propose(s, 9, "plains", 200, catalog, this::blueprints, (x, z) -> 68).isEmpty());
+        Construction.cancel(s, upgrade, 16, "test");
+        assertTrue(Construction.propose(s, 30, "plains", 200, catalog, this::blueprints, (x, z) -> 68).isEmpty());
     }
 
     @Test
@@ -576,5 +576,75 @@ class ConstructionTest {
         Settlement cliff = village();
         assertTrue(Construction.propose(cliff, 5, "plains", 200, catalog, this::blueprints,
                 (x, z) -> x % 2 == 0 ? 40 : 90).isEmpty(), "cut or fill beyond the limit: not built here");
+    }
+
+    @Test
+    void onceThereIsFoodTheVillageBuildsItsTownSquareOnceAndOnlyOnce() {
+        Settlement s = village();
+        s.ledger().add(ResourceType.FOOD, 500); // nothing lacking: the meeting place is next
+        ConstructionProject square = propose(s, 5).orElseThrow();
+        assertEquals(BuildingType.SQUARE, square.type());
+        assertEquals(1, square.tier());
+        assertTrue(s.plan().square().contains(square.x(), square.z()), "on the plan's main square");
+        Construction.finish(s, square, 6);
+        assertTrue(propose(s, 20).map(p -> p.type() != BuildingType.SQUARE).orElse(true), "never a second square");
+        // A given-up attempt waits ten days before the next.
+        Settlement other = village();
+        other.ledger().add(ResourceType.FOOD, 500);
+        Construction.cancel(other, propose(other, 5).orElseThrow(), 6, "test");
+        ConstructionProject early = propose(other, 9).orElse(null); // something else may be wanted: not the square
+        assertTrue(early == null || early.type() != BuildingType.SQUARE);
+        if (early != null) {
+            Construction.cancel(other, early, 10, "test", false);
+        }
+        assertEquals(BuildingType.SQUARE, propose(other, 25).orElseThrow().type());
+    }
+
+    @Test
+    void foodComesBeforeTheTownSquare() {
+        Settlement s = village(); // no food: the planner wants a farm first
+        assertEquals(BuildingType.FARM, propose(s, 5).orElseThrow().type());
+    }
+
+    @Test
+    void everyStyleHasATownSquareLadderOfTheGamesOwnPieces() {
+        for (String style : BiomeSet.ALL) {
+            List<TemplateCatalog.Template> ladder = catalog.ladder(BuildingType.SQUARE, style);
+            assertFalse(ladder.isEmpty(), style);
+            assertTrue(ladder.get(0).key().contains("/" + style + "/town_centers/"), ladder.get(0).key());
+        }
+    }
+
+    @Test
+    void aHungryVillageThatCannotYetBuildItsFarmDoesNotSpendOnTheSquare() {
+        Settlement poor = village();
+        poor.ledger().take(ResourceType.WOOD, 200);
+        poor.ledger().add(ResourceType.WOOD, 30); // the square costs 25, the farm more
+        Optional<ConstructionProject> project = Construction.propose(poor, 5, "plains", 200, catalog,
+                t -> Optional.of(new Blueprint(t.key(), 5, 1, 5, java.util.stream.IntStream.range(0, 25)
+                        .mapToObj(i -> new Blueprint.Block(i % 5, 0, i / 5, "OAK_PLANKS")).toList()
+                        .subList(0, t.type() == BuildingType.FARM ? 25 : 10))), (x, z) -> 64);
+        // Whatever it may have queued, it is not the square while food is what the village lacks.
+        assertTrue(project.isEmpty() || project.get().type() != BuildingType.SQUARE);
+        assertTrue(poor.history().stream().noneMatch(e -> e.text().contains("town square")));
+    }
+
+    @Test
+    void aQueuedSquareIsNotDroppedAsNotNeededAndTheVillageStopsAfterTwoFailures() {
+        Settlement s = village();
+        s.ledger().add(ResourceType.FOOD, 500);
+        ConstructionProject square = propose(s, 5).orElseThrow();
+        assertEquals(BuildingType.SQUARE, square.type());
+        propose(s, 6);
+        assertEquals(ConstructionProject.Status.QUEUED, square.status(), "still waiting for a builder");
+        Construction.cancel(s, square, 7, "test");
+        ConstructionProject second = propose(s, 20).orElseThrow();
+        assertEquals(BuildingType.SQUARE, second.type());
+        Construction.cancel(s, second, 21, "test");
+        for (long day = 40; day < 60; day++) {
+            Optional<ConstructionProject> p = propose(s, day);
+            assertTrue(p.isEmpty() || p.get().type() != BuildingType.SQUARE, "never a third attempt");
+            p.ifPresent(x -> Construction.cancel(s, x, 0, "test", false));
+        }
     }
 }

@@ -14,7 +14,9 @@ public enum BuildingType {
     HOUSE("House"),
     GUARD_POST("Guard Post"),
     SHOP("Shop"),
-    TREASURY("Treasury");
+    TREASURY("Treasury"),
+    /** R4.7: the village's meeting place, with its bell: the game's own town-centre pieces, built once on the main square. */
+    SQUARE("Town Square");
 
     /** R2.3: how many residents one building gives work to. */
     public static final int WORKERS_PER_BUILDING = 4;
@@ -40,7 +42,7 @@ public enum BuildingType {
             case MINE -> Optional.of(Occupation.MINER);
             case SMITHY -> Optional.of(Occupation.TOOLSMITH);
             case SHOP -> Optional.of(Occupation.MERCHANT);
-            case HOUSE, GUARD_POST, TREASURY -> Optional.empty();
+            case HOUSE, GUARD_POST, TREASURY, SQUARE -> Optional.empty();
         };
     }
 

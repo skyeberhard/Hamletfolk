@@ -48,6 +48,7 @@ public final class PlanGenerator {
             // The game's smithies are up to 9 by 12 blocks, so the lot has to be at least 13 each way.
             case SMITHY -> new int[] {13, 13};
             case MINE -> new int[] {13, 13};
+            case SQUARE -> new int[] {SQUARE_HALF * 2 + 1, SQUARE_HALF * 2 + 1};
         };
     }
 
@@ -214,16 +215,36 @@ public final class PlanGenerator {
 
     private static void placeLots(VillagePlan plan, Frame frame, HeightSource terrain, List<Arm> arms,
             BuildingType[] sequence, int stage, int sequenceStart) {
-        int index = (int) Math.floorMod(plan.seed(), (long) sequence.length) + sequenceStart;
+        int start = (int) Math.floorMod(plan.seed(), (long) sequence.length) + sequenceStart;
+        java.util.List<BuildingType> pool = new java.util.ArrayList<>();
         for (Arm arm : arms) {
             for (int side = -1; side <= 1; side += 2) {
                 int cursor = arm.from();
                 int guard = 0;
                 while (cursor < arm.to() && guard++ < 200) {
-                    BuildingType type = sequence[Math.floorMod(index, sequence.length)];
-                    int[] size = size(type);
-                    Rect candidate = lotRect(frame, arm, side, cursor, size[0], size[1]);
-                    if (candidate == null || cursor + size[0] - 1 > arm.to()) {
+                    if (pool.isEmpty()) {
+                        for (int i = 0; i < sequence.length; i++) {
+                            pool.add(sequence[Math.floorMod(start + i, sequence.length)]);
+                        }
+                    }
+                    // Zoning: of the buildings still to place, the one whose place is nearest this far out from the square.
+                    // If the best-suited one will not fit before the end of the arm, the next best that does goes there: a
+                    // long farm lot must not end the street and leave the guard post and the mine with nowhere to stand.
+                    Rect probe = lotRect(frame, arm, side, cursor, 9, 9);
+                    BuildingType type = null;
+                    int[] size = null;
+                    Rect candidate = null;
+                    for (BuildingType option : probe == null ? pool : inOrderOfSuit(plan, pool, probe)) {
+                        int[] optionSize = size(option);
+                        Rect fitted = lotRect(frame, arm, side, cursor, optionSize[0], optionSize[1]);
+                        if (fitted != null && cursor + optionSize[0] - 1 <= arm.to()) {
+                            type = option;
+                            size = optionSize;
+                            candidate = fitted;
+                            break;
+                        }
+                    }
+                    if (candidate == null) {
                         break;
                     }
                     if (blockedByStreet(plan, candidate)) {
@@ -241,12 +262,45 @@ public final class PlanGenerator {
                     }
                     plan.addLot(new VillagePlan.Lot(plan.newId(), candidate, type, plan.biomeSet(), stage,
                             VillagePlan.LotStatus.RESERVED));
-                    index++;
+                    pool.remove(type);
                     cursor += size[0] + 2;
                 }
             }
         }
     }
+
+    /**
+     * How far from the main square each kind of building likes to be: the shop and the treasury beside it, houses a
+     * little way out, then the smithy, with farms, the mine and the guard post on the outskirts.
+     */
+    private static int preferredDistance(BuildingType type) {
+        return switch (type) {
+            case SHOP -> 11;
+            case TREASURY -> 14;
+            case HOUSE -> 24;
+            case SMITHY -> 28;
+            case FARM -> 41;
+            case MINE -> 33;
+            case GUARD_POST -> 37;
+            case SQUARE -> 0;
+        };
+    }
+
+    /**
+     * The kinds in {@code pool} (each once), best suited to a spot first: the one whose preferred distance from the square
+     * is closest. Houses are the most common and can go nearly anywhere, so a little is held against them: when a house
+     * and a one-off building suit a spot about equally, the one-off gets it, and every kind gets a lot before any repeats.
+     */
+    private static List<BuildingType> inOrderOfSuit(VillagePlan plan, java.util.List<BuildingType> pool, Rect spot) {
+        int distance = (int) Math.round(Math.hypot(spot.centerX() - plan.centerX(), spot.centerZ() - plan.centerZ()));
+        List<BuildingType> kinds = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(pool));
+        kinds.sort(java.util.Comparator.comparingInt(
+                (BuildingType t) -> Math.abs(preferredDistance(t) - distance) + (t == BuildingType.HOUSE ? HOUSE_PENALTY : 0)));
+        return kinds;
+    }
+
+    /** Blocks of distance counted against a house when it competes with a one-off building for a spot. */
+    private static final int HOUSE_PENALTY = 8;
 
     /** The rectangle for a lot {@code cursor} blocks out along an arm, on one side of its street. */
     private static Rect lotRect(Frame frame, Arm arm, int side, int cursor, int alongLen, int depth) {

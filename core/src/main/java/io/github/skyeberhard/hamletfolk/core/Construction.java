@@ -309,6 +309,7 @@ public final class Construction {
             return Optional.empty();
         }
         String biome = BiomeSet.normalize(style);
+        boolean squareTried = false;
         for (Planner.Directive directive : Planner.directives(settlement, day, treasuryLimit)) {
             if (directive.kind() != Planner.Kind.BUILD) {
                 continue;
@@ -316,6 +317,13 @@ public final class Construction {
             Optional<BuildingType> type = BuildingType.fromSign("[" + directive.target() + "]");
             if (type.isEmpty()) {
                 continue;
+            }
+            if (!squareTried && directive.tier() != Planner.Tier.FOOD) {
+                squareTried = true; // food comes first, then the meeting place, then the rest
+                Optional<ConstructionProject> square = proposeSquare(settlement, day, biome, catalog, blueprints, terrain);
+                if (square.isPresent()) {
+                    return square;
+                }
             }
             boolean first = true;
             for (VillagePlan.Lot lot : plan.candidatesFor(type.get())) {
@@ -327,11 +335,24 @@ public final class Construction {
                 first = false;
             }
         }
-        // Nothing lacking that can be built: look for an upgrade.
+        boolean foodNeeded = Planner.directives(settlement, day, treasuryLimit).stream()
+                .anyMatch(d -> d.kind() == Planner.Kind.BUILD && d.tier() == Planner.Tier.FOOD);
+        if (!squareTried && !foodNeeded) { // never ahead of a farm a hungry village cannot yet build
+            Optional<ConstructionProject> square = proposeSquare(settlement, day, biome, catalog, blueprints, terrain);
+            if (square.isPresent()) {
+                return square;
+            }
+        }
+        // Nothing lacking that can be built: look for an upgrade, at most one a week and never of a building just finished.
+        Long lastUpgrade = settlement.conditions().get(UPGRADED);
+        if (lastUpgrade != null && day - lastUpgrade < UPGRADE_EVERY_DAYS) {
+            return Optional.empty();
+        }
         List<ConstructionProject> built = new ArrayList<>(settlement.projects());
         for (int i = built.size() - 1; i >= 0; i--) {
             ConstructionProject done = built.get(i);
-            if (done.status() != ConstructionProject.Status.DONE || !isLatestOnLot(built, done) || !standing(settlement, done)) {
+            if (done.status() != ConstructionProject.Status.DONE || !isLatestOnLot(built, done) || !standing(settlement, done)
+                    || day - done.finishedDay() < UPGRADE_AFTER_DAYS) {
                 continue;
             }
             Optional<VillagePlan.Lot> lot = plan.lots().stream().filter(l -> l.id() == done.lotId()).findFirst();
@@ -341,10 +362,39 @@ public final class Construction {
             Optional<ConstructionProject> project = queue(settlement, day, biome, done.type(), done.tier(), lot.get(),
                     2, catalog, blueprints, terrain, "it can afford a better one", done, false);
             if (project.isPresent()) {
+                settlement.conditions().put(UPGRADED, day);
                 return project;
             }
         }
         return Optional.empty();
+    }
+
+    /** Days a finished building must stand before the village thinks of improving it, and between two upgrades. */
+    static final int UPGRADE_AFTER_DAYS = 5;
+    static final int UPGRADE_EVERY_DAYS = 7;
+    static final String UPGRADED = "constructionUpgraded";
+    /** Days before a given-up town square is tried again (the square has no lot to use up, so it would be tried daily). */
+    static final int SQUARE_RETRY_DAYS = 10;
+    /** After this many given-up attempts the village stops trying (something is in the way that will not move). */
+    static final int SQUARE_ATTEMPTS = 2;
+
+    /**
+     * The village's meeting place: once there is food, the game's own town centre (with its bell) is built on the plan's
+     * main square. Only one is ever built; a given-up attempt waits ten days, and after two the village stops trying.
+     */
+    private static Optional<ConstructionProject> proposeSquare(Settlement settlement, long day, String biome,
+            TemplateCatalog catalog, Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints, HeightSource terrain) {
+        VillagePlan plan = settlement.plan();
+        if (plan == null || plan.square() == null || settlement.buildingCount(BuildingType.SQUARE) > 0
+                || settlement.projects().stream().filter(p -> p.type() == BuildingType.SQUARE
+                        && p.status() == ConstructionProject.Status.CANCELLED).count() >= SQUARE_ATTEMPTS
+                || settlement.projects().stream().anyMatch(p -> p.type() == BuildingType.SQUARE
+                        && (p.status() != ConstructionProject.Status.CANCELLED || day - p.finishedDay() < SQUARE_RETRY_DAYS))) {
+            return Optional.empty();
+        }
+        VillagePlan.Lot lot = new VillagePlan.Lot(-1, plan.square(), BuildingType.SQUARE, biome, 0, VillagePlan.LotStatus.RESERVED);
+        return queue(settlement, day, biome, BuildingType.SQUARE, 0, lot, 1, catalog, blueprints, terrain,
+                "the village has no meeting place of its own", null, true);
     }
 
     /**
@@ -355,7 +405,7 @@ public final class Construction {
     private static void dropStaleQueuedProject(Settlement settlement, long day, int treasuryLimit) {
         Optional<ConstructionProject> open = settlement.openProject();
         if (open.isEmpty() || open.get().status() != ConstructionProject.Status.QUEUED || open.get().isUpgrade()
-                || open.get().queuedDay() >= day) {
+                || open.get().type() == BuildingType.SQUARE || open.get().queuedDay() >= day) { // the planner never asks for a square
             return;
         }
         String target = open.get().type().name().toLowerCase(Locale.ROOT);
@@ -410,7 +460,8 @@ public final class Construction {
         Map<String, Optional<Oriented>> read2 = new HashMap<>();
         Function<TemplateCatalog.Template, Optional<Oriented>> oriented = t -> read2.computeIfAbsent(t.key(), k ->
                 blueprints.apply(t).flatMap(b -> orient(b, desired, lot, replacing, oldBlueprint.orElse(null))));
-        Optional<TemplateCatalog.Template> best = TemplateCatalog.bestAffordable(ladder, currentTier,
+        // The plainest design the village can pay for: a village spends on what it lacks, not on the grandest version of it.
+        Optional<TemplateCatalog.Template> best = TemplateCatalog.plainestAffordable(ladder, currentTier,
                 t -> oriented.apply(t).map(o -> priceOf(o.blueprint())).orElse(UNBUILDABLE), stock);
         if (best.isEmpty()) {
             if (replacing == null && explain) {

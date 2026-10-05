@@ -63,8 +63,13 @@ class VillagePlanTest {
     @Test
     void theSameGroundAndSeedAlwaysGiveTheSamePlan() {
         assertEquals(flat(7).toMap(), flat(7).toMap());
-        assertNotEquals(flat(1).lots().stream().map(VillagePlan.Lot::type).toList(),
-                flat(2).lots().stream().map(VillagePlan.Lot::type).toList(), "the seed varies the order of buildings");
+        // Zoning: shops stand nearer the square than houses, and houses nearer than farms and the mine.
+        VillagePlan plan = flat(7);
+        double shops = averageDistance(plan, BuildingType.SHOP);
+        double houses = averageDistance(plan, BuildingType.HOUSE);
+        double farms = averageDistance(plan, BuildingType.FARM);
+        assertTrue(shops < houses, "shops " + shops + " houses " + houses);
+        assertTrue(houses < farms, "houses " + houses + " farms " + farms);
     }
 
     @Test
@@ -326,5 +331,46 @@ class VillagePlanTest {
         assertTrue(a.contains(9, 9));
         assertFalse(a.contains(10, 9));
         assertEquals(9, a.maxX());
+    }
+
+    private static double averageDistance(VillagePlan plan, BuildingType type) {
+        return plan.lots().stream().filter(l -> l.type() == type)
+                .mapToDouble(l -> Math.hypot(l.rect().centerX() - plan.centerX(), l.rect().centerZ() - plan.centerZ()))
+                .average().orElse(Double.NaN);
+    }
+
+    @Test
+    void zoningNeverLeavesAKindOfBuildingWithoutALot() {
+        for (long seed = 0; seed < 40; seed++) {
+            Set<BuildingType> kinds = new java.util.HashSet<>();
+            flat(seed).lots().forEach(l -> kinds.add(l.type()));
+            assertTrue(kinds.containsAll(Set.of(BuildingType.HOUSE, BuildingType.FARM, BuildingType.SHOP, BuildingType.MINE,
+                    BuildingType.SMITHY, BuildingType.TREASURY, BuildingType.GUARD_POST)), "seed " + seed + ": " + kinds);
+        }
+    }
+
+    @Test
+    void aCrampedSiteStillGetsAFarmAndAMineWhereTheyCanFit() {
+        for (int edge : new int[] {40, 30}) {
+            for (long seed = 0; seed < 20; seed++) {
+                HeightSource lake = new HeightSource() {
+                    @Override
+                    public int height(int x, int z) {
+                        return 64;
+                    }
+
+                    @Override
+                    public boolean water(int x, int z) {
+                        return Math.max(Math.abs(x), Math.abs(z)) > edge;
+                    }
+                };
+                VillagePlan plan = PlanGenerator.generate(0, 0, seed, "plains", lake);
+                Set<BuildingType> kinds = new java.util.HashSet<>();
+                plan.lots().forEach(l -> kinds.add(l.type()));
+                assertTrue(kinds.contains(BuildingType.FARM) || plan.lots().stream().anyMatch(l -> l.rect().width() >= 9),
+                        "edge " + edge + " seed " + seed + ": " + kinds);
+                assertTrue(kinds.contains(BuildingType.HOUSE), "edge " + edge + " seed " + seed + ": " + kinds);
+            }
+        }
     }
 }

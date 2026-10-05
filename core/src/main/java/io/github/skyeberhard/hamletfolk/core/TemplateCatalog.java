@@ -75,6 +75,19 @@ public final class TemplateCatalog {
                     rungs.add(new Template(type, biome, 2, vanilla(biome, "houses", biome + "_large_farm_1"), Source.VANILLA));
                 }
             }
+            case SQUARE -> {
+                // The game's own town centres, plainest first. Every one fits the plan's 15 by 15 square.
+                String[] pieces = switch (biome) {
+                    case BiomeSet.DESERT -> new String[] {"desert_meeting_point_2", "desert_meeting_point_3"};
+                    case BiomeSet.SAVANNA -> new String[] {"savanna_meeting_point_4", "savanna_meeting_point_2"};
+                    case BiomeSet.SNOWY -> new String[] {"snowy_meeting_point_3", "snowy_meeting_point_2"};
+                    case BiomeSet.TAIGA -> new String[] {"taiga_meeting_point_2"};
+                    default -> new String[] {"plains_fountain_01", "plains_meeting_point_3"};
+                };
+                for (int i = 0; i < pieces.length; i++) {
+                    rungs.add(new Template(type, biome, i + 1, vanilla(biome, "town_centers", pieces[i]), Source.VANILLA));
+                }
+            }
             case SMITHY -> rungs.add(new Template(type, biome, 1, vanilla(biome, "houses", biome + "_tool_smith_1"),
                     Source.VANILLA));
             default -> {
@@ -124,6 +137,27 @@ public final class TemplateCatalog {
             return Optional.empty();
         }
         return BuildingGenerator.generate(template.type(), template.tier()).map(b -> b.inBiome(template.biomeSet()));
+    }
+
+    /** The plainest rung above {@code currentTier} the village can pay for in full now: what a village builds first. */
+    public static Optional<Template> plainestAffordable(List<Template> ladder, int currentTier,
+            Function<Template, Map<ResourceType, Integer>> costOf, Map<ResourceType, Integer> stock) {
+        for (Template rung : ladder) {
+            if (rung.tier() <= currentTier) {
+                continue;
+            }
+            boolean affordable = true;
+            for (Map.Entry<ResourceType, Integer> need : costOf.apply(rung).entrySet()) {
+                if (stock.getOrDefault(need.getKey(), 0) < need.getValue()) {
+                    affordable = false;
+                    break;
+                }
+            }
+            if (affordable) {
+                return Optional.of(rung);
+            }
+        }
+        return Optional.empty();
     }
 
     /**

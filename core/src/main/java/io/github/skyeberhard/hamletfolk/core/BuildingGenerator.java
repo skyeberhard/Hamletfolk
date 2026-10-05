@@ -25,7 +25,7 @@ public final class BuildingGenerator {
     public static boolean generates(BuildingType type) {
         return switch (type) {
             case MINE, GUARD_POST, SHOP, TREASURY -> true;
-            case FARM, SMITHY, HOUSE -> false;
+            case FARM, SMITHY, HOUSE, SQUARE -> false;
         };
     }
 

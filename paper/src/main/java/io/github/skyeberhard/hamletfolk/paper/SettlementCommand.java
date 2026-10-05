@@ -28,6 +28,7 @@ import io.papermc.paper.entity.poi.PoiType;
 import net.kyori.adventure.inventory.Book;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
@@ -260,6 +261,17 @@ final class SettlementCommand implements TabExecutor {
         }
         player.sendMessage(Component.text("Reserved lots in " + s.name() + ": " + (byType.isEmpty() ? "none" : byType.toString())
                 + ". Outlines on; /settlement lots again turns them off.", NamedTextColor.GOLD));
+        player.sendMessage(Component.text("Colours: ", NamedTextColor.GRAY)
+                .append(Component.text("house ", TextColor.color(255, 140, 0)))
+                .append(Component.text("farm ", TextColor.color(60, 220, 60)))
+                .append(Component.text("shop ", TextColor.color(255, 230, 0)))
+                .append(Component.text("mine ", TextColor.color(140, 140, 140)))
+                .append(Component.text("smithy ", TextColor.color(235, 40, 40)))
+                .append(Component.text("treasury ", TextColor.color(190, 60, 255)))
+                .append(Component.text("guard post ", TextColor.color(60, 130, 255)))
+                .append(Component.text("street ", TextColor.color(150, 105, 60)))
+                .append(Component.text("square ", NamedTextColor.WHITE))
+                .append(Component.text("(green sparkles: built on)", NamedTextColor.GREEN)));
         World world = player.getWorld();
         lotViews.put(player.getUniqueId(), Bukkit.getScheduler().runTaskTimer(service.plugin(), () -> {
             VillagePlan current = s.plan();
@@ -271,19 +283,25 @@ final class SettlementCommand implements TabExecutor {
                 return;
             }
             Location here = player.getLocation();
-            List<Rect> reserved = new ArrayList<>();
+            java.util.Map<io.github.skyeberhard.hamletfolk.core.BuildingType, List<Rect>> reserved = new java.util.EnumMap<>(
+                    io.github.skyeberhard.hamletfolk.core.BuildingType.class);
             List<Rect> built = new ArrayList<>();
             for (VillagePlan.Lot lot : current.lots()) {
                 if (Math.hypot(lot.rect().centerX() - here.getX(), lot.rect().centerZ() - here.getZ()) <= 64) {
-                    (lot.status() == VillagePlan.LotStatus.RESERVED ? reserved : built).add(lot.rect());
+                    if (lot.status() == VillagePlan.LotStatus.RESERVED) {
+                        reserved.computeIfAbsent(lot.type(), t -> new ArrayList<>()).add(lot.rect());
+                    } else {
+                        built.add(lot.rect());
+                    }
                 }
             }
             List<Rect> streets = new ArrayList<>();
-            streets.add(current.square());
             current.roads().forEach(r -> streets.add(r.rect()));
-            outline(player, world, reserved, org.bukkit.Particle.END_ROD);
+            // Each kind of lot has its own colour (see the legend sent when the outlines are switched on).
+            reserved.forEach((type, rects) -> outline(player, world, rects, lotColour(type)));
             outline(player, world, built, org.bukkit.Particle.HAPPY_VILLAGER);
-            outline(player, world, streets, org.bukkit.Particle.CLOUD);
+            outline(player, world, streets, org.bukkit.Color.fromRGB(150, 105, 60));
+            outline(player, world, List.of(current.square()), org.bukkit.Color.fromRGB(255, 255, 255));
         }, 0L, 20L));
     }
 
@@ -298,6 +316,40 @@ final class SettlementCommand implements TabExecutor {
                 edge(player, world, particle, r.x(), z);
                 edge(player, world, particle, r.maxX(), z);
             }
+        }
+    }
+
+    /** As the particle version, but in a colour (a dust particle, a little larger so it reads at a distance). */
+    private static void outline(Player player, World world, List<Rect> rects, org.bukkit.Color colour) {
+        org.bukkit.Particle.DustOptions dust = new org.bukkit.Particle.DustOptions(colour, 1.6f);
+        for (Rect r : rects) {
+            for (int x = r.x(); x <= r.maxX(); x += 2) {
+                edge(player, world, dust, x, r.z());
+                edge(player, world, dust, x, r.maxZ());
+            }
+            for (int z = r.z(); z <= r.maxZ(); z += 2) {
+                edge(player, world, dust, r.x(), z);
+                edge(player, world, dust, r.maxX(), z);
+            }
+        }
+    }
+
+    private static org.bukkit.Color lotColour(io.github.skyeberhard.hamletfolk.core.BuildingType type) {
+        return switch (type) {
+            case HOUSE -> org.bukkit.Color.fromRGB(255, 140, 0);
+            case FARM -> org.bukkit.Color.fromRGB(60, 220, 60);
+            case SHOP -> org.bukkit.Color.fromRGB(255, 230, 0);
+            case MINE -> org.bukkit.Color.fromRGB(140, 140, 140);
+            case SMITHY -> org.bukkit.Color.fromRGB(235, 40, 40);
+            case TREASURY -> org.bukkit.Color.fromRGB(190, 60, 255);
+            case GUARD_POST -> org.bukkit.Color.fromRGB(60, 130, 255);
+            case SQUARE -> org.bukkit.Color.fromRGB(255, 255, 255);
+        };
+    }
+
+    private static void edge(Player player, World world, org.bukkit.Particle.DustOptions dust, int x, int z) {
+        if (world.isChunkLoaded(x >> 4, z >> 4)) {
+            player.spawnParticle(org.bukkit.Particle.DUST, x + 0.5, world.getHighestBlockYAt(x, z) + 1.2, z + 0.5, 1, 0, 0, 0, 0, dust, true);
         }
     }
 

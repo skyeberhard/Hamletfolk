@@ -106,7 +106,8 @@ final class ConstructionService {
     // ----- deciding -----
 
     private void decide(Settlement settlement, World world) {
-        if (settlement.openProject().isPresent() || settlement.plan() == null
+        // A queued project is looked at too (it is dropped if the need has gone); only work in hand is left alone.
+        if (settlement.openProject().filter(p -> p.status() == ConstructionProject.Status.ACTIVE).isPresent() || settlement.plan() == null
                 || Construction.decidedToday(settlement, settlement.lastSimulatedDay())
                 || !world.isChunkLoaded(settlement.centerX() >> 4, settlement.centerZ() >> 4)) {
             return;
