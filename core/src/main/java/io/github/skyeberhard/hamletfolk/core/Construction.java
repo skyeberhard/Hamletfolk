@@ -250,11 +250,19 @@ public final class Construction {
         // feed the village: a village that is fully employed still has to be able to put up a house.
         if (day - queued.get().queuedDay() >= DRAFT_AFTER_DAYS) {
             Resident drafted = null;
+            boolean foodPlentiful = settlement.ledger().get(ResourceType.FOOD)
+                    >= 2 * FOOD_FIRST_PER_RESIDENT * Math.max(1, settlement.population());
+            long foodWorkers = settlement.residents().stream()
+                    .filter(r -> r.adult() && r.occupation().produces() == ResourceType.FOOD).count();
             for (Resident r : settlement.residents()) {
                 Occupation job = r.occupation();
                 if (!r.adult() || r.stage(day) == LifeStage.ELDER || job == Occupation.BUILDER || job == Occupation.GUARD
-                        || job == Occupation.MERCHANT || (job.produces() == ResourceType.FOOD)
-                        || SettlementSimulator.lastToolMaker(settlement, r)) {
+                        || job == Occupation.MERCHANT || SettlementSimulator.lastToolMaker(settlement, r)) {
+                    continue;
+                }
+                // Food workers only when the larder is well stocked, and never the last one: otherwise a village whose
+                // people all farm and fish could never build anything.
+                if (job.produces() == ResourceType.FOOD && (!foodPlentiful || foodWorkers <= 1)) {
                     continue;
                 }
                 // Idlers first, then whoever is least busy; ties go to the first in the list so it is repeatable.
@@ -291,6 +299,7 @@ public final class Construction {
             TemplateCatalog catalog, Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints,
             IntBinaryOperator groundHeight) {
         VillagePlan plan = settlement.plan();
+        dropStaleQueuedProject(settlement, day, treasuryLimit);
         if (plan == null || settlement.population() < MIN_POPULATION || settlement.isAbandoned()
                 || settlement.openProject().isPresent() || decidedToday(settlement, day)) {
             return Optional.empty();
@@ -332,6 +341,25 @@ public final class Construction {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * A new building still waiting for a builder is dropped once the planner no longer asks for that kind (the farm that
+     * was wanted when food was short, say, when the larders have since filled), so the village can get on with what it
+     * needs now. Work already begun, and upgrades, carry on.
+     */
+    private static void dropStaleQueuedProject(Settlement settlement, long day, int treasuryLimit) {
+        Optional<ConstructionProject> open = settlement.openProject();
+        if (open.isEmpty() || open.get().status() != ConstructionProject.Status.QUEUED || open.get().isUpgrade()
+                || open.get().queuedDay() >= day) {
+            return;
+        }
+        String target = open.get().type().name().toLowerCase(Locale.ROOT);
+        boolean wanted = Planner.directives(settlement, day, treasuryLimit).stream()
+                .anyMatch(d -> d.kind() == Planner.Kind.BUILD && d.target().equalsIgnoreCase(target));
+        if (!wanted) {
+            cancel(settlement, open.get(), day, "it is not needed any more", false);
+        }
     }
 
     static final String DECIDED = "constructionDecided";

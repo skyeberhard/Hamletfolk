@@ -465,4 +465,37 @@ class ConstructionTest {
             }
         }
     }
+
+    @Test
+    void aVillageOfFoodWorkersDraftsOneWhenTheLarderIsFullButNotBefore() {
+        Settlement s = new Settlement(VILLAGE, "Fishford", "world", 0, 0, 0);
+        for (int i = 0; i < 3; i++) {
+            s.addResident(person(Occupation.FARMER));
+        }
+        s.addResident(person(Occupation.FISHERMAN));
+        ConstructionProject project = new ConstructionProject(1, BuildingType.HOUSE, 1, 0, "plains", 0, 64, 0, -1, 1);
+        s.addProject(project);
+        s.ledger().add(ResourceType.FOOD, 30);
+        Construction.staffBuilders(s, 9, false);
+        assertEquals(ConstructionProject.Status.QUEUED, project.status(), "food is not plentiful: they stay on food");
+        s.ledger().add(ResourceType.FOOD, 150);
+        Construction.staffBuilders(s, 9, false);
+        assertEquals(ConstructionProject.Status.ACTIVE, project.status());
+        assertEquals(3, s.residents().stream().filter(r -> r.occupation().produces() == ResourceType.FOOD).count());
+    }
+
+    @Test
+    void aQueuedBuildingThatIsNoLongerNeededIsDroppedBeforeAnyoneStartsIt() {
+        Settlement s = village();
+        ConstructionProject farm = propose(s, 5).orElseThrow();
+        assertEquals(BuildingType.FARM, farm.type());
+        s.ledger().add(ResourceType.FOOD, 500); // the larders have filled: no farm is wanted now
+        Optional<ConstructionProject> next = propose(s, 6);
+        assertEquals(ConstructionProject.Status.CANCELLED, farm.status());
+        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("not needed any more")));
+        // The lot was not used up.
+        assertEquals(VillagePlan.LotStatus.RESERVED, s.plan().lots().stream().filter(l -> l.id() == farm.lotId())
+                .findFirst().orElseThrow().status());
+        assertTrue(next.isEmpty() || next.get().type() != BuildingType.FARM);
+    }
 }
