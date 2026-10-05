@@ -159,6 +159,36 @@ public final class VillagePlan {
                         .thenComparingLong(l -> distanceSquared(l.rect())).thenComparingInt(Lot::id)).toList();
     }
 
+    /**
+     * The side of a lot that faces the nearest street or the main square, as 0 north, 1 east, 2 south, 3 west: where a
+     * building's entrance goes so it opens onto the street.
+     */
+    public int facingFor(Rect lot) {
+        double cx = lot.x() + (lot.width() - 1) / 2.0;
+        double cz = lot.z() + (lot.depth() - 1) / 2.0;
+        double bestDistance = Double.MAX_VALUE;
+        double bestDx = centerX - cx;
+        double bestDz = centerZ - cz;
+        java.util.List<Rect> streets = new ArrayList<>();
+        for (Road road : roads) {
+            streets.add(road.rect());
+        }
+        if (square != null) {
+            streets.add(square);
+        }
+        for (Rect street : streets) {
+            double px = Math.max(street.x(), Math.min(street.maxX(), cx));
+            double pz = Math.max(street.z(), Math.min(street.maxZ(), cz));
+            double distance = (px - cx) * (px - cx) + (pz - cz) * (pz - cz);
+            if (distance > 0 && distance < bestDistance) {
+                bestDistance = distance;
+                bestDx = px - cx;
+                bestDz = pz - cz;
+            }
+        }
+        return Math.abs(bestDx) > Math.abs(bestDz) ? (bestDx > 0 ? 1 : 3) : (bestDz > 0 ? 2 : 0);
+    }
+
     /** Marks a lot as built on. Returns false if there is no such lot or it is already filled. */
     public boolean fill(int lotId) {
         for (int i = 0; i < lots.size(); i++) {

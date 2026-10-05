@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
-import java.util.function.IntBinaryOperator;
 
 /**
  * R4.7, R4.8: deciding what the village builds, handing the job to a builder, and the work itself in terms the Paper
@@ -84,6 +83,11 @@ public final class Construction {
     /** Properties a block changes on its own once placed (a crop grows, a door is opened, a bed is slept in). */
     private static final java.util.Set<String> CHANGES_BY_ITSELF = java.util.Set.of("age", "open", "occupied", "powered",
             "snowy", "moisture", "lit", "triggered", "waterlogged");
+
+    /** One property of a block ("facing" of "LADDER[facing=south]"), lower case, or null if it has none. */
+    static String stateOf(String material, String property) {
+        return states(material).get(property);
+    }
 
     private static String blockName(String material) {
         String name = Blueprint.name(material).toUpperCase(Locale.ROOT);
@@ -297,7 +301,7 @@ public final class Construction {
      */
     public static Optional<ConstructionProject> propose(Settlement settlement, long day, String style, int treasuryLimit,
             TemplateCatalog catalog, Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints,
-            IntBinaryOperator groundHeight) {
+            HeightSource terrain) {
         VillagePlan plan = settlement.plan();
         dropStaleQueuedProject(settlement, day, treasuryLimit);
         if (plan == null || settlement.population() < MIN_POPULATION || settlement.isAbandoned()
@@ -316,7 +320,7 @@ public final class Construction {
             boolean first = true;
             for (VillagePlan.Lot lot : plan.candidatesFor(type.get())) {
                 Optional<ConstructionProject> project = queue(settlement, day, biome, type.get(), 0, lot, 1, catalog,
-                        blueprints, groundHeight, directive.reason(), null, first);
+                        blueprints, terrain, directive.reason(), null, first);
                 if (project.isPresent()) {
                     return project;
                 }
@@ -335,7 +339,7 @@ public final class Construction {
                 continue;
             }
             Optional<ConstructionProject> project = queue(settlement, day, biome, done.type(), done.tier(), lot.get(),
-                    2, catalog, blueprints, groundHeight, "it can afford a better one", done, false);
+                    2, catalog, blueprints, terrain, "it can afford a better one", done, false);
             if (project.isPresent()) {
                 return project;
             }
@@ -386,46 +390,57 @@ public final class Construction {
      */
     private static Optional<ConstructionProject> queue(Settlement settlement, long day, String biome, BuildingType type,
             int currentTier, VillagePlan.Lot lot, int margin, TemplateCatalog catalog,
-            Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints, IntBinaryOperator groundHeight, String reason,
+            Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints, HeightSource terrain, String reason,
             ConstructionProject replacing, boolean explain) {
         List<TemplateCatalog.Template> ladder = catalog.ladder(type, biome);
         Map<ResourceType, Integer> stock = new EnumMap<>(ResourceType.class);
         for (ResourceType resource : ResourceType.values()) {
             stock.put(resource, settlement.ledger().get(resource) / margin);
         }
-        Map<String, Optional<Blueprint>> read = new HashMap<>();
         // An upgrade is built over the old building, centred on it; a new building is centred on its lot.
+        // Every building is turned so its entrance faces the nearest street or the square; an upgrade keeps the old facing.
+        int desired = settlement.plan().facingFor(lot.rect());
         Optional<Blueprint> oldBlueprint = replacing == null ? Optional.empty()
-                : ladder.stream().filter(t -> t.tier() == replacing.tier()).findFirst().flatMap(blueprints);
+                : ladder.stream().filter(t -> t.tier() == replacing.tier()).findFirst().flatMap(blueprints)
+                        .map(b -> b.rotated(replacing.turns()));
         if (replacing != null && oldBlueprint.isEmpty()) {
             return Optional.empty();
         }
-        Function<TemplateCatalog.Template, Optional<Blueprint>> fitting = t -> read.computeIfAbsent(t.key(), k ->
-                blueprints.apply(t).filter(b -> originFor(b, lot, replacing, oldBlueprint.orElse(null)).map(
-                        o -> o[0] >= lot.rect().x() && o[1] >= lot.rect().z()
-                                && o[0] + b.width() <= lot.rect().x() + lot.rect().width()
-                                && o[1] + b.depth() <= lot.rect().z() + lot.rect().depth()).orElse(false)));
+        // The way it is turned: with its entrance on the street if it fits like that, otherwise the nearest turn that fits.
+        Map<String, Optional<Oriented>> read2 = new HashMap<>();
+        Function<TemplateCatalog.Template, Optional<Oriented>> oriented = t -> read2.computeIfAbsent(t.key(), k ->
+                blueprints.apply(t).flatMap(b -> orient(b, desired, lot, replacing, oldBlueprint.orElse(null))));
         Optional<TemplateCatalog.Template> best = TemplateCatalog.bestAffordable(ladder, currentTier,
-                t -> fitting.apply(t).map(Construction::priceOf).orElse(UNBUILDABLE), stock);
+                t -> oriented.apply(t).map(o -> priceOf(o.blueprint())).orElse(UNBUILDABLE), stock);
         if (best.isEmpty()) {
             if (replacing == null && explain) {
                 explainWhyNot(settlement, day, type, ladder, blueprints, lot);
             }
             return Optional.empty();
         }
-        Blueprint blueprint = fitting.apply(best.get()).orElseThrow();
+        Blueprint blueprint = oriented.apply(best.get()).orElseThrow().blueprint();
+        int turns = oriented.apply(best.get()).orElseThrow().turns();
         int[] origin = originFor(blueprint, lot, replacing, oldBlueprint.orElse(null)).orElseThrow();
         int x = origin[0];
         int z = origin[1];
-        // An upgrade keeps the old floor level: the ground there is now the old building's roof.
-        int ground = replacing != null ? replacing.y() : groundHeight.applyAsInt(x + blueprint.width() / 2, z + blueprint.depth() / 2);
-        if (ground == UNKNOWN_GROUND) {
-            return Optional.empty();
+        // An upgrade keeps the old floor level (the ground there is now the old building's roof). A new building is set at
+        // the median height of its ground, and the ground is graded to it (see TerrainPad); a lot that cannot be graded is passed over.
+        int ground;
+        if (replacing != null) {
+            ground = replacing.y();
+        } else {
+            TerrainPad.Pad pad = TerrainPad.compute(new Rect(x, z, blueprint.width(), blueprint.depth()), PAD_BUFFER, terrain);
+            if (!pad.valid()) {
+                return Optional.empty();
+            }
+            ground = pad.targetHeight();
         }
         ConstructionProject project = new ConstructionProject(settlement.nextProjectId(), type, best.get().tier(),
                 currentTier, biome, x, ground, z, lot.id(), day);
+        project.setTurns(turns);
         if (replacing != null) {
             project.setShift(replacing.x() - x, replacing.z() - z);
+            project.setOldTurns(replacing.turns());
         }
         settlement.addProject(project);
         settlement.conditions().put(DECIDED, day); // at most one new project a day
@@ -454,7 +469,8 @@ public final class Construction {
         String text;
         if (first.isEmpty()) {
             text = settlement.name() + " wants a " + name + " but has no design for one.";
-        } else if (first.get().width() > lot.rect().width() || first.get().depth() > lot.rect().depth()) {
+        } else if (!(first.get().width() <= lot.rect().width() && first.get().depth() <= lot.rect().depth())
+                && !(first.get().depth() <= lot.rect().width() && first.get().width() <= lot.rect().depth())) {
             text = settlement.name() + " wants a " + name + " but its lot is too small for the plainest design.";
         } else {
             StringBuilder lacks = new StringBuilder();
@@ -470,6 +486,43 @@ public final class Construction {
         }
         settlement.conditions().put(BLOCKED + ":" + type.name(), day);
         settlement.record(day, HistoryEvent.Kind.BUILDING, text);
+    }
+
+    /** The blocks of blended edge round a graded building. */
+    public static final int PAD_BUFFER = 2;
+
+    /** The quarter turns that put a building's entrance on the side facing {@code desired}; none for one with no entrance. */
+    static int turnsFor(Blueprint original, int desired) {
+        java.util.OptionalInt front = original.front();
+        return front.isPresent() ? ((desired - front.getAsInt()) % 4 + 4) % 4 : 0;
+    }
+
+    /** A template turned so it fits its lot, and by how much. */
+    record Oriented(int turns, Blueprint blueprint) {
+    }
+
+    /**
+     * Turns a template so its entrance faces {@code desired} if it fits the lot like that; failing that, the nearest turn
+     * to it that does (a sideways entrance beats no building), the way round last. Empty if no turn fits.
+     */
+    private static Optional<Oriented> orient(Blueprint original, int desired, VillagePlan.Lot lot, ConstructionProject replacing,
+            Blueprint old) {
+        int wanted = turnsFor(original, desired);
+        for (int offset : new int[] {0, 1, 3, 2}) {
+            int turns = (wanted + offset) % 4;
+            Blueprint turned = original.rotated(turns);
+            boolean fits = originFor(turned, lot, replacing, old).map(
+                    o -> o[0] >= lot.rect().x() && o[1] >= lot.rect().z()
+                            && o[0] + turned.width() <= lot.rect().x() + lot.rect().width()
+                            && o[1] + turned.depth() <= lot.rect().z() + lot.rect().depth()).orElse(false);
+            if (fits) {
+                return Optional.of(new Oriented(turns, turned));
+            }
+            if (original.front().isEmpty()) {
+                break; // nothing to face the street with: only the plain orientation is tried
+            }
+        }
+        return Optional.empty();
     }
 
     /** The corner (x, z) a building goes at: centred on its lot, or over the building it replaces, centred on that. */

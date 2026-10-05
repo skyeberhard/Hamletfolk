@@ -33,6 +33,9 @@ public final class ConstructionProject {
     private UUID builder;
     private long finishedDay;
     private boolean siteChecked;
+    private int turns;
+    private int oldTurns;
+    private boolean graded;
     private int shiftX;
     private int shiftZ;
     private int signX;
@@ -131,6 +134,33 @@ public final class ConstructionProject {
 
     public void setSiteChecked(boolean siteChecked) {
         this.siteChecked = siteChecked;
+    }
+
+    /** Quarter turns clockwise the template was rotated by so its entrance faces the street. */
+    public int turns() {
+        return turns;
+    }
+
+    public void setTurns(int turns) {
+        this.turns = ((turns % 4) + 4) % 4;
+    }
+
+    /** For an upgrade: the quarter turns the building being replaced was built with. */
+    public int oldTurns() {
+        return oldTurns;
+    }
+
+    public void setOldTurns(int turns) {
+        this.oldTurns = ((turns % 4) + 4) % 4;
+    }
+
+    /** True once the ground under the building has been levelled (done once, so a restart does not grade over the walls). */
+    public boolean graded() {
+        return graded;
+    }
+
+    public void setGraded(boolean graded) {
+        this.graded = graded;
     }
 
     /** For an upgrade: where the building being replaced has its corner, relative to this one's ({@code old = new + shift}). */

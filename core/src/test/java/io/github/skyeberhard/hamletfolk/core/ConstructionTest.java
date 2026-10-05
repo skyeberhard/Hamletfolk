@@ -296,7 +296,7 @@ class ConstructionTest {
         old.remove("projects");
         old.put("format", 18);
         assertTrue(SettlementCodec.decode(old).projects().isEmpty());
-        assertEquals(19, SettlementCodec.FORMAT_VERSION);
+        assertEquals(20, SettlementCodec.FORMAT_VERSION);
     }
 
     @Test
@@ -497,5 +497,84 @@ class ConstructionTest {
         assertEquals(VillagePlan.LotStatus.RESERVED, s.plan().lots().stream().filter(l -> l.id() == farm.lotId())
                 .findFirst().orElseThrow().status());
         assertTrue(next.isEmpty() || next.get().type() != BuildingType.FARM);
+    }
+
+    @Test
+    void rotatingFourQuarterTurnsGivesTheBuildingBackAndTurnsWhatFaces() {
+        Blueprint mine = BuildingGenerator.generate(BuildingType.MINE, 2).orElseThrow();
+        assertEquals(mine, mine.rotated(4));
+        assertEquals(mine, mine.rotated(0));
+        Blueprint turned = mine.rotated(1);
+        assertEquals(mine.depth(), turned.width());
+        assertEquals(mine.width(), turned.depth());
+        assertEquals(mine.blocks().size(), turned.blocks().size());
+        assertEquals(2, mine.front().orElseThrow(), "the generated entrance faces south");
+        assertEquals(3, turned.front().orElseThrow(), "one clockwise turn: south becomes west");
+        assertEquals(0, mine.rotated(2).front().orElseThrow());
+        assertEquals("LADDER[facing=west]", mine.rotated(1).blocks().stream()
+                .map(Blueprint.Block::material).filter(m -> m.startsWith("LADDER")).findFirst().orElseThrow());
+        assertEquals("OAK_FENCE[east=true,north=false]", Blueprint.turnState("OAK_FENCE[north=true,west=false]"));
+        assertEquals("OAK_LOG[axis=z]", Blueprint.turnState("OAK_LOG[axis=x]"));
+        assertEquals("OAK_SIGN[rotation=4]", Blueprint.turnState("OAK_SIGN[rotation=0]"));
+    }
+
+    @Test
+    void aDoorWithNoSignSaysWhichSideTheBuildingFaces() {
+        Blueprint house = new Blueprint("h", 7, 3, 7, List.of(new Blueprint.Block(6, 1, 3, "OAK_DOOR[half=lower,facing=east]"),
+                new Blueprint.Block(6, 2, 3, "OAK_DOOR[half=upper,facing=east]"), new Blueprint.Block(0, 0, 0, "COBBLESTONE")));
+        assertEquals(1, house.front().orElseThrow(), "the door is on the east wall");
+        assertTrue(new Blueprint("f", 2, 1, 2, List.of(new Blueprint.Block(0, 0, 0, "FARMLAND"))).front().isEmpty());
+    }
+
+    @Test
+    void everyGeneratedBuildingCanBeTurnedToFaceEveryLotOfThePlan() {
+        Settlement s = village();
+        for (VillagePlan.Lot lot : s.plan().lots()) {
+            int toStreet = s.plan().facingFor(lot.rect());
+            for (BuildingType type : BuildingType.values()) {
+                Blueprint b = BuildingGenerator.generate(type, 1).orElse(null);
+                if (b != null) {
+                    assertEquals(toStreet, b.rotated(Construction.turnsFor(b, toStreet)).front().orElseThrow());
+                }
+            }
+        }
+    }
+
+    @Test
+    void aProjectRecordsTheTurnThatPutsItsEntranceOnTheStreetAndItSurvivesASave() {
+        Settlement s = village();
+        // Every design has its door in the east wall.
+        Blueprint hall = new Blueprint("hall", 7, 3, 7, List.of(new Blueprint.Block(6, 1, 3, "OAK_DOOR[half=lower,facing=east]"),
+                new Blueprint.Block(0, 0, 0, "OAK_PLANKS")));
+        ConstructionProject made = Construction.propose(s, 5, "plains", 200, catalog, t -> Optional.of(hall), (x, z) -> 64).orElseThrow();
+        VillagePlan.Lot lot = s.plan().lots().stream().filter(l -> l.id() == made.lotId()).findFirst().orElseThrow();
+        assertEquals(s.plan().facingFor(lot.rect()), hall.rotated(made.turns()).front().orElseThrow());
+        assertEquals(made.turns(), SettlementCodec.decode(SettlementCodec.encode(s)).projects().get(0).turns());
+    }
+
+    @Test
+    void aTemplateThatFitsOnlyTurnedIsTurnedRatherThanDropped() {
+        Settlement s = new Settlement(VILLAGE, "Tightford", "world", 0, 0, 0);
+        for (int i = 0; i < 6; i++) {
+            s.addResident(person(Occupation.UNEMPLOYED));
+        }
+        s.setPlan(PlanGenerator.generate(0, 0, 7L, "plains", HeightSource.flat(64)));
+        s.ledger().add(ResourceType.WOOD, 100);
+        // Longer than it is wide, with its door at one end: whichever way the street lies, it has to fit the lot somehow.
+        Optional<ConstructionProject> project = Construction.propose(s, 5, "plains", 200, catalog,
+                t -> Optional.of(new Blueprint(t.key(), 5, 1, 17, List.of(new Blueprint.Block(2, 0, 16, "OAK_PLANKS"),
+                        new Blueprint.Block(2, 1, 16, "OAK_DOOR[half=lower,facing=south]")))), (x, z) -> 64);
+        assertTrue(project.isPresent());
+    }
+
+    @Test
+    void aSlopedLotIsSetAtTheMedianHeightAndAnImpossibleOneIsPassedOver() {
+        Settlement s = village();
+        Optional<ConstructionProject> project = Construction.propose(s, 5, "plains", 200, catalog, this::blueprints,
+                (x, z) -> 60 + Math.floorMod(x, 3)); // a gentle ripple: 60, 61, 62
+        assertEquals(61, project.orElseThrow().y(), "the median of the ground under it");
+        Settlement cliff = village();
+        assertTrue(Construction.propose(cliff, 5, "plains", 200, catalog, this::blueprints,
+                (x, z) -> x % 2 == 0 ? 40 : 90).isEmpty(), "cut or fill beyond the limit: not built here");
     }
 }

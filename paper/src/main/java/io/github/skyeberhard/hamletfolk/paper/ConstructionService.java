@@ -5,7 +5,10 @@ import io.github.skyeberhard.hamletfolk.core.Blueprint;
 import io.github.skyeberhard.hamletfolk.core.BuildingType;
 import io.github.skyeberhard.hamletfolk.core.Construction;
 import io.github.skyeberhard.hamletfolk.core.ConstructionProject;
+import io.github.skyeberhard.hamletfolk.core.HeightSource;
+import io.github.skyeberhard.hamletfolk.core.Rect;
 import io.github.skyeberhard.hamletfolk.core.Resident;
+import io.github.skyeberhard.hamletfolk.core.TerrainPad;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.TemplateCatalog;
 import java.util.ArrayList;
@@ -48,12 +51,11 @@ final class ConstructionService {
     /** Blocks paid for and placed per pass: about this many a second. */
     private static final int BLOCKS_PER_PASS = 4;
     /** Free ground work (clearing trees, filling hollows) per pass. */
-    private static final int GROUND_PER_PASS = 24;
+    private static final int GROUND_PER_PASS = 48;
     /** The most a block is placed again if it never ends up matching (a torch that pops off, say), before it is left. */
     private static final int MAX_ATTEMPTS = 3;
     private static final int PLAYER_RANGE = 128;
     private static final int EXEMPT_RANGE = 24;
-    private static final int FILL_DEPTH = 4;
     private static final int SIGN_TRIES = 5;
 
     private final HamletfolkPlugin plugin;
@@ -62,6 +64,9 @@ final class ConstructionService {
     private final Map<Integer, Map<Long, Integer>> attempts = new HashMap<>();
     private final Map<Integer, Set<Long>> skipped = new HashMap<>();
     private final Map<Integer, Integer> signTries = new HashMap<>();
+    /** Not saved: how many passes of levelling a project has had, so water or sand flowing back cannot hold it up for ever. */
+    private final Map<Integer, Integer> gradingPasses = new HashMap<>();
+    private static final int MAX_GRADING_PASSES = 60;
     private final Map<java.util.UUID, Long> lastLook = new HashMap<>();
     private static final long LOOK_EVERY_MS = 10_000;
 
@@ -114,10 +119,35 @@ final class ConstructionService {
         String style = BiomeSet.forBiome(world.getComputedBiome(settlement.centerX(), 64, settlement.centerZ()).getKey().getKey());
         Optional<ConstructionProject> queued = Construction.propose(settlement, settlement.lastSimulatedDay(), style,
                 service.treasuryLimit(settlement), plugin.templates().catalog(), plugin.templates()::blueprint,
-                (x, z) -> surfaceY(world, x, z));
+                groundOf(world));
         if (queued.isPresent()) {
             plugin.requestSave();
         }
+    }
+
+    /** The ground as the grading plan sees it: the surface under any trees and plants, and where it is wet, the floor. */
+    private static HeightSource groundOf(World world) {
+        return new HeightSource() {
+            @Override
+            public int height(int x, int z) {
+                return surfaceY(world, x, z);
+            }
+
+            @Override
+            public boolean water(int x, int z) {
+                return world.isChunkLoaded(x >> 4, z >> 4)
+                        && world.getHighestBlockAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES).isLiquid();
+            }
+
+            @Override
+            public int floor(int x, int z) {
+                int y = height(x, z);
+                while (y != HeightSource.UNKNOWN && y > world.getMinHeight() && world.getBlockAt(x, y, z).isLiquid()) {
+                    y--;
+                }
+                return y;
+            }
+        };
     }
 
     /** The y of the ground at a column (trees and plants do not count), or {@link Construction#UNKNOWN_GROUND} if unloaded. */
@@ -133,6 +163,9 @@ final class ConstructionService {
     }
 
     private static boolean isGrowth(Material m) {
+        if (m == Material.WATER || m == Material.LAVA) {
+            return false; // a lake is a surface to measure, not a plant to look through
+        }
         return Tag.LEAVES.isTagged(m) || Tag.LOGS.isTagged(m) || Tag.FLOWERS.isTagged(m) || Tag.SAPLINGS.isTagged(m)
                 || Tag.REPLACEABLE.isTagged(m) || m.isAir();
     }
@@ -156,8 +189,8 @@ final class ConstructionService {
         }
         Blueprint old = project.isUpgrade() && project.previousTier() <= ladder.size()
                 ? plugin.templates().blueprint(ladder.get(project.previousTier() - 1))
-                        .map(b -> b.shifted(project.shiftX(), 0, project.shiftZ())).orElse(null) : null;
-        Blueprint bp = target.get();
+                        .map(b -> b.rotated(project.oldTurns()).shifted(project.shiftX(), 0, project.shiftZ())).orElse(null) : null;
+        Blueprint bp = target.get().rotated(project.turns());
         int ox = project.x();
         int oy = project.y();
         int oz = project.z();
@@ -177,8 +210,22 @@ final class ConstructionService {
             }
             project.setSiteChecked(true);
         }
-        if (prepareGround(world, bp, ox, oy, oz)) {
-            return; // clearing and levelling first, a pass at a time
+        // Level the ground once, for a new building only: an upgrade is built over the old one, and a building already
+        // standing (after a restart, say) must not be graded again over its own walls.
+        if (!project.graded() && !project.isUpgrade() && project.blocksLeft() < 0) {
+            int passes = gradingPasses.merge(project.id(), 1, Integer::sum);
+            int graded = passes > MAX_GRADING_PASSES ? 0 : prepareGround(world, bp, ox, oy, oz, project.biomeSet());
+            if (graded < 0) {
+                giveUp(settlement, project, "the ground there cannot be levelled", true);
+                return;
+            }
+            if (graded > 0) {
+                return; // clearing and levelling first, a pass at a time
+            }
+        }
+        if (!project.graded()) {
+            project.setGraded(true);
+            gradingPasses.remove(project.id());
         }
         Set<Long> given = skipped.computeIfAbsent(project.id(), k -> new HashSet<>());
         List<Construction.Step> steps = new ArrayList<>(Construction.worklist(bp, old, b -> materialAt(world, ox, oy, oz, b)));
@@ -244,6 +291,7 @@ final class ConstructionService {
         attempts.remove(project.id());
         skipped.remove(project.id());
         signTries.remove(project.id());
+        gradingPasses.remove(project.id());
         plugin.requestSave();
     }
 
@@ -290,7 +338,7 @@ final class ConstructionService {
             for (int z = 0; z < bp.depth(); z++) {
                 for (int x = 0; x < bp.width(); x++) {
                     Block block = world.getBlockAt(ox + x, oy + y, oz + z);
-                    if (clearable(block, y <= 0)) {
+                    if (clearable(block, y <= 0 || columnNatural(world, ox + x, oz + z))) {
                         continue;
                     }
                     String was = oldBlocks.get(key(new Blueprint.Block(x, y, z, "")));
@@ -344,19 +392,44 @@ final class ConstructionService {
     }
 
     /**
-     * Free ground work: clears trees, plants and hills out of the building's space, and fills hollows under its floor
-     * with dirt. Returns true if it did any (the building waits a pass), so it settles before the first block is paid for.
+     * Free ground work, a few dozen blocks a pass: levels the ground to the height the building was set at, cutting hills
+     * and filling hollows with the biome's blocks (the grading plan, with a blended edge), and clears trees and plants
+     * out of the building's space. Only terrain and growth are ever changed. Returns how many blocks it changed, or -1
+     * if the ground cannot be levelled at all.
      */
-    private boolean prepareGround(World world, Blueprint bp, int ox, int oy, int oz) {
+    private int prepareGround(World world, Blueprint bp, int ox, int oy, int oz, String style) {
+        TerrainPad.Pad pad = TerrainPad.compute(new Rect(ox, oz, bp.width(), bp.depth()), Construction.PAD_BUFFER,
+                groundOf(world), oy);
+        if (!pad.valid()) {
+            return -1;
+        }
+        Material[] soil = soilFor(style); // surface, fill, foundation
+        Map<Long, Boolean> natural = new HashMap<>();
+        int done = 0;
+        for (TerrainPad.Change change : pad.changes()) {
+            if (done >= GROUND_PER_PASS) {
+                return done;
+            }
+            if (!natural.computeIfAbsent(((long) change.x() << 32) ^ (change.z() & 0xffffffffL), k -> columnNatural(world, change.x(), change.z()))) {
+                continue; // something built stands on this column (a neighbour's wall, say): its ground is not ours to cut
+            }
+            Block block = world.getBlockAt(change.x(), change.y(), change.z());
+            Material want = switch (change.role()) {
+                case AIR -> Material.AIR;
+                case SURFACE -> soil[0];
+                case FILL -> soil[1];
+                case FOUNDATION -> soil[2];
+            };
+            if (block.getType() == want || !clearable(block, true)) {
+                continue; // already right, or not ours to change
+            }
+            block.setType(want, false);
+            done++;
+        }
         Set<Long> cells = new HashSet<>();
-        Set<Long> columnsBelowFloor = new HashSet<>();
         for (Blueprint.Block b : bp.blocks()) {
             cells.add(key(b));
-            if (b.y() < 0) {
-                columnsBelowFloor.add(((long) b.z() << 20) | b.x());
-            }
         }
-        int done = 0;
         for (int z = 0; z < bp.depth() && done < GROUND_PER_PASS; z++) {
             for (int x = 0; x < bp.width() && done < GROUND_PER_PASS; x++) {
                 for (int y = 1; y < bp.height(); y++) { // the floor level itself is left as the ground is
@@ -367,19 +440,25 @@ final class ConstructionService {
                         done++;
                     }
                 }
-                if (!columnsBelowFloor.contains(((long) z << 20) | x)) {
-                    for (int y = -1; y >= -FILL_DEPTH; y--) {
-                        Block below = world.getBlockAt(ox + x, oy + y, oz + z);
-                        if (!below.getType().isAir() && !below.isLiquid() && !Tag.REPLACEABLE.isTagged(below.getType())) {
-                            break;
-                        }
-                        below.setType(Material.DIRT, false);
-                        done++;
-                    }
-                }
             }
         }
-        return done > 0;
+        return done;
+    }
+
+    /**
+     * True if the top of a column is plain terrain (grass, dirt, sand, rock, or a lake) and not part of a building: then
+     * the stone and soil under it can be cut like the ground it is. A column with a roof or a wall on top is left alone.
+     */
+    private static boolean columnNatural(World world, int x, int z) {
+        int y = surfaceY(world, x, z);
+        return y != Construction.UNKNOWN_GROUND && clearable(world.getBlockAt(x, y, z), true);
+    }
+
+    /** The surface, soil and foundation blocks of a village style. */
+    private static Material[] soilFor(String style) {
+        return BiomeSet.DESERT.equals(style)
+                ? new Material[] {Material.SAND, Material.SAND, Material.SANDSTONE}
+                : new Material[] {Material.GRASS_BLOCK, Material.DIRT, Material.STONE};
     }
 
     // ----- finishing -----
@@ -421,6 +500,7 @@ final class ConstructionService {
         attempts.remove(project.id());
         skipped.remove(project.id());
         signTries.remove(project.id());
+        gradingPasses.remove(project.id());
         plugin.requestSave();
     }
 

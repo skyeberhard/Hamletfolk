@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 19;
+    public static final int FORMAT_VERSION = 20;
 
     private SettlementCodec() {
     }
@@ -119,6 +119,9 @@ public final class SettlementCodec {
                 }
                 project.put("finishedDay", p.finishedDay());
                 project.put("siteChecked", p.siteChecked());
+                project.put("turns", p.turns());
+                project.put("oldTurns", p.oldTurns());
+                project.put("graded", p.graded());
                 project.put("shiftX", p.shiftX());
                 project.put("shiftZ", p.shiftZ());
                 if (p.signY() != ConstructionProject.NO_SIGN) {
@@ -273,6 +276,8 @@ public final class SettlementCodec {
             }
         }
 
+        // v19 -> v20: projects gained "turns", "oldTurns" and "graded" (the way a building is turned, and whether its ground is
+        // levelled); all optional, so a v19 project is unturned and ungraded. An older build must refuse a save with turned projects.
         // v18 -> v19: "projects" (R4.7, R4.8) is optional, so an old save has none.
         for (Object o : asList(map.get("projects"))) {
             try {
@@ -298,6 +303,9 @@ public final class SettlementCodec {
                     status = ConstructionProject.Status.CANCELLED;
                     builder = null;
                 }
+                project.setTurns(p.get("turns") instanceof Number t ? t.intValue() : 0);
+                project.setOldTurns(p.get("oldTurns") instanceof Number t ? t.intValue() : 0);
+                project.setGraded(Boolean.TRUE.equals(p.get("graded")));
                 project.setShift(p.get("shiftX") instanceof Number sx ? sx.intValue() : 0,
                         p.get("shiftZ") instanceof Number sz ? sz.intValue() : 0);
                 project.restore(status, builder, num(p, "finishedDay").longValue(), Boolean.TRUE.equals(p.get("siteChecked")));

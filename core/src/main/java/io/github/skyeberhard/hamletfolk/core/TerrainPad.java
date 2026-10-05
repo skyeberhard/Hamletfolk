@@ -77,6 +77,14 @@ public final class TerrainPad {
      * {@link #MAX_WATER} deep; the buffer is left alone where it is water.
      */
     public static Pad compute(Rect footprint, int buffer, HeightSource terrain) {
+        return compute(footprint, buffer, terrain, null);
+    }
+
+    /**
+     * As {@link #compute(Rect, int, HeightSource)} but to a height already chosen ({@code fixedTarget}, or null for the
+     * median): a building half graded would otherwise find a different median and move the goalposts.
+     */
+    public static Pad compute(Rect footprint, int buffer, HeightSource terrain, Integer fixedTarget) {
         List<Integer> heights = new ArrayList<>();
         for (int x = footprint.x(); x <= footprint.maxX(); x++) {
             for (int z = footprint.z(); z <= footprint.maxZ(); z++) {
@@ -88,7 +96,7 @@ public final class TerrainPad {
             }
         }
         int[] sorted = heights.stream().mapToInt(Integer::intValue).sorted().toArray();
-        int target = sorted[(sorted.length - 1) / 2];
+        int target = fixedTarget != null ? fixedTarget : sorted[(sorted.length - 1) / 2];
 
         List<Change> changes = new ArrayList<>();
         Map<Long, Integer> finals = new HashMap<>();

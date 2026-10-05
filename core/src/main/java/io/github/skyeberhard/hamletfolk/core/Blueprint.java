@@ -118,6 +118,126 @@ public record Blueprint(String key, int width, int height, int depth, List<Block
         return blocks.stream().filter(b -> name(b.material()).endsWith("_WALL_SIGN")).findFirst();
     }
 
+    private static final String[] COMPASS = {"north", "east", "south", "west"};
+
+    private static int compass(String direction) {
+        for (int i = 0; i < 4; i++) {
+            if (COMPASS[i].equals(direction)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * The direction the building's entrance faces, as 0 north, 1 east, 2 south, 3 west: where its wall sign faces if it
+     * has one, otherwise the side of the building its (lowest) door is on. Empty if it has neither (a farm).
+     */
+    public java.util.OptionalInt front() {
+        for (Block block : blocks) {
+            if (name(block.material()).toUpperCase(Locale.ROOT).endsWith("_WALL_SIGN")) {
+                int facing = compass(Construction.stateOf(block.material(), "facing"));
+                if (facing >= 0) {
+                    return java.util.OptionalInt.of(facing);
+                }
+            }
+        }
+        Block door = null;
+        for (Block block : blocks) {
+            if (name(block.material()).toUpperCase(Locale.ROOT).endsWith("_DOOR")
+                    && !"upper".equals(Construction.stateOf(block.material(), "half"))
+                    && (door == null || block.y() < door.y())) {
+                door = block;
+            }
+        }
+        if (door == null) {
+            return java.util.OptionalInt.empty();
+        }
+        double dx = door.x() - (width - 1) / 2.0;
+        double dz = door.z() - (depth - 1) / 2.0;
+        // Which wall the door is in comes from the way the door faces (a north- or south-facing door is in a north or
+        // south wall); where it is on that axis says which of the two.
+        int facing = compass(Construction.stateOf(door.material(), "facing"));
+        boolean eastWest = facing >= 0 ? facing % 2 == 1 : Math.abs(dx) > Math.abs(dz);
+        return java.util.OptionalInt.of(eastWest ? (dx > 0 ? 1 : 3) : (dz > 0 ? 2 : 0));
+    }
+
+    /** The building turned clockwise (seen from above) by whole quarter turns, blocks and the way they face included. */
+    public Blueprint rotated(int quarterTurns) {
+        Blueprint turned = this;
+        for (int i = 0; i < ((quarterTurns % 4) + 4) % 4; i++) {
+            List<Block> out = new ArrayList<>(turned.blocks.size());
+            for (Block block : turned.blocks) {
+                out.add(new Block(turned.depth - 1 - block.z(), block.y(), block.x(), turnState(block.material())));
+            }
+            turned = new Blueprint(key, turned.depth, turned.height, turned.width, out);
+        }
+        return turned;
+    }
+
+    /** One clockwise quarter turn of a block's properties: which way it faces, its axis and sign rotation, its connections. */
+    static String turnState(String material) {
+        int open = material.indexOf('[');
+        int close = material.lastIndexOf(']');
+        if (open < 0 || close < open) {
+            return material;
+        }
+        java.util.Map<String, String> turned = new java.util.LinkedHashMap<>();
+        for (String pair : material.substring(open + 1, close).split(",")) {
+            int eq = pair.indexOf('=');
+            if (eq < 0) {
+                turned.put(pair, "");
+                continue;
+            }
+            String key = pair.substring(0, eq);
+            String value = pair.substring(eq + 1);
+            if (compass(key) >= 0) { // a fence, wall or pane side: the side moves, not the value
+                turned.put(COMPASS[(compass(key) + 1) % 4], value);
+            } else if (key.equals("facing") && compass(value) >= 0) {
+                turned.put(key, COMPASS[(compass(value) + 1) % 4]);
+            } else if (key.equals("axis")) {
+                turned.put(key, value.equals("x") ? "z" : value.equals("z") ? "x" : value);
+            } else if (key.equals("rotation")) {
+                try {
+                    turned.put(key, String.valueOf((Integer.parseInt(value) + 4) % 16));
+                } catch (NumberFormatException e) {
+                    turned.put(key, value);
+                }
+            } else if (key.equals("shape") && value.contains("_") && (value.startsWith("north") || value.startsWith("east")
+                    || value.startsWith("south") || value.startsWith("ascending"))) {
+                turned.put(key, turnRail(value));
+            } else {
+                turned.put(key, value);
+            }
+        }
+        StringBuilder out = new StringBuilder(material.substring(0, open)).append('[');
+        boolean first = true;
+        for (java.util.Map.Entry<String, String> entry : turned.entrySet()) {
+            out.append(first ? "" : ",").append(entry.getKey());
+            if (!entry.getValue().isEmpty()) {
+                out.append('=').append(entry.getValue());
+            }
+            first = false;
+        }
+        return out.append(']').toString();
+    }
+
+    private static String turnRail(String shape) {
+        return switch (shape) {
+            case "north_south" -> "east_west";
+            case "east_west" -> "north_south";
+            case "ascending_north" -> "ascending_east";
+            case "ascending_east" -> "ascending_south";
+            case "ascending_south" -> "ascending_west";
+            case "ascending_west" -> "ascending_north";
+            case "south_east" -> "south_west";
+            case "south_west" -> "north_west";
+            case "north_west" -> "north_east";
+            case "north_east" -> "south_east";
+            default -> shape;
+        };
+    }
+
     /** The same blocks moved by a whole number of blocks (to put an old building in a new building's frame). */
     public Blueprint shifted(int dx, int dy, int dz) {
         List<Block> moved = new ArrayList<>(blocks.size());
