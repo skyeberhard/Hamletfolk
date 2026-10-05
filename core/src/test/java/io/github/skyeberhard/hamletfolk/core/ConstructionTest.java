@@ -432,4 +432,37 @@ class ConstructionTest {
         VillagePlan.Lot lot = s.plan().lots().stream().filter(l -> l.id() == project.lotId()).findFirst().orElseThrow();
         assertEquals(BuildingType.HOUSE, lot.type(), "house lots are used first");
     }
+
+    @Test
+    void aFullyEmployedVillageDraftsAWorkerAfterAFewDaysButNeverAFarmer() {
+        Settlement s = new Settlement(VILLAGE, "Busyham", "world", 0, 0, 0);
+        s.addResident(person(Occupation.FARMER));
+        s.addResident(person(Occupation.FARMER));
+        Resident mason = person(Occupation.MASON);
+        s.addResident(mason);
+        s.addResident(person(Occupation.TOOLSMITH)); // the only smith: not to be taken
+        s.setPlan(PlanGenerator.generate(0, 0, 7L, "plains", HeightSource.flat(64)));
+        ConstructionProject project = new ConstructionProject(1, BuildingType.HOUSE, 1, 0, "plains", 0, 64, 0, -1, 5);
+        s.addProject(project);
+        Construction.staffBuilders(s, 6, false);
+        assertEquals(ConstructionProject.Status.QUEUED, project.status(), "not yet: someone may still be out of work");
+        Construction.staffBuilders(s, 8, false);
+        assertEquals(ConstructionProject.Status.ACTIVE, project.status());
+        assertEquals(mason.id(), project.builder());
+        assertEquals(Occupation.BUILDER, mason.occupation());
+        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("put down the work of a mason")));
+    }
+
+    @Test
+    void theGeneratedBuildingsHaveNoJobSitesAVillagerCouldClaim() {
+        java.util.Set<String> jobSites = java.util.Set.of("BARREL", "LECTERN", "LOOM", "COMPOSTER", "SMOKER", "BLAST_FURNACE",
+                "FLETCHING_TABLE", "CARTOGRAPHY_TABLE", "BREWING_STAND", "GRINDSTONE", "STONECUTTER", "SMITHING_TABLE", "CAULDRON");
+        for (BuildingType type : BuildingType.values()) {
+            for (int tier = 1; tier <= BuildingGenerator.TIERS; tier++) {
+                for (String material : BuildingGenerator.generate(type, tier).map(Blueprint::materialCounts).orElse(Map.of()).keySet()) {
+                    assertFalse(jobSites.contains(Blueprint.name(material)), type + " tier " + tier + " has a " + material);
+                }
+            }
+        }
+    }
 }

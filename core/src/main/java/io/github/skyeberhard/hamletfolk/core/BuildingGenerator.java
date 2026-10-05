@@ -6,7 +6,8 @@ import java.util.Optional;
 
 /**
  * R4.18: the buildings the game ships no template for (mine, guard post, shop, treasury), laid out in code in the
- * plains palette so nobody has to hand-build them. Two tiers each: a crude one in wood and cobblestone, and a
+ * plains palette so nobody has to hand-build them. (No barrels, lecterns, looms and the like: they are villagers' job
+ * sites, and a villager would claim one and take up that trade.) Two tiers each: a crude one in wood and cobblestone, and a
  * solid, larger one. Other biomes come from {@link Blueprint#inBiome}. A building captured from the world
  * replaces the generated one (the catalog prefers it).
  *
@@ -93,7 +94,7 @@ public final class BuildingGenerator {
 
         void mine(int tier) {
             put(1, 1, 1, "CHEST");
-            put(width - 2, 1, 1, "BARREL");
+            put(width - 2, 1, 1, "CHEST");
             put(width - 2, 2, 1, "LANTERN");
             // The shaft: cut through the floor and down, a ladder on its north face.
             int x = width / 2;
@@ -112,7 +113,7 @@ public final class BuildingGenerator {
 
         void guardPost(int tier) {
             put(1, 1, 1, "CHEST");
-            put(width - 2, 1, 1, "BARREL");
+            put(width - 2, 1, 1, "CHEST");
             put(width - 2, 2, 1, "LANTERN");
             put(1, 1, body - 2, "CRAFTING_TABLE");
             if (tier == 2) {
@@ -132,7 +133,7 @@ public final class BuildingGenerator {
             for (int x = 1; x <= width - 3; x++) {
                 put(x, 1, 2, "OAK_PLANKS");
                 put(x, 2, 2, "OAK_SLAB");
-                put(x, 1, 1, "BARREL");
+                put(x, 1, 1, "CHEST");
             }
             put(width - 2, 2, 1, "LANTERN");
             put(width - 2, 1, 1, "CHEST");
@@ -141,11 +142,11 @@ public final class BuildingGenerator {
         void treasury(int tier) {
             put(1, 1, 1, "CHEST");
             put(2, 1, 1, "CHEST");
-            put(width - 2, 1, 1, "BARREL");
+            put(width - 2, 1, 1, "CHEST");
             put(width - 2, 2, 1, "LANTERN");
             if (tier == 2) {
                 put(1, 1, 2, "CHEST");
-                put(width - 2, 1, 2, "BARREL");
+                put(width - 2, 1, 2, "CHEST");
             }
         }
 

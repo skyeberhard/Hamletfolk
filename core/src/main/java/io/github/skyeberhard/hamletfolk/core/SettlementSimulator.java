@@ -864,7 +864,7 @@ public final class SettlementSimulator {
      * True if this resident is the village's only smith or miner: guards are armed with the tools they make and the
      * metal they dig, so calling up the last one would cut off what arms the guards.
      */
-    private static boolean lastToolMaker(Settlement settlement, Resident resident) {
+    static boolean lastToolMaker(Settlement settlement, Resident resident) {
         Occupation job = resident.occupation();
         boolean makesToolsOrMetal = job.produces() == ResourceType.TOOLS || job.secondaryProduces() == ResourceType.METAL;
         return makesToolsOrMetal && settlement.residents().stream()

@@ -246,7 +246,34 @@ public final class Construction {
                 return;
             }
         }
+        // Nobody is out of work. A project that has waited a few days for a builder takes someone off a job that does not
+        // feed the village: a village that is fully employed still has to be able to put up a house.
+        if (day - queued.get().queuedDay() >= DRAFT_AFTER_DAYS) {
+            Resident drafted = null;
+            for (Resident r : settlement.residents()) {
+                Occupation job = r.occupation();
+                if (!r.adult() || r.stage(day) == LifeStage.ELDER || job == Occupation.BUILDER || job == Occupation.GUARD
+                        || job == Occupation.MERCHANT || (job.produces() == ResourceType.FOOD)
+                        || SettlementSimulator.lastToolMaker(settlement, r)) {
+                    continue;
+                }
+                // Idlers first, then whoever is least busy; ties go to the first in the list so it is repeatable.
+                if (drafted == null || (job == Occupation.NITWIT && drafted.occupation() != Occupation.NITWIT)) {
+                    drafted = r;
+                }
+            }
+            if (drafted != null) {
+                String was = drafted.occupation().title();
+                drafted.setOccupation(Occupation.BUILDER);
+                queued.get().claim(drafted.id());
+                settlement.record(day, HistoryEvent.Kind.MILESTONE, drafted.fullName() + " put down the work of a " + was
+                        + " to build the " + queued.get().type().label().toLowerCase(Locale.ROOT) + ", as there was no one else.");
+            }
+        }
     }
+
+    /** Days a project waits for someone out of work before a worker in another trade is taken off it. */
+    static final int DRAFT_AFTER_DAYS = 3;
 
     // ----- deciding what to build -----
 
