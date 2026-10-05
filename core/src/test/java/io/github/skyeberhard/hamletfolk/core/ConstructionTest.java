@@ -374,4 +374,20 @@ class ConstructionTest {
         assertTrue(Construction.matches("minecraft:oak_door[open=true,half=lower,facing=east]", "OAK_DOOR[open=false,half=lower,facing=east]"));
         assertFalse(Construction.matches("minecraft:oak_door[open=true,half=upper,facing=east]", "OAK_DOOR[half=lower,facing=east]"));
     }
+
+    @Test
+    void aVillageThatCannotAffordWhatItWantsSaysSoNowAndThenNotEveryDay() {
+        Settlement poor = village();
+        poor.ledger().take(ResourceType.WOOD, 200);
+        poor.ledger().take(ResourceType.STONE, 200);
+        assertTrue(propose(poor, 5).isEmpty());
+        long notes = poor.history().stream().filter(e -> e.text().contains("cannot afford")).count();
+        assertEquals(1, notes);
+        assertTrue(poor.history().stream().anyMatch(e -> e.text().contains("needs 25 wood (it has 0)")), "says what is missing");
+        assertTrue(propose(poor, 6).isEmpty());
+        assertTrue(propose(poor, 8).isEmpty());
+        assertEquals(1, poor.history().stream().filter(e -> e.text().contains("cannot afford")).count(), "not every day");
+        assertTrue(propose(poor, 11).isEmpty());
+        assertEquals(2, poor.history().stream().filter(e -> e.text().contains("cannot afford")).count(), "a reminder after five days");
+    }
 }

@@ -330,6 +330,9 @@ public final class Construction {
         Optional<TemplateCatalog.Template> best = TemplateCatalog.bestAffordable(ladder, currentTier,
                 t -> fitting.apply(t).map(Blueprint::cost).orElse(UNBUILDABLE), stock);
         if (best.isEmpty()) {
+            if (replacing == null) {
+                explainWhyNot(settlement, day, type, ladder, blueprints, lot);
+            }
             return Optional.empty();
         }
         Blueprint blueprint = fitting.apply(best.get()).orElseThrow();
@@ -351,6 +354,43 @@ public final class Construction {
                 + (currentTier > 0 ? "upgrade its " : "build a ") + type.label().toLowerCase(Locale.ROOT) + " (tier "
                 + best.get().tier() + "): " + reason + ".");
         return Optional.of(project);
+    }
+
+    /** Days between reminders that the village wants a building it cannot build. */
+    static final int BLOCKED_REMINDER_DAYS = 5;
+    static final String BLOCKED = "constructionBlocked";
+
+    /**
+     * The village wants a building and has a lot for it but cannot start: say what it lacks in the history, now and then,
+     * so a player can see why nothing is happening (and donate what is missing).
+     */
+    private static void explainWhyNot(Settlement settlement, long day, BuildingType type, List<TemplateCatalog.Template> ladder,
+            Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints, VillagePlan.Lot lot) {
+        Long last = settlement.conditions().get(BLOCKED + ":" + type.name());
+        if ((last != null && day - last < BLOCKED_REMINDER_DAYS) || ladder.isEmpty()) {
+            return;
+        }
+        Optional<Blueprint> first = blueprints.apply(ladder.get(0));
+        String name = type.label().toLowerCase(Locale.ROOT);
+        String text;
+        if (first.isEmpty()) {
+            text = settlement.name() + " wants a " + name + " but has no design for one.";
+        } else if (first.get().width() > lot.rect().width() || first.get().depth() > lot.rect().depth()) {
+            text = settlement.name() + " wants a " + name + " but its lot is too small for the plainest design.";
+        } else {
+            StringBuilder lacks = new StringBuilder();
+            first.get().cost().forEach((resource, units) -> {
+                int have = settlement.ledger().get(resource);
+                if (have < units) {
+                    lacks.append(lacks.length() == 0 ? "" : ", ").append(units).append(' ')
+                            .append(resource.name().toLowerCase(Locale.ROOT)).append(" (it has ").append(have).append(')');
+                }
+            });
+            text = settlement.name() + " wants a " + name + " but cannot afford the plainest one yet: it needs "
+                    + (lacks.length() == 0 ? "more of something" : lacks.toString()) + ".";
+        }
+        settlement.conditions().put(BLOCKED + ":" + type.name(), day);
+        settlement.record(day, HistoryEvent.Kind.BUILDING, text);
     }
 
     /** The corner (x, z) a building goes at: centred on its lot, or over the building it replaces, centred on that. */

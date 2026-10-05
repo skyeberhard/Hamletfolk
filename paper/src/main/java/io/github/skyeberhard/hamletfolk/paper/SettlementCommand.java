@@ -345,6 +345,8 @@ final class SettlementCommand implements TabExecutor {
         var open = s.openProject();
         if (open.isEmpty()) {
             player.sendMessage(Component.text(s.name() + " is not building anything right now.", NamedTextColor.GRAY));
+            s.latest(io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.BUILDING, s.effectiveDay(SettlementService.day(player.getWorld())) - 10)
+                    .ifPresent(e -> player.sendMessage(Component.text("  Latest: " + e.text(), NamedTextColor.GRAY)));
         } else {
             var p = open.get();
             String who = p.builder() == null ? "nobody has taken it on yet"

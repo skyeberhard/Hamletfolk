@@ -596,8 +596,8 @@ final class SettlementService {
     /** Most villagers an admin can found a village with. */
     static final int MAX_FOUNDERS = 20;
     /** The starter kit of building materials for a new admin-founded village, per founder. */
-    private static final int KIT_WOOD_PER_FOUNDER = 12;
-    private static final int KIT_STONE_PER_FOUNDER = 8;
+    private static final int KIT_WOOD_PER_FOUNDER = 30;
+    private static final int KIT_STONE_PER_FOUNDER = 15;
 
     /**
      * R8.10: founds a village at a spot: refuses (with the reason) inside or near another village, in an excluded world
