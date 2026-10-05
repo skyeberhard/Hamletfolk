@@ -143,6 +143,22 @@ public final class VillagePlan {
                 .min(Comparator.comparingLong((Lot l) -> distanceSquared(l.rect())).thenComparingInt(Lot::id));
     }
 
+    /**
+     * The lots a building could go on, best first: the reserved lots made for that kind, nearest the square first. When
+     * the plan has none (a farm lot dropped for steep or wet ground, say) any other reserved lot will do, house lots
+     * first as there are most of those, then the rest nearest the square; the caller checks the template fits.
+     */
+    public List<Lot> candidatesFor(BuildingType type) {
+        List<Lot> same = lots.stream().filter(l -> l.status() == LotStatus.RESERVED && l.type() == type)
+                .sorted(Comparator.comparingLong((Lot l) -> distanceSquared(l.rect())).thenComparingInt(Lot::id)).toList();
+        if (!same.isEmpty()) {
+            return same;
+        }
+        return lots.stream().filter(l -> l.status() == LotStatus.RESERVED)
+                .sorted(Comparator.comparingInt((Lot l) -> l.type() == BuildingType.HOUSE ? 0 : 1)
+                        .thenComparingLong(l -> distanceSquared(l.rect())).thenComparingInt(Lot::id)).toList();
+    }
+
     /** Marks a lot as built on. Returns false if there is no such lot or it is already filled. */
     public boolean fill(int lotId) {
         for (int i = 0; i < lots.size(); i++) {

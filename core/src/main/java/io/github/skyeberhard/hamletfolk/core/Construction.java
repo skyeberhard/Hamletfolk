@@ -277,14 +277,14 @@ public final class Construction {
             if (type.isEmpty()) {
                 continue;
             }
-            Optional<VillagePlan.Lot> lot = plan.nextLot(type.get());
-            if (lot.isEmpty()) {
-                continue;
-            }
-            Optional<ConstructionProject> project = queue(settlement, day, biome, type.get(), 0, lot.get(), 1, catalog,
-                    blueprints, groundHeight, directive.reason(), null);
-            if (project.isPresent()) {
-                return project;
+            boolean first = true;
+            for (VillagePlan.Lot lot : plan.candidatesFor(type.get())) {
+                Optional<ConstructionProject> project = queue(settlement, day, biome, type.get(), 0, lot, 1, catalog,
+                        blueprints, groundHeight, directive.reason(), null, first);
+                if (project.isPresent()) {
+                    return project;
+                }
+                first = false;
             }
         }
         // Nothing lacking that can be built: look for an upgrade.
@@ -299,7 +299,7 @@ public final class Construction {
                 continue;
             }
             Optional<ConstructionProject> project = queue(settlement, day, biome, done.type(), done.tier(), lot.get(),
-                    2, catalog, blueprints, groundHeight, "it can afford a better one", done);
+                    2, catalog, blueprints, groundHeight, "it can afford a better one", done, false);
             if (project.isPresent()) {
                 return project;
             }
@@ -332,7 +332,7 @@ public final class Construction {
     private static Optional<ConstructionProject> queue(Settlement settlement, long day, String biome, BuildingType type,
             int currentTier, VillagePlan.Lot lot, int margin, TemplateCatalog catalog,
             Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints, IntBinaryOperator groundHeight, String reason,
-            ConstructionProject replacing) {
+            ConstructionProject replacing, boolean explain) {
         List<TemplateCatalog.Template> ladder = catalog.ladder(type, biome);
         Map<ResourceType, Integer> stock = new EnumMap<>(ResourceType.class);
         for (ResourceType resource : ResourceType.values()) {
@@ -353,7 +353,7 @@ public final class Construction {
         Optional<TemplateCatalog.Template> best = TemplateCatalog.bestAffordable(ladder, currentTier,
                 t -> fitting.apply(t).map(Construction::priceOf).orElse(UNBUILDABLE), stock);
         if (best.isEmpty()) {
-            if (replacing == null) {
+            if (replacing == null && explain) {
                 explainWhyNot(settlement, day, type, ladder, blueprints, lot);
             }
             return Optional.empty();

@@ -417,4 +417,19 @@ class ConstructionTest {
             Construction.setCostPercent(before);
         }
     }
+
+    @Test
+    void aVillageWithNoLotMadeForWhatItNeedsUsesAnotherFreeOne() {
+        Settlement s = village();
+        for (VillagePlan.Lot lot : new ArrayList<>(s.plan().lots())) {
+            if (lot.type() == BuildingType.FARM) {
+                s.plan().fill(lot.id()); // the plan had no farm lot left (dropped as steep or wet, or already used)
+            }
+        }
+        assertTrue(s.plan().nextLot(BuildingType.FARM).isEmpty());
+        ConstructionProject project = propose(s, 5).orElseThrow();
+        assertEquals(BuildingType.FARM, project.type());
+        VillagePlan.Lot lot = s.plan().lots().stream().filter(l -> l.id() == project.lotId()).findFirst().orElseThrow();
+        assertEquals(BuildingType.HOUSE, lot.type(), "house lots are used first");
+    }
 }
