@@ -11,6 +11,7 @@ import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.TerrainPad;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.TemplateCatalog;
+import io.github.skyeberhard.hamletfolk.core.VillagePlan;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -486,6 +487,7 @@ final class ConstructionService {
                 project.setSign(at.getBlockX(), at.getBlockY(), at.getBlockZ());
             }
         }
+        pave(world, settlement, project, bp);
         // Without a registered sign the planner would still think the building missing and build another: try a few
         // more times (a corner may be blocked for now) before giving up on the sign.
         if (!registered && signTries.merge(project.id(), 1, Integer::sum) < SIGN_TRIES) {
@@ -502,6 +504,74 @@ final class ConstructionService {
         signTries.remove(project.id());
         gradingPasses.remove(project.id());
         plugin.requestSave();
+    }
+
+    /** How far along the planned streets a finished building lays path (the street grows outward as the village does). */
+    private static final int PAVE_RANGE = 20;
+    private static final int WALKWAY_MAX = 14;
+    private static final java.util.Set<Material> PATHABLE = java.util.EnumSet.of(Material.GRASS_BLOCK, Material.DIRT,
+            Material.COARSE_DIRT, Material.PODZOL, Material.ROOTED_DIRT, Material.MYCELIUM);
+
+    /**
+     * Gives a finished building its street: the planned streets and the square within reach of it are laid with path
+     * blocks, and a walkway of path leads from its entrance out to the street. Only plain ground is changed (never
+     * anything built, and sand stays sand); streets follow the land and are not graded.
+     */
+    private void pave(World world, Settlement settlement, ConstructionProject project, Blueprint bp) {
+        VillagePlan plan = settlement.plan();
+        if (plan == null) {
+            return;
+        }
+        List<Rect> streets = new ArrayList<>();
+        plan.roads().forEach(r -> streets.add(r.rect()));
+        if (plan.square() != null) {
+            streets.add(plan.square());
+        }
+        Rect near = new Rect(project.x(), project.z(), bp.width(), bp.depth()).inflated(PAVE_RANGE);
+        for (Rect street : streets) {
+            for (int x = Math.max(street.x(), near.x()); x <= Math.min(street.maxX(), near.maxX()); x++) {
+                for (int z = Math.max(street.z(), near.z()); z <= Math.min(street.maxZ(), near.maxZ()); z++) {
+                    layPath(world, x, z);
+                }
+            }
+        }
+        java.util.OptionalInt front = bp.front();
+        if (front.isEmpty()) {
+            return;
+        }
+        int dx = front.getAsInt() == 1 ? 1 : front.getAsInt() == 3 ? -1 : 0;
+        int dz = front.getAsInt() == 2 ? 1 : front.getAsInt() == 0 ? -1 : 0;
+        int x = dx == 0 ? project.x() + bp.width() / 2 : dx > 0 ? project.x() + bp.width() : project.x() - 1;
+        int z = dz == 0 ? project.z() + bp.depth() / 2 : dz > 0 ? project.z() + bp.depth() : project.z() - 1;
+        for (int step = 0; step < WALKWAY_MAX; step++, x += dx, z += dz) {
+            final int px = x;
+            final int pz = z;
+            if (streets.stream().anyMatch(r -> r.contains(px, pz))) {
+                break;
+            }
+            layPath(world, x, z);
+        }
+    }
+
+    /** Turns the plain ground at a column into path, if that is what is there. */
+    private static void layPath(World world, int x, int z) {
+        int y = surfaceY(world, x, z);
+        if (y == Construction.UNKNOWN_GROUND) {
+            return;
+        }
+        Block ground = world.getBlockAt(x, y, z);
+        if (!PATHABLE.contains(ground.getType())) {
+            return;
+        }
+        Block above = ground.getRelative(0, 1, 0);
+        if (!above.getType().isAir()) {
+            if (!(Tag.FLOWERS.isTagged(above.getType()) || Tag.REPLACEABLE.isTagged(above.getType()))
+                    || above.isLiquid()) {
+                return; // something stands there
+            }
+            above.setType(Material.AIR, false);
+        }
+        ground.setType(Material.DIRT_PATH, false);
     }
 
     /** An upgrade replaces the building it was built over: its sign goes and its registration with it. */
