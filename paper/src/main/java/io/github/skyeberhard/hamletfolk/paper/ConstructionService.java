@@ -62,6 +62,8 @@ final class ConstructionService {
     private final Map<Integer, Map<Long, Integer>> attempts = new HashMap<>();
     private final Map<Integer, Set<Long>> skipped = new HashMap<>();
     private final Map<Integer, Integer> signTries = new HashMap<>();
+    private final Map<java.util.UUID, Long> lastLook = new HashMap<>();
+    private static final long LOOK_EVERY_MS = 10_000;
 
     ConstructionService(HamletfolkPlugin plugin, SettlementService service) {
         this.plugin = plugin;
@@ -103,6 +105,12 @@ final class ConstructionService {
                 || !world.isChunkLoaded(settlement.centerX() >> 4, settlement.centerZ() >> 4)) {
             return;
         }
+        // Thinking about it costs a little, so a village that cannot build yet looks again every few seconds, not every tick.
+        long now = System.currentTimeMillis();
+        if (now - lastLook.getOrDefault(settlement.id(), 0L) < LOOK_EVERY_MS) {
+            return;
+        }
+        lastLook.put(settlement.id(), now);
         String style = BiomeSet.forBiome(world.getComputedBiome(settlement.centerX(), 64, settlement.centerZ()).getKey().getKey());
         Optional<ConstructionProject> queued = Construction.propose(settlement, settlement.lastSimulatedDay(), style,
                 service.treasuryLimit(settlement), plugin.templates().catalog(), plugin.templates()::blueprint,

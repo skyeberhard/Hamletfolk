@@ -244,7 +244,6 @@ public final class Construction {
                 || settlement.openProject().isPresent() || decidedToday(settlement, day)) {
             return Optional.empty();
         }
-        settlement.conditions().put(DECIDED, day);
         String biome = BiomeSet.normalize(style);
         for (Planner.Directive directive : Planner.directives(settlement, day, treasuryLimit)) {
             if (directive.kind() != Planner.Kind.BUILD) {
@@ -350,6 +349,7 @@ public final class Construction {
             project.setShift(replacing.x() - x, replacing.z() - z);
         }
         settlement.addProject(project);
+        settlement.conditions().put(DECIDED, day); // at most one new project a day
         settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " set out to "
                 + (currentTier > 0 ? "upgrade its " : "build a ") + type.label().toLowerCase(Locale.ROOT) + " (tier "
                 + best.get().tier() + "): " + reason + ".");
