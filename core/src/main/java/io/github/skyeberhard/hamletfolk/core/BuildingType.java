@@ -35,6 +35,11 @@ public enum BuildingType {
         return this == SHOP ? MERCHANTS_PER_SHOP : WORKERS_PER_BUILDING;
     }
 
+    /** R4.19: how many more places each tier above the first adds. */
+    public int placesPerTier() {
+        return this == SHOP ? 1 : 2;
+    }
+
     /** R2.3: the occupation a building of this kind employs people in, if any. */
     public Optional<Occupation> job() {
         return switch (this) {

@@ -334,6 +334,14 @@ public final class Construction {
                 }
                 first = false;
             }
+            // No lot, or no way to pay for another: the need is met by improving a building the village already has, if it can.
+            if (directive.tier() != Planner.Tier.GROWTH) { // a want (a shop, a treasury) is not a reason to spend everything
+                Optional<ConstructionProject> improved = upgrade(settlement, day, biome, catalog, blueprints, terrain,
+                        t -> t == type.get(), 1, false, directive.reason());
+                if (improved.isPresent()) {
+                    return improved;
+                }
+            }
         }
         boolean foodNeeded = Planner.directives(settlement, day, treasuryLimit).stream()
                 .anyMatch(d -> d.kind() == Planner.Kind.BUILD && d.tier() == Planner.Tier.FOOD);
@@ -343,16 +351,35 @@ public final class Construction {
                 return square;
             }
         }
-        // Nothing lacking that can be built: look for an upgrade, at most one a week and never of a building just finished.
+        // Every need is met. What the village wants now follows what it is good at: the buildings that serve its direction
+        // are improved first, then any other, at most one a week and never a building just finished.
         Long lastUpgrade = settlement.conditions().get(UPGRADED);
         if (lastUpgrade != null && day - lastUpgrade < UPGRADE_EVERY_DAYS) {
             return Optional.empty();
         }
+        Direction direction = direction(settlement, day);
+        Optional<ConstructionProject> wanted = upgrade(settlement, day, biome, catalog, blueprints, terrain,
+                t -> direction.serves(t), 2, true, "it is a " + direction.label() + " village and can afford a better one");
+        if (wanted.isPresent()) {
+            return wanted;
+        }
+        return upgrade(settlement, day, biome, catalog, blueprints, terrain, t -> true, 2, true, "it can afford a better one");
+    }
+
+    /**
+     * Improves a building the village raised itself (never one a player made): the next tier of one of the kinds, if the
+     * stores hold margin times its cost. A need passes margin 1 and no pacing; a want, margin 2 and a building that has
+     * stood a few days.
+     */
+    private static Optional<ConstructionProject> upgrade(Settlement settlement, long day, String biome, TemplateCatalog catalog,
+            Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints, HeightSource terrain,
+            java.util.function.Predicate<BuildingType> kinds, int margin, boolean paced, String reason) {
+        VillagePlan plan = settlement.plan();
         List<ConstructionProject> built = new ArrayList<>(settlement.projects());
         for (int i = built.size() - 1; i >= 0; i--) {
             ConstructionProject done = built.get(i);
-            if (done.status() != ConstructionProject.Status.DONE || !isLatestOnLot(built, done) || !standing(settlement, done)
-                    || day - done.finishedDay() < UPGRADE_AFTER_DAYS) {
+            if (done.status() != ConstructionProject.Status.DONE || !kinds.test(done.type()) || !isLatestOnLot(built, done, day)
+                    || !standing(settlement, done) || (paced && day - done.finishedDay() < UPGRADE_AFTER_DAYS)) {
                 continue;
             }
             Optional<VillagePlan.Lot> lot = plan.lots().stream().filter(l -> l.id() == done.lotId()).findFirst();
@@ -360,14 +387,72 @@ public final class Construction {
                 continue;
             }
             Optional<ConstructionProject> project = queue(settlement, day, biome, done.type(), done.tier(), lot.get(),
-                    2, catalog, blueprints, terrain, "it can afford a better one", done, false);
+                    margin, catalog, blueprints, terrain, reason, done, false);
             if (project.isPresent()) {
-                settlement.conditions().put(UPGRADED, day);
+                if (paced) {
+                    settlement.conditions().put(UPGRADED, day);
+                }
                 return project;
             }
         }
         return Optional.empty();
     }
+
+    /**
+     * What a village is good at, from what it produces and trades over the last week: its direction once every need is met.
+     * It decides which buildings are improved first.
+     */
+    public enum Direction {
+        FARMING("farming", BuildingType.FARM, BuildingType.HOUSE),
+        FORESTRY("timber", BuildingType.HOUSE, BuildingType.SHOP),
+        MINING("mining", BuildingType.MINE, BuildingType.SMITHY),
+        CRAFT("craft", BuildingType.SMITHY, BuildingType.SHOP),
+        TRADE("trading", BuildingType.SHOP, BuildingType.TREASURY),
+        UNDECIDED("all-round");
+
+        private final String label;
+        private final List<BuildingType> serves;
+
+        Direction(String label, BuildingType... serves) {
+            this.label = label;
+            this.serves = List.of(serves);
+        }
+
+        public String label() {
+            return label;
+        }
+
+        /** True for a building this direction is built around. */
+        public boolean serves(BuildingType type) {
+            return serves.contains(type);
+        }
+    }
+
+    /**
+     * The village's direction: a trading village if it has merchants and has banked a good sum, otherwise whatever it
+     * produces most of (food counted lightly, as every village makes plenty), and undecided if it has made little.
+     */
+    public static Direction direction(Settlement settlement, long day) {
+        ResourceFlow flow = settlement.flow();
+        boolean merchants = settlement.residents().stream().anyMatch(r -> r.occupation() == Occupation.MERCHANT);
+        if (merchants && SettlementSimulator.banked(settlement) >= TRADE_TREASURY) {
+            return Direction.TRADE;
+        }
+        double food = flow.produced(ResourceType.FOOD, day) / 4.0;
+        double wood = flow.produced(ResourceType.WOOD, day);
+        double stone = flow.produced(ResourceType.STONE, day) + flow.produced(ResourceType.METAL, day);
+        double craft = flow.produced(ResourceType.TOOLS, day) + flow.produced(ResourceType.GOODS, day);
+        double best = Math.max(Math.max(food, wood), Math.max(stone, craft));
+        if (best < MIN_DIRECTION_OUTPUT) {
+            return Direction.UNDECIDED;
+        }
+        return best == food ? Direction.FARMING : best == wood ? Direction.FORESTRY : best == stone ? Direction.MINING : Direction.CRAFT;
+    }
+
+    /** Emeralds banked before a village with merchants counts as a trading village. */
+    static final int TRADE_TREASURY = 100;
+    /** Least weekly output (food counted at a quarter) before a village has any direction at all. */
+    static final int MIN_DIRECTION_OUTPUT = 20;
 
     /** Days a finished building must stand before the village thinks of improving it, and between two upgrades. */
     static final int UPGRADE_AFTER_DAYS = 5;
@@ -424,9 +509,13 @@ public final class Construction {
         return decided != null && decided >= day;
     }
 
-    private static boolean isLatestOnLot(List<ConstructionProject> all, ConstructionProject project) {
+    /** Days before a given-up upgrade of a building may be tried again. */
+    static final int UPGRADE_RETRY_DAYS = 20;
+
+    private static boolean isLatestOnLot(List<ConstructionProject> all, ConstructionProject project, long day) {
         // A later project on the lot, even a given-up upgrade, means this one is not ours to try again.
-        return all.stream().noneMatch(p -> p != project && p.lotId() == project.lotId() && p.id() > project.id());
+        return all.stream().noneMatch(p -> p != project && p.lotId() == project.lotId() && p.id() > project.id()
+                && !(p.status() == ConstructionProject.Status.CANCELLED && day - p.finishedDay() >= UPGRADE_RETRY_DAYS));
     }
 
     /** The building the project made still has its sign registered, so it still stands and was not replaced. */

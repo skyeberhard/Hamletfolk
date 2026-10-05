@@ -445,6 +445,12 @@ final class SettlementCommand implements TabExecutor {
                     + " lots reserved and " + layout.filledCount() + " built on (" + layout.dropped()
                     + " dropped as too steep or wet). /settlement lots shows them.", NamedTextColor.GRAY));
         }
+        io.github.skyeberhard.hamletfolk.core.Construction.Direction direction =
+                io.github.skyeberhard.hamletfolk.core.Construction.direction(s, today);
+        player.sendMessage(Component.text("Direction: " + direction.label() + " village"
+                + (direction == io.github.skyeberhard.hamletfolk.core.Construction.Direction.UNDECIDED
+                        ? " (it has not made or traded enough yet to have one)" : " (from what it makes and trades most of)")
+                + ". Once every need is met it improves the buildings that serve it first.", NamedTextColor.GRAY));
         List<Planner.Decision> log = s.decisions();
         if (!log.isEmpty()) {
             player.sendMessage(Component.text("Recent decisions:", NamedTextColor.GRAY));

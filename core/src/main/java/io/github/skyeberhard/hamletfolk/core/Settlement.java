@@ -48,6 +48,21 @@ public final class Settlement {
         return Collections.unmodifiableList(projects);
     }
 
+    /** R4.19: the tier of a building: that of the village's own project that made it, or 1 for one a player registered. */
+    public int tierOf(Building building) {
+        for (int i = projects.size() - 1; i >= 0; i--) {
+            ConstructionProject p = projects.get(i);
+            if (p.status() == ConstructionProject.Status.DONE && p.type() == building.type()
+                    && p.signY() != ConstructionProject.NO_SIGN
+                    && p.signX() == building.x() && p.signY() == building.y() && p.signZ() == building.z()
+                    && (p.lotId() < 0 || projects.stream().noneMatch(q -> q != p && q.lotId() == p.lotId() && q.id() > p.id()
+                            && q.status() == ConstructionProject.Status.DONE))) {
+                return p.tier();
+            }
+        }
+        return 1;
+    }
+
     /** R4.7: the project being built or waiting for a builder, if any (the village does one at a time). */
     public Optional<ConstructionProject> openProject() {
         return projects.stream().filter(ConstructionProject::isOpen).findFirst();
@@ -61,13 +76,22 @@ public final class Settlement {
         projects.add(project);
         long closed = projects.stream().filter(p -> !p.isOpen()).count();
         for (int i = 0; i < projects.size() && closed > MAX_CLOSED_PROJECTS; ) {
-            if (projects.get(i).isOpen()) {
-                i++;
+            ConstructionProject p = projects.get(i);
+            if (p.isOpen() || isStandingRecord(p)) {
+                i++; // open work, and the record of a building that still stands (its tier and its place), are kept
             } else {
                 projects.remove(i);
                 closed--;
             }
         }
+    }
+
+    /** A finished project that is the newest on its lot, with its sign still registered: the village's own building. */
+    private boolean isStandingRecord(ConstructionProject p) {
+        return p.status() == ConstructionProject.Status.DONE && p.signY() != ConstructionProject.NO_SIGN
+                && hasBuildingAt(p.signX(), p.signY(), p.signZ())
+                && projects.stream().noneMatch(q -> q != p && q.lotId() == p.lotId() && q.id() > p.id()
+                        && q.status() == ConstructionProject.Status.DONE);
     }
 
     /** R8.3: the plan of streets and lots, or null if the village has none yet. */

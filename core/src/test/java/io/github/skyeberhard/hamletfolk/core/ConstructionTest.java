@@ -647,4 +647,107 @@ class ConstructionTest {
             p.ifPresent(x -> Construction.cancel(s, x, 0, "test", false));
         }
     }
+
+    /** A building the village itself raised on a lot: finished, its sign registered, so it counts and can be improved. */
+    private ConstructionProject raised(Settlement s, BuildingType type, int tier, int signX) {
+        VillagePlan.Lot lot = s.plan().lots().stream().filter(l -> l.status() == VillagePlan.LotStatus.RESERVED).findFirst().orElseThrow();
+        ConstructionProject p = new ConstructionProject(s.nextProjectId(), type, tier, 0, "plains", lot.rect().x(), 64,
+                lot.rect().z(), lot.id(), 0);
+        p.setSign(signX, 65, 5000);
+        s.addProject(p);
+        s.registerBuilding(new Building(type, signX, 65, 5000, 0, "the builders"));
+        Construction.finish(s, p, 1);
+        return p;
+    }
+
+    @Test
+    void eachTierAddsPlacesToAWorkBuildingButOnlyForTheVillagesOwnProjects() {
+        Settlement s = village();
+        raised(s, BuildingType.FARM, 2, 4000);
+        assertEquals(6, SettlementSimulator.placesFor(s, Occupation.FARMER), "4 places and 2 for the second tier");
+        s.registerBuilding(new Building(BuildingType.MINE, 4100, 65, 5000, 0, "a player"));
+        assertEquals(4, SettlementSimulator.placesFor(s, Occupation.MINER), "a player's building is tier 1");
+        raised(s, BuildingType.SHOP, 3, 4200);
+        assertEquals(3, SettlementSimulator.placesFor(s, Occupation.MERCHANT), "a shop adds one a tier");
+    }
+
+    @Test
+    void aNeedThatCannotBeMetWithANewBuildingIsMetByImprovingOne() {
+        Settlement s = new Settlement(VILLAGE, "Tightham", "world", 0, 0, 0);
+        for (int i = 0; i < 4; i++) {
+            s.addResident(person(Occupation.FARMER)); // every place at the one farm is taken, and food is short
+        }
+        s.addResident(person(Occupation.UNEMPLOYED));
+        s.setPlan(PlanGenerator.generate(0, 0, 7L, "plains", HeightSource.flat(64)));
+        s.ledger().add(ResourceType.WOOD, 100);
+        s.ledger().add(ResourceType.STONE, 100);
+        ConstructionProject farm = raised(s, BuildingType.FARM, 1, 4000);
+        for (VillagePlan.Lot lot : new ArrayList<>(s.plan().lots())) {
+            s.plan().fill(lot.id()); // nowhere for another farm
+        }
+        ConstructionProject upgrade = propose(s, 2).orElseThrow();
+        assertTrue(upgrade.isUpgrade());
+        assertEquals(BuildingType.FARM, upgrade.type());
+        assertEquals(2, upgrade.tier());
+        assertEquals(farm.lotId(), upgrade.lotId());
+    }
+
+    @Test
+    void aVillagesDirectionFollowsWhatItMakesAndTrades() {
+        Settlement s = village();
+        assertEquals(Construction.Direction.UNDECIDED, Construction.direction(s, 10));
+        s.flow().recordProduced(ResourceType.FOOD, 10, 400);
+        assertEquals(Construction.Direction.FARMING, Construction.direction(s, 10));
+        s.flow().recordProduced(ResourceType.STONE, 10, 300);
+        assertEquals(Construction.Direction.MINING, Construction.direction(s, 10));
+        s.addResident(person(Occupation.MERCHANT));
+        s.ledger().addTreasury(150);
+        assertEquals(Construction.Direction.TRADE, Construction.direction(s, 10));
+    }
+
+    @Test
+    void withEveryNeedMetTheVillageImprovesWhatItsDirectionServesFirst() {
+        Settlement s = village();
+        s.ledger().add(ResourceType.FOOD, 500);
+        raised(s, BuildingType.MINE, 1, 4100); // older
+        raised(s, BuildingType.FARM, 1, 4000); // newer: without a direction the newest would come first
+        for (BuildingType type : BuildingType.values()) {
+            if (s.buildingCount(type) == 0) {
+                s.registerBuilding(new Building(type, 6000 + type.ordinal(), 64, 6000, 0, "a player"));
+            }
+        }
+        s.ledger().add(ResourceType.WOOD, 100);
+        s.ledger().add(ResourceType.STONE, 100);
+        s.housing().setChunk(0, 0, 20);
+        s.flow().recordProduced(ResourceType.STONE, 20, 300); // a mining village
+        // A cheap second-tier mine, so what it costs does not decide the test.
+        catalog.capture(BuildingType.MINE, "plains", 2, new Blueprint("m2", 3, 1, 3, List.of(new Blueprint.Block(0, 0, 0, "COBBLESTONE"))));
+        ConstructionProject upgrade = propose(s, 20).orElseThrow();
+        assertTrue(upgrade.isUpgrade());
+        assertEquals(BuildingType.MINE, upgrade.type(), "the mine, not the older farm");
+        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("mining village")));
+        assertTrue(s.conditions().containsKey(Construction.UPGRADED), "a want is paced");
+    }
+
+    @Test
+    void aBuildingKeepsItsTierOnlyWhileItIsTheVillagesOwnAndTheNewestOnItsLot() {
+        Settlement s = village();
+        raised(s, BuildingType.FARM, 2, 4000);
+        assertEquals(2, s.tierOf(new Building(BuildingType.FARM, 4000, 65, 5000, 0, "the builders")));
+        assertEquals(1, s.tierOf(new Building(BuildingType.MINE, 4000, 65, 5000, 0, "a player")), "another kind at the same sign");
+        assertEquals(1, s.tierOf(new Building(BuildingType.FARM, 4001, 65, 5000, 0, "a player")), "another sign");
+    }
+
+    @Test
+    void trimmingOldProjectsNeverForgetsABuildingThatStillStands() {
+        Settlement s = village();
+        raised(s, BuildingType.FARM, 2, 4000); // the oldest record, and still standing
+        for (int i = 0; i < Settlement.MAX_CLOSED_PROJECTS + 10; i++) {
+            ConstructionProject p = new ConstructionProject(s.nextProjectId(), BuildingType.HOUSE, 1, 0, "plains", 0, 64, 0, -1, i);
+            s.addProject(p);
+            p.cancel(i);
+        }
+        assertEquals(2, s.tierOf(new Building(BuildingType.FARM, 4000, 65, 5000, 0, "the builders")), "its tier survives the trimming");
+        assertTrue(s.projects().size() <= Settlement.MAX_CLOSED_PROJECTS + 2);
+    }
 }
