@@ -53,6 +53,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
             return;
         }
 
+        io.github.skyeberhard.hamletfolk.core.Construction.setCostPercent(getConfig().getInt("construction.cost-percent", 35));
         templates = new TemplateLibrary(this);
         templates.load();
         service = new SettlementService(this, registry, HamletfolkConfig.from(getConfig()));

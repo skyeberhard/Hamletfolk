@@ -100,3 +100,7 @@ membership:
 # Turn off to stop villages building (a project in progress waits).
 construction:
   enabled: true
+  # What villagers pay, as a percentage of what the blocks would cost to craft. The game's own buildings are big (a
+  # smithy is nearly 300 wood) and a village's stores hold only 100 plus 10 per resident, so at 100 most villages
+  # could never afford one. Lower is cheaper.
+  cost-percent: 35

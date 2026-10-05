@@ -31,6 +31,28 @@ public final class Construction {
     private Construction() {
     }
 
+    /**
+     * R4.7: what villagers pay, as a percentage of what the blocks would cost to craft. The game's own buildings are
+     * big (a smithy is nearly 300 wood), more than a village's stores can hold, so a village could never afford one;
+     * 100 in core so tests are exact, set from the config (default 35) by the Paper layer, like the lifespan scale.
+     */
+    private static volatile int costPercent = 100;
+
+    public static void setCostPercent(int percent) {
+        costPercent = Math.max(1, Math.min(100, percent));
+    }
+
+    public static int costPercent() {
+        return costPercent;
+    }
+
+    /** A blueprint's cost at the going rate, whole units rounded up. */
+    public static Map<ResourceType, Integer> priceOf(Blueprint blueprint) {
+        Map<ResourceType, Integer> price = new EnumMap<>(ResourceType.class);
+        blueprint.cost().forEach((type, units) -> price.put(type, Math.max(1, (int) Math.ceil(units * costPercent / 100.0))));
+        return price;
+    }
+
     // ----- comparing blocks -----
 
     /**
@@ -132,9 +154,11 @@ public final class Construction {
             return true;
         }
         ResourceType type = cost.get().type();
+        // Credit is counted in 1/200ths of a unit: a half-unit is 100, so a block costs halves x percent of those.
+        int price = cost.get().halves() * costPercent;
         int have = project.credit().getOrDefault(type, 0);
         int taken = 0;
-        while (have < cost.get().halves()) {
+        while (have < price) {
             if (settlement.ledger().take(type, 1) < 1) {
                 project.credit().put(type, have);
                 if (taken > 0) {
@@ -143,10 +167,10 @@ public final class Construction {
                 project.setWaitingFor(type);
                 return false;
             }
-            have += 2;
+            have += 200;
             taken++;
         }
-        project.credit().put(type, have - cost.get().halves());
+        project.credit().put(type, have - price);
         if (taken > 0) {
             settlement.flow().recordConsumed(type, day, taken);
         }
@@ -327,7 +351,7 @@ public final class Construction {
                                 && o[0] + b.width() <= lot.rect().x() + lot.rect().width()
                                 && o[1] + b.depth() <= lot.rect().z() + lot.rect().depth()).orElse(false)));
         Optional<TemplateCatalog.Template> best = TemplateCatalog.bestAffordable(ladder, currentTier,
-                t -> fitting.apply(t).map(Blueprint::cost).orElse(UNBUILDABLE), stock);
+                t -> fitting.apply(t).map(Construction::priceOf).orElse(UNBUILDABLE), stock);
         if (best.isEmpty()) {
             if (replacing == null) {
                 explainWhyNot(settlement, day, type, ladder, blueprints, lot);
@@ -379,7 +403,7 @@ public final class Construction {
             text = settlement.name() + " wants a " + name + " but its lot is too small for the plainest design.";
         } else {
             StringBuilder lacks = new StringBuilder();
-            first.get().cost().forEach((resource, units) -> {
+            priceOf(first.get()).forEach((resource, units) -> {
                 int have = settlement.ledger().get(resource);
                 if (have < units) {
                     lacks.append(lacks.length() == 0 ? "" : ", ").append(units).append(' ')

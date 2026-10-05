@@ -390,4 +390,31 @@ class ConstructionTest {
         assertTrue(propose(poor, 11).isEmpty());
         assertEquals(2, poor.history().stream().filter(e -> e.text().contains("cannot afford")).count(), "a reminder after five days");
     }
+
+    @Test
+    void villagersPayAFractionOfTheCraftingCostAndItAddsUpBlockByBlock() {
+        int before = Construction.costPercent();
+        try {
+            Construction.setCostPercent(35);
+            Blueprint wall = new Blueprint("w", 10, 10, 1, java.util.stream.IntStream.range(0, 100)
+                    .mapToObj(i -> new Blueprint.Block(i % 10, i / 10, 0, "OAK_PLANKS")).toList());
+            assertEquals(35, Construction.priceOf(wall).get(ResourceType.WOOD)); // 100 planks at 35%
+            Settlement s = village();
+            ConstructionProject p = new ConstructionProject(1, BuildingType.MINE, 1, 0, "plains", 0, 64, 0, 1, 0);
+            int start = s.ledger().get(ResourceType.WOOD);
+            for (Blueprint.Block block : wall.blocks()) {
+                assertTrue(Construction.charge(s, p, block.material(), 1));
+            }
+            assertEquals(35, start - s.ledger().get(ResourceType.WOOD), "100 planks cost 35 wood in all, not 100");
+            // At 35% a vanilla smithy (about 278 wood) is within what a small village can store (150).
+            Settlement tiny = village();
+            tiny.ledger().take(ResourceType.WOOD, 200);
+            tiny.ledger().add(ResourceType.WOOD, 100);
+            Blueprint smithy = new Blueprint("s", 10, 28, 1, java.util.stream.IntStream.range(0, 280)
+                    .mapToObj(i -> new Blueprint.Block(i % 10, i / 10, 0, "OAK_PLANKS")).toList());
+            assertEquals(98, Construction.priceOf(smithy).get(ResourceType.WOOD));
+        } finally {
+            Construction.setCostPercent(before);
+        }
+    }
 }
