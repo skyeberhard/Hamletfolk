@@ -309,6 +309,12 @@ final class ConstructionService {
      * something a player made. Leaves count only if the game grew them (a hedge a player placed is persistent), logs only
      * if they stand among such leaves, and at floor level or below, plain stone and sandstone are just the ground.
      */
+    /** The ground itself, listed rather than taken from a tag (the game's dirt tag does not hold every grass block). */
+    private static final java.util.Set<Material> TERRAIN = java.util.EnumSet.of(Material.GRASS_BLOCK, Material.DIRT,
+            Material.COARSE_DIRT, Material.PODZOL, Material.ROOTED_DIRT, Material.MYCELIUM, Material.MUD, Material.DIRT_PATH,
+            Material.MOSS_BLOCK, Material.GRAVEL, Material.CLAY, Material.SAND, Material.RED_SAND, Material.SNOW_BLOCK,
+            Material.POWDER_SNOW, Material.WATER, Material.ICE, Material.PACKED_ICE);
+
     static boolean clearable(Block block, boolean groundLevel) {
         Material m = block.getType();
         if (m.isAir() || Tag.FLOWERS.isTagged(m) || Tag.SAPLINGS.isTagged(m) || Tag.REPLACEABLE.isTagged(m)) {
@@ -330,8 +336,7 @@ final class ConstructionService {
             }
             return false;
         }
-        if (Tag.DIRT.isTagged(m) || Tag.SAND.isTagged(m) || Tag.SNOW.isTagged(m) || m == Material.GRAVEL
-                || m == Material.CLAY || m == Material.SNOW_BLOCK || m == Material.WATER) {
+        if (TERRAIN.contains(m) || Tag.SAND.isTagged(m) || Tag.SNOW.isTagged(m)) {
             return true;
         }
         return groundLevel && (m == Material.STONE || m == Material.DEEPSLATE || m == Material.SANDSTONE
