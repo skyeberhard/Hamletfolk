@@ -5,6 +5,7 @@ import io.github.skyeberhard.hamletfolk.core.Blueprint;
 import io.github.skyeberhard.hamletfolk.core.BuildingType;
 import io.github.skyeberhard.hamletfolk.core.Construction;
 import io.github.skyeberhard.hamletfolk.core.ConstructionProject;
+import io.github.skyeberhard.hamletfolk.core.ConstructionWork;
 import io.github.skyeberhard.hamletfolk.core.HeightSource;
 import io.github.skyeberhard.hamletfolk.core.Rect;
 import io.github.skyeberhard.hamletfolk.core.Resident;
@@ -61,12 +62,8 @@ final class ConstructionService {
 
     private final HamletfolkPlugin plugin;
     private final SettlementService service;
-    /** Not saved: blocks given up on, and how often each was placed, per project. Start again after a restart. */
-    private final Map<Integer, Map<Long, Integer>> attempts = new HashMap<>();
-    private final Map<Integer, Set<Long>> skipped = new HashMap<>();
-    private final Map<Integer, Integer> signTries = new HashMap<>();
-    /** Not saved: how many passes of levelling a project has had, so water or sand flowing back cannot hold it up for ever. */
-    private final Map<Integer, Integer> gradingPasses = new HashMap<>();
+    /** Transient work is scoped by village as well as its local project number. */
+    private final ConstructionWork workState = new ConstructionWork();
     private static final int MAX_GRADING_PASSES = 60;
     private final Map<java.util.UUID, Long> lastLook = new HashMap<>();
     private static final long LOOK_EVERY_MS = 10_000;
@@ -175,6 +172,7 @@ final class ConstructionService {
     // ----- working -----
 
     private void work(Settlement settlement, World world, ConstructionProject project) {
+        ConstructionWork.Progress progress = workState.progress(settlement.id(), project.id());
         Optional<Resident> builder = project.builder() == null ? Optional.empty() : settlement.resident(project.builder());
         if (builder.isEmpty()) {
             return;
@@ -215,7 +213,7 @@ final class ConstructionService {
         // Level the ground once, for a new building only: an upgrade is built over the old one, and a building already
         // standing (after a restart, say) must not be graded again over its own walls.
         if (!project.graded() && !project.isUpgrade() && project.blocksLeft() < 0) {
-            int passes = gradingPasses.merge(project.id(), 1, Integer::sum);
+            int passes = progress.nextGradingPass();
             int graded = passes > MAX_GRADING_PASSES ? 0 : prepareGround(world, bp, ox, oy, oz, project.biomeSet());
             if (graded < 0) {
                 giveUp(settlement, project, "the ground there cannot be levelled", true);
@@ -227,9 +225,9 @@ final class ConstructionService {
         }
         if (!project.graded()) {
             project.setGraded(true);
-            gradingPasses.remove(project.id());
+            progress.finishGrading();
         }
-        Set<Long> given = skipped.computeIfAbsent(project.id(), k -> new HashSet<>());
+        Set<Long> given = progress.skipped();
         List<Construction.Step> steps = new ArrayList<>(Construction.worklist(bp, old, b -> materialAt(world, ox, oy, oz, b)));
         steps.removeIf(step -> given.contains(key(step.block())));
         project.setBlocksLeft(steps.size());
@@ -237,7 +235,7 @@ final class ConstructionService {
             complete(settlement, world, project, bp);
             return;
         }
-        Map<Long, Integer> tries = attempts.computeIfAbsent(project.id(), k -> new HashMap<>());
+        Map<Long, Integer> tries = progress.attempts();
         Map<Long, String> oldBlocks = new HashMap<>();
         if (old != null) {
             for (Blueprint.Block b : old.blocks()) {
@@ -290,10 +288,7 @@ final class ConstructionService {
 
     private void giveUp(Settlement settlement, ConstructionProject project, String reason, boolean abandonLot) {
         Construction.cancel(settlement, project, settlement.lastSimulatedDay(), reason, abandonLot);
-        attempts.remove(project.id());
-        skipped.remove(project.id());
-        signTries.remove(project.id());
-        gradingPasses.remove(project.id());
+        workState.forget(settlement.id(), project.id());
         plugin.requestSave();
     }
 
@@ -491,7 +486,7 @@ final class ConstructionService {
         pave(world, settlement, project, bp);
         // Without a registered sign the planner would still think the building missing and build another: try a few
         // more times (a corner may be blocked for now) before giving up on the sign.
-        if (!registered && signTries.merge(project.id(), 1, Integer::sum) < SIGN_TRIES) {
+        if (!registered && workState.progress(settlement.id(), project.id()).nextSignTry() < SIGN_TRIES) {
             return;
         }
         if (!registered) {
@@ -500,10 +495,7 @@ final class ConstructionService {
                             + " sign on it to put it to use.");
         }
         Construction.finish(settlement, project, settlement.lastSimulatedDay());
-        attempts.remove(project.id());
-        skipped.remove(project.id());
-        signTries.remove(project.id());
-        gradingPasses.remove(project.id());
+        workState.forget(settlement.id(), project.id());
         plugin.requestSave();
     }
 
