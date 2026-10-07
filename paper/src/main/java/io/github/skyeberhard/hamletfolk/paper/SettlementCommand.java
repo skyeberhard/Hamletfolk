@@ -213,7 +213,8 @@ final class SettlementCommand implements TabExecutor {
                 player.sendMessage(Component.text("...and " + (s.population() - 20) + " more.", NamedTextColor.GRAY));
                 break;
             }
-            String role = r.adult() ? r.occupation().title() + ", " + r.age(s.lastSimulatedDay()) + " days"
+            String role = r.adult() ? r.occupation().title() + (SettlementSimulator.isResting(s, r) ? " (resting: stores full)" : "")
+                    + ", " + r.age(s.lastSimulatedDay()) + " days"
                     + (r.stage(s.lastSimulatedDay()) == LifeStage.ELDER ? " (elder)" : "")
                     + ", " + Wealth.tier(r.wealth()).name().toLowerCase(Locale.ROOT) // R3.5
                     : "child";

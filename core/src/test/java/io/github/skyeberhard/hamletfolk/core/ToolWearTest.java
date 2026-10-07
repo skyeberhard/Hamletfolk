@@ -61,11 +61,15 @@ class ToolWearTest {
         // of ten workers is small enough for the dice to hide a 25% penalty.
         int withTools = 0;
         int without = 0;
-        for (int day = 7; day <= 35; day += 7) {
+        for (int day = 1; day <= 35; day++) {
+            equipped.ledger().take(ResourceType.STONE, 10_000); // spent each day, so the masons never rest at the limit (R4.24)
+            bare.ledger().take(ResourceType.STONE, 10_000);
             simulator.simulateTo(equipped, day, 100);
             simulator.simulateTo(bare, day, 100);
-            withTools += equipped.flow().produced(ResourceType.STONE, day);
-            without += bare.flow().produced(ResourceType.STONE, day);
+            if (day % 7 == 0) {
+                withTools += equipped.flow().produced(ResourceType.STONE, day);
+                without += bare.flow().produced(ResourceType.STONE, day);
+            }
         }
         assertTrue(without < withTools, without + " should be below " + withTools);
     }

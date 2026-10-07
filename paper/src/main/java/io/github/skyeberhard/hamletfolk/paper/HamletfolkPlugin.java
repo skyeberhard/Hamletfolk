@@ -93,6 +93,9 @@ public final class HamletfolkPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (construction != null) {
+            construction.releaseAll(); // R4.22: chunks held for unattended building
+        }
         if (service == null) {
             return;
         }

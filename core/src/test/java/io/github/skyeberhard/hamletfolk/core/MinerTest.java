@@ -228,11 +228,15 @@ class MinerTest {
         equipped.ledger().add(ResourceType.TOOLS, 100);
         int withoutTools = 0;
         int withTools = 0;
-        for (int day = 7; day <= 35; day += 7) {
+        for (int day = 1; day <= 35; day++) {
+            bare.ledger().take(ResourceType.STONE, 10_000); // spent each day, so the masons never rest at the limit (R4.24)
+            equipped.ledger().take(ResourceType.STONE, 10_000);
             strict.simulateTo(bare, day, 100);
             strict.simulateTo(equipped, day, 100);
-            withoutTools += bare.flow().produced(ResourceType.STONE, day);
-            withTools += equipped.flow().produced(ResourceType.STONE, day);
+            if (day % 7 == 0) {
+                withoutTools += bare.flow().produced(ResourceType.STONE, day);
+                withTools += equipped.flow().produced(ResourceType.STONE, day);
+            }
         }
         assertTrue(bare.history().stream().anyMatch(e -> e.text().contains("lack of tools")), "the shortage is recorded");
         assertTrue(withoutTools < withTools, "slowed: " + withoutTools + " against " + withTools);

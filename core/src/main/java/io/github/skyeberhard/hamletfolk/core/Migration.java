@@ -97,7 +97,8 @@ public final class Migration {
         Settlement best = null;
         for (Settlement candidate : registry.settlements()) {
             if (candidate == from || !candidate.world().equals(from.world()) || candidate.isAbandoned()
-                    || candidate.hasCondition("famine") || candidate.freeBeds() <= 0 || score(candidate) < bar) {
+                    || candidate.hasCondition("famine") || candidate.freeBeds() <= 0 || score(candidate) < bar
+                    || SettlementSimulator.inDanger(candidate, candidate.lastSimulatedDay())) { // R5.7
                 continue;
             }
             long distance = candidate.distanceSquared(from.centerX(), from.centerZ());

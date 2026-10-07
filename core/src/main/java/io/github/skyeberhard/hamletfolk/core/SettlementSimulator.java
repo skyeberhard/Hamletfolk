@@ -91,6 +91,13 @@ public final class SettlementSimulator {
     static final int MERCHANT_COMMISSION = 20;
     /** R3.9: one merchant for this many residents, and at least one once there is anything to sell. */
     static final int RESIDENTS_PER_MERCHANT = 15;
+    /** R4.24: a village keeps one lumberjack (and one miner, once a mine has room) from this many residents. */
+    static final int PERMANENT_MIN_POPULATION = 4;
+    /** R4.24: a supplier rests at its storage limit, and goes back to work below this share of it. */
+    static final double RESUME_BELOW = 0.9;
+    static final String RESTING = "resting:";
+    /** R5.7: a village this endangered takes in no newcomers, and none move there. */
+    static final double DANGER_NO_NEWCOMERS = 30;
     /** R4.15: output multiplier for elders. */
     static final double ELDER_OUTPUT = 0.6;
     /** R4.1: a newcomer needs this much food per resident in store, and at least this many days between arrivals. */
@@ -273,6 +280,7 @@ public final class SettlementSimulator {
         Ledger ledger = settlement.ledger();
 
         Random wearRandom = new Random(settlement.id().getLeastSignificantBits() ^ (day * 0x9E3779B97F4A7C15L) ^ 0x700157L);
+        java.util.Set<Occupation> resting = updateResting(settlement);
         Map<ResourceType, Integer> idleForLack = new EnumMap<>(ResourceType.class);
         // R3.6: tools are only a real shortage where there is a way to get more: a registered mine for metal.
         boolean penalty = toollessPenalty && settlement.buildingCount(BuildingType.MINE) > 0;
@@ -290,6 +298,9 @@ public final class SettlementSimulator {
             if (resident.adult() && resident.occupation() == Occupation.MERCHANT) {
                 sell(settlement, resident, day, treasuryRoom(settlement));
                 continue;
+            }
+            if (resident.adult() && resting.contains(resident.occupation())) {
+                continue; // R4.24: the stores are full of what they make
             }
             work(resident, settlement.flow(), ledger, day, random, wearRandom, idleForLack, penalty);
         }
@@ -338,7 +349,7 @@ public final class SettlementSimulator {
     public boolean newcomerDue(Settlement settlement, int freeBeds) {
         int population = settlement.population();
         // Not on the founding day: a villager enrolled then counts as a founder, with no arrival line.
-        if (population == 0 || settlement.isAbandoned() || freeBeds <= 0
+        if (population == 0 || settlement.isAbandoned() || freeBeds <= 0 || inDanger(settlement, settlement.lastSimulatedDay())
                 || settlement.lastSimulatedDay() <= settlement.foundedDay()
                 || settlement.ledger().get(ResourceType.FOOD) < population * NEWCOMER_FOOD_PER_HEAD) {
             return false;
@@ -443,6 +454,10 @@ public final class SettlementSimulator {
                 }
             }
         }
+        // R4.24: with nothing short, the village still keeps a lumberjack and a miner. Never while food is short.
+        if (best == null && !famine && !foodShort) {
+            best = permanentTrade(settlement);
+        }
         // R3.9: with nothing short and goods to spare, someone takes up selling them.
         if (best == null && merchantNeeded(settlement) && workstationFree.test(settlement, Occupation.MERCHANT)) {
             best = Occupation.MERCHANT;
@@ -466,6 +481,67 @@ public final class SettlementSimulator {
                         + " was apprenticed as a " + best.title() + ".");
             }
         }
+    }
+
+    /**
+     * R4.24: the trade a village keeps filled whatever its stock: a lumberjack from {@link #PERMANENT_MIN_POPULATION}
+     * residents, and a miner once a registered mine has a free place. Null if both are held or cannot be had.
+     */
+    private Occupation permanentTrade(Settlement settlement) {
+        if (settlement.population() < PERMANENT_MIN_POPULATION) {
+            return null;
+        }
+        for (Occupation trade : List.of(Occupation.LUMBERJACK, Occupation.MINER)) {
+            boolean held = settlement.residents().stream().anyMatch(r -> r.adult() && r.occupation() == trade);
+            if (!held && workstationFree.test(settlement, trade)) {
+                return trade;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * R4.24: which supplying trades are resting today. A trade rests once everything it makes has reached its storage
+     * limit, and goes back to work when any of it has fallen below {@link #RESUME_BELOW} of the limit; the state is
+     * kept in the settlement's conditions so it survives a restart.
+     */
+    private static java.util.Set<Occupation> updateResting(Settlement settlement) {
+        java.util.Set<Occupation> resting = java.util.EnumSet.noneOf(Occupation.class);
+        for (Occupation trade : List.of(Occupation.LUMBERJACK, Occupation.MINER, Occupation.MASON)) {
+            String key = RESTING + trade.name();
+            boolean was = settlement.hasCondition(key);
+            boolean full = true;
+            boolean low = false;
+            for (ResourceType type : new ResourceType[] {trade.produces(), trade.secondaryProduces()}) {
+                if (type == null) {
+                    continue;
+                }
+                int have = settlement.ledger().get(type);
+                full &= have >= capacity(settlement, type);
+                low |= have < RESUME_BELOW * capacity(settlement, type);
+            }
+            boolean rests = was ? !low : full;
+            if (rests) {
+                resting.add(trade);
+                settlement.conditions().putIfAbsent(key, settlement.lastSimulatedDay());
+            } else {
+                settlement.removeCondition(key);
+            }
+        }
+        return resting;
+    }
+
+    /** R4.24: true if this resident's trade is resting because the stores are full of what it makes. */
+    public static boolean isResting(Settlement settlement, Resident resident) {
+        return resident.adult() && settlement.hasCondition(RESTING + resident.occupation().name());
+    }
+
+    /**
+     * R5.7: true if a village is in danger: attacked in the last {@link #INCIDENT_WINDOW_DAYS} days, or its danger is
+     * {@link #DANGER_NO_NEWCOMERS} or more. Such a village takes in no newcomers, and none move to it.
+     */
+    public static boolean inDanger(Settlement settlement, long day) {
+        return recentIncidents(settlement, day) > 0 || settlement.threat() >= DANGER_NO_NEWCOMERS;
     }
 
     /** What the whole settlement eats in a day. */

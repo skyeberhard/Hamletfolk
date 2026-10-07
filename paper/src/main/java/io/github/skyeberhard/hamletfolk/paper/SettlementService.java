@@ -462,7 +462,10 @@ final class SettlementService {
             return;
         }
         registry.settlementOf(resident.id()).ifPresent(settlement -> {
-            if (Trading.apply(settlement, given, givenAmount, received, receivedAmount).isPresent()) {
+            boolean changed = Trading.apply(settlement, given, givenAmount, received, receivedAmount).isPresent();
+            // R3.15: what a player pays for goods goes to the treasury, as far as it has room.
+            changed |= Trading.purchaseIncome(settlement, given, givenAmount, received, simulator.treasuryRoom(settlement)) > 0;
+            if (changed) {
                 plugin.requestSave();
             }
         });
@@ -514,12 +517,38 @@ final class SettlementService {
         World world = Bukkit.getWorld(settlement.world());
         if (world != null && inScope(world)) {
             simulator.simulateTo(settlement, day(world), config.maxCatchUpDays());
-            // R4.15: residents who died of old age leave the record; remove their villagers if loaded.
-            // Any that are unloaded are removed by track() when they load.
-            for (UUID id : registry.reapDeparted(settlement)) {
-                if (Bukkit.getEntity(id) instanceof Villager departed) {
-                    departed.remove();
-                }
+            reapDeparted(settlement);
+        }
+    }
+
+    /** R4.22: the most days one warp runs a village ahead. */
+    static final int MAX_WARP_DAYS = 60;
+
+    /**
+     * R4.22: runs a village's simulation {@code days} days ahead of where it is, at once (at most {@link #MAX_WARP_DAYS}).
+     * The village's own day then runs ahead of the world's until the world catches up, and nothing is simulated twice.
+     * Returns the days run, 0 if the village's world is not simulated.
+     */
+    int warp(Settlement settlement, int days) {
+        World world = Bukkit.getWorld(settlement.world());
+        if (world == null || !inScope(world) || settlement.isAbandoned()) {
+            return 0;
+        }
+        int n = Math.max(1, Math.min(MAX_WARP_DAYS, days));
+        int simulated = simulator.simulateTo(settlement, settlement.lastSimulatedDay() + n, n);
+        reapDeparted(settlement);
+        plugin.requestSave();
+        return simulated;
+    }
+
+    /**
+     * R4.15: residents who died of old age leave the record; remove their villagers if loaded.
+     * Any that are unloaded are removed by track() when they load.
+     */
+    private void reapDeparted(Settlement settlement) {
+        for (UUID id : registry.reapDeparted(settlement)) {
+            if (Bukkit.getEntity(id) instanceof Villager departed) {
+                departed.remove();
             }
         }
     }

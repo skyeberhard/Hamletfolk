@@ -834,18 +834,12 @@ class ConstructionTest {
     @Test
     void aBuildingThatLacksWoodMakesAJoblessResidentALumberjackWhateverTheStockPerHead() {
         SettlementSimulator sim = SettlementSimulator.withOldAgeDeaths(false);
-        Settlement control = village();
-        control.ledger().take(ResourceType.WOOD, 180); // 20 wood: above the 18 (3 a head) that counts as short
-        control.ledger().add(ResourceType.FOOD, 500);
-        sim.simulateDay(control, 5);
-        assertEquals(0, control.residents().stream().filter(r -> r.occupation() == Occupation.LUMBERJACK).count());
-
         Settlement s = village();
         s.ledger().take(ResourceType.WOOD, 180);
         s.ledger().take(ResourceType.STONE, 200);
         s.ledger().add(ResourceType.FOOD, 500);
         assertTrue(propose(s, 5).isEmpty(), "every plainest design costs 25 and it has 20");
-        assertTrue(Construction.lacking(s, 5).contains(ResourceType.WOOD));
+        assertTrue(Construction.lacking(s, 5).contains(ResourceType.WOOD), "20 wood is above the 18 that counts as short");
         Settlement late = SettlementCodec.decode(SettlementCodec.encode(s)); // the same, but checked long after
         s.setLastSimulatedDay(4);
         sim.simulateDay(s, 5);
@@ -853,7 +847,8 @@ class ConstructionTest {
         assertFalse(Construction.lacking(s, 5 + Construction.LACK_MEMORY_DAYS + 1).contains(ResourceType.WOOD), "forgotten in time");
         late.setLastSimulatedDay(5 + Construction.LACK_MEMORY_DAYS);
         sim.simulateDay(late, 6 + Construction.LACK_MEMORY_DAYS);
-        assertEquals(0, late.residents().stream().filter(r -> r.occupation() == Occupation.LUMBERJACK).count(), "a stale lack hires nobody");
+        // (a village of six keeps a lumberjack anyway since R4.24, so what a stale lack cannot do is hire a second)
+        assertEquals(1, late.residents().stream().filter(r -> r.occupation() == Occupation.LUMBERJACK).count());
     }
 
     @Test

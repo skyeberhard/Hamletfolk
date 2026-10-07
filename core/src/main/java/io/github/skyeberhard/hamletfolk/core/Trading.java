@@ -50,6 +50,21 @@ public final class Trading {
         return OptionalInt.of(spare / value.get().unitsFor(resultAmount));
     }
 
+    /**
+     * R3.15: the emeralds a player pays a villager for goods go into the treasury, as far as it has room. What a player is
+     * paid for goods is still minted by the game. Returns the emeralds credited.
+     */
+    public static int purchaseIncome(Settlement settlement, String givenMaterial, int givenAmount, String receivedMaterial,
+            int treasuryRoom) {
+        if (!ResourceMapper.isCurrency(givenMaterial) || ResourceMapper.isCurrency(receivedMaterial)) {
+            return 0;
+        }
+        int paid = (int) Math.min(Integer.MAX_VALUE, (long) givenAmount * ResourceMapper.currencyValue(givenMaterial));
+        int credited = Math.max(0, Math.min(paid, treasuryRoom));
+        settlement.ledger().addTreasury(credited);
+        return credited;
+    }
+
     /** The change a trade made: {@code units} of {@code type}, added when {@code gained}, else taken out. */
     public record Effect(ResourceType type, int units, boolean gained) {
     }

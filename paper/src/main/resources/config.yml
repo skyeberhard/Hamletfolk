@@ -100,6 +100,14 @@ membership:
 # Turn off to stop villages building (a project in progress waits).
 construction:
   enabled: true
+  # R4.22: build with nobody near. Off (the default), a village only builds while a player is within 128 blocks.
+  # On, the chunks a village needs are loaded just while it decides what to build (once a game day) and while a
+  # project is open, then let go, and the builder works with no player in range. The server must keep running with
+  # nobody online: pause-when-empty-seconds in server.properties must be -1.
+  unattended: false
+  # R4.22: a multiplier on how many blocks a builder places each second (1 is four a second for a new builder,
+  # up to ten for a master). Raise it to test, or on a quiet server.
+  speed: 1.0
   # What villagers pay, as a percentage of what the blocks would cost to craft. The game's own buildings are big (a
   # smithy is nearly 300 wood) and a village's stores hold only 100 plus 10 per resident, so at 100 most villages
   # could never afford one. Lower is cheaper.

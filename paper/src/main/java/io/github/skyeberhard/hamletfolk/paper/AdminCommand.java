@@ -15,8 +15,8 @@ import org.bukkit.entity.Player;
  */
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
-    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "replan");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | replan [name]";
+    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "replan", "warp");
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | replan [name] | warp [name] <days>";
 
     private final SettlementService service;
     private final TemplateCommand templates;
@@ -44,6 +44,7 @@ final class AdminCommand {
             case "cancelproject" -> cancelProject(sender, args);
             case "found" -> found(sender, args);
             case "replan" -> replan(sender, args);
+            case "warp" -> warp(sender, args);
             default -> sender.sendMessage(USAGE);
         }
     }
@@ -105,6 +106,32 @@ final class AdminCommand {
                 + " villagers, food, wood and stone."
                 + (result.settlement().plan() == null ? " Its layout will be planned once the ground around it is loaded."
                         : " Its layout is planned: /settlement lots shows it. The builders start when it needs something."));
+    }
+
+    /**
+     * R4.22: /settlement admin warp [name] &lt;days&gt;: runs a village that many days ahead at once. The last word is the
+     * number of days; any words before it name the village (from the console a name is needed; in game, the one you are in).
+     */
+    private void warp(CommandSender sender, String[] args) {
+        if (args.length < 3 || !args[args.length - 1].chars().allMatch(Character::isDigit) || args[args.length - 1].isEmpty()) {
+            sender.sendMessage("Usage: /settlement admin warp [name] <days>   (1 to " + SettlementService.MAX_WARP_DAYS + ")");
+            return;
+        }
+        int days = args[args.length - 1].length() > 4 ? SettlementService.MAX_WARP_DAYS : Integer.parseInt(args[args.length - 1]);
+        Optional<Settlement> target = args.length >= 4 ? lookup(sender, words(args, 2, args.length - 1)) : here(sender);
+        if (target.isEmpty()) {
+            return;
+        }
+        Settlement settlement = target.get();
+        long before = settlement.lastSimulatedDay();
+        int ran = service.warp(settlement, days);
+        if (ran == 0) {
+            sender.sendMessage(settlement.name() + " is abandoned or in a world that is not simulated, so there is nothing to run.");
+            return;
+        }
+        sender.sendMessage(settlement.name() + " ran " + ran + (ran == 1 ? " day" : " days") + " ahead (day " + before + " to day "
+                + settlement.lastSimulatedDay() + "). Its own clock now runs ahead of the world's until the world catches up. "
+                + settlement.population() + " residents.");
     }
 
     /** R8.10: forgets a village's plan and plans it again. */

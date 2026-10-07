@@ -10,6 +10,7 @@ import io.github.skyeberhard.hamletfolk.core.Rect;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.TerrainPad;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
+import io.github.skyeberhard.hamletfolk.core.StreetGrade;
 import io.github.skyeberhard.hamletfolk.core.TemplateCatalog;
 import io.github.skyeberhard.hamletfolk.core.VillagePlan;
 import java.util.ArrayList;
@@ -69,9 +70,114 @@ final class ConstructionService {
     private final Map<java.util.UUID, Long> lastLook = new HashMap<>();
     private static final long LOOK_EVERY_MS = 10_000;
 
+    /** R4.22: chunks held loaded for one purpose ("p<id>" for an open project, "d<id>" for a village deciding), and since when. */
+    private record Held(String world, Set<Long> chunks, long since) {
+    }
+
+    private final Map<String, Held> held = new HashMap<>();
+    /** How many purposes hold each chunk (world|chunk), so the plugin's one ticket on it is only let go when none does. */
+    private final Map<String, Integer> tickets = new HashMap<>();
+    /** How long a village waits for the chunks of its plan to load before it decides with what is loaded. */
+    private static final long LOAD_WAIT_MS = 20_000;
+    private static final long STALE_DECISION_MS = 60_000;
+
     ConstructionService(HamletfolkPlugin plugin, SettlementService service) {
         this.plugin = plugin;
         this.service = service;
+    }
+
+    /** R4.22: whether villages build with no player near, loading just the chunks they need (off unless configured). */
+    private boolean unattended() {
+        return plugin.getConfig().getBoolean("construction.unattended", false);
+    }
+
+    /** R4.22: a multiplier on how fast builders work (1 is 4 blocks a second for a new builder). */
+    private double speed() {
+        return Math.max(0.25, Math.min(20.0, plugin.getConfig().getDouble("construction.speed", 1.0)));
+    }
+
+    private static long chunkKey(int cx, int cz) {
+        return ((long) cx << 32) ^ (cz & 0xffffffffL);
+    }
+
+    /** The chunks covering a block rectangle, widened by {@code margin} blocks. */
+    private static Set<Long> chunksOf(int x, int z, int width, int depth, int margin) {
+        Set<Long> out = new HashSet<>();
+        for (int cx = (x - margin) >> 4; cx <= (x + width + margin) >> 4; cx++) {
+            for (int cz = (z - margin) >> 4; cz <= (z + depth + margin) >> 4; cz++) {
+                out.add(chunkKey(cx, cz));
+            }
+        }
+        return out;
+    }
+
+    /** Holds the chunks loaded for a purpose (idempotent), asking for the ones not loaded yet. */
+    private Held hold(World world, String key, Set<Long> chunks) {
+        Held existing = held.get(key);
+        if (existing != null) {
+            return existing;
+        }
+        Held fresh = new Held(world.getName(), new HashSet<>(chunks), System.currentTimeMillis());
+        held.put(key, fresh);
+        for (long c : fresh.chunks()) {
+            int cx = (int) (c >> 32);
+            int cz = (int) c;
+            if (tickets.merge(world.getName() + "|" + c, 1, Integer::sum) == 1) {
+                world.addPluginChunkTicket(cx, cz, plugin);
+            }
+            if (!world.isChunkLoaded(cx, cz)) {
+                world.getChunkAtAsync(cx, cz, false); // an ungenerated chunk is left ungenerated
+            }
+        }
+        return fresh;
+    }
+
+    private void release(String key) {
+        Held gone = held.remove(key);
+        World world = gone == null ? null : Bukkit.getWorld(gone.world());
+        if (gone == null) {
+            return;
+        }
+        for (long c : gone.chunks()) {
+            String ticket = gone.world() + "|" + c;
+            Integer left = tickets.computeIfPresent(ticket, (k, n) -> n > 1 ? n - 1 : null);
+            if (left == null && world != null) {
+                world.removePluginChunkTicket((int) (c >> 32), (int) c, plugin);
+            }
+        }
+    }
+
+    /** Lets every chunk go (the plugin is stopping, or unattended building was switched off). */
+    void releaseAll() {
+        for (String key : new ArrayList<>(held.keySet())) {
+            release(key);
+        }
+    }
+
+    private static boolean allLoaded(World world, Set<Long> chunks) {
+        for (long c : chunks) {
+            if (!world.isChunkLoaded((int) (c >> 32), (int) c)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Lets go of chunks held for a project that is no longer being built, or a decision that was never finished. */
+    private void releaseFinished() {
+        java.util.Set<String> active = new HashSet<>();
+        for (Settlement settlement : service.registry().settlements()) {
+            settlement.openProject().filter(p -> p.status() == ConstructionProject.Status.ACTIVE)
+                    .ifPresent(p -> active.add("p" + p.id() + "@" + settlement.id()));
+        }
+        long now = System.currentTimeMillis();
+        for (Map.Entry<String, Held> entry : new ArrayList<>(held.entrySet())) {
+            String key = entry.getKey();
+            boolean stale = key.startsWith("d") ? now - entry.getValue().since() > STALE_DECISION_MS : !active.contains(key);
+            if (stale || !unattended()) {
+                release(key);
+            }
+        }
     }
 
     void start() {
@@ -84,8 +190,10 @@ final class ConstructionService {
 
     private void tick() {
         if (!enabled()) {
+            releaseAll();
             return;
         }
+        releaseFinished();
         for (Settlement settlement : new ArrayList<>(service.registry().settlements())) {
             World world = Bukkit.getWorld(settlement.world());
             if (world == null || !service.inScope(world) || settlement.isAbandoned() || settlement.population() == 0) {
@@ -107,7 +215,7 @@ final class ConstructionService {
         // A queued project is looked at too (it is dropped if the need has gone); only work in hand is left alone.
         if (settlement.openProject().filter(p -> p.status() == ConstructionProject.Status.ACTIVE).isPresent() || settlement.plan() == null
                 || Construction.decidedToday(settlement, settlement.lastSimulatedDay())
-                || !world.isChunkLoaded(settlement.centerX() >> 4, settlement.centerZ() >> 4)) {
+                || (!unattended() && !world.isChunkLoaded(settlement.centerX() >> 4, settlement.centerZ() >> 4))) {
             return;
         }
         // Thinking about it costs a little, so a village that cannot build yet looks again every few seconds, not every tick.
@@ -116,13 +224,38 @@ final class ConstructionService {
             return;
         }
         lastLook.put(settlement.id(), now);
+        // R4.22: with nobody near, the chunks of the plan are loaded for the decision, and let go once it is made.
+        String holdKey = "d" + settlement.id();
+        if (unattended()) {
+            Held loading = hold(world, holdKey, planChunks(settlement));
+            if (!allLoaded(world, loading.chunks()) && now - loading.since() < LOAD_WAIT_MS) {
+                return; // look again in a few seconds; after a while it decides with what has loaded
+            }
+        }
         String style = BiomeSet.forBiome(world.getComputedBiome(settlement.centerX(), 64, settlement.centerZ()).getKey().getKey());
         Optional<ConstructionProject> queued = Construction.propose(settlement, settlement.lastSimulatedDay(), style,
                 service.treasuryLimit(settlement), plugin.templates().catalog(), plugin.templates()::blueprint,
                 groundOf(world));
+        release(holdKey);
         if (queued.isPresent()) {
             plugin.requestSave();
         }
+    }
+
+    /** The chunks the village's plan covers: its lots, streets and square, which is where a decision needs the ground. */
+    private static Set<Long> planChunks(Settlement settlement) {
+        Set<Long> out = new HashSet<>();
+        VillagePlan plan = settlement.plan();
+        List<Rect> rects = new ArrayList<>();
+        plan.lots().forEach(l -> rects.add(l.rect()));
+        plan.roads().forEach(r -> rects.add(r.rect()));
+        if (plan.square() != null) {
+            rects.add(plan.square());
+        }
+        for (Rect r : rects) {
+            out.addAll(chunksOf(r.x(), r.z(), r.width(), r.depth(), 0));
+        }
+        return out;
     }
 
     /** The ground as the grading plan sees it: the surface under any trees and plants, and where it is wet, the floor. */
@@ -177,7 +310,8 @@ final class ConstructionService {
         if (builder.isEmpty()) {
             return;
         }
-        int perPass = Construction.blocksPerPass(builder.get().built()); // R4.21: 4 a second, up to 10 for a master
+        // R4.21: 4 a second, up to 10 for a master; R4.22: times the speed setting.
+        int perPass = Math.max(1, (int) Math.round(Construction.blocksPerPass(builder.get().built()) * speed()));
         List<TemplateCatalog.Template> ladder = plugin.templates().catalog().ladder(project.type(), project.biomeSet());
         if (project.tier() > ladder.size()) {
             giveUp(settlement, project, "there is no such design any more", false);
@@ -195,12 +329,17 @@ final class ConstructionService {
         int ox = project.x();
         int oy = project.y();
         int oz = project.z();
+        boolean unattended = unattended();
+        if (unattended && !allLoaded(world, hold(world, "p" + project.id() + "@" + settlement.id(),
+                chunksOf(ox, oz, bp.width(), bp.depth(), Construction.PAD_BUFFER + 1)).chunks())) {
+            return; // the site is being loaded
+        }
         if (!world.isChunkLoaded(ox >> 4, oz >> 4) || !world.isChunkLoaded((ox + bp.width()) >> 4, (oz + bp.depth()) >> 4)
                 || !world.isChunkLoaded(ox >> 4, (oz + bp.depth()) >> 4) || !world.isChunkLoaded((ox + bp.width()) >> 4, oz >> 4)) {
             return;
         }
         Location centre = new Location(world, ox + bp.width() / 2.0, oy, oz + bp.depth() / 2.0);
-        if (!playerNear(centre) || exemptNear(centre)) {
+        if ((!unattended && !playerNear(centre)) || exemptNear(centre)) {
             return;
         }
         if (!project.siteChecked()) {
@@ -215,7 +354,7 @@ final class ConstructionService {
         // standing (after a restart, say) must not be graded again over its own walls.
         if (!project.graded() && !project.isUpgrade() && project.blocksLeft() < 0) {
             int passes = gradingPasses.merge(project.id(), 1, Integer::sum);
-            int graded = passes > MAX_GRADING_PASSES ? 0 : prepareGround(world, bp, ox, oy, oz, project.biomeSet());
+            int graded = passes > MAX_GRADING_PASSES ? 0 : prepareGround(world, bp, ox, oy, oz, project.biomeSet(), speed());
             if (graded < 0) {
                 giveUp(settlement, project, "the ground there cannot be levelled", true);
                 return;
@@ -398,7 +537,8 @@ final class ConstructionService {
      * out of the building's space. Only terrain and growth are ever changed. Returns how many blocks it changed, or -1
      * if the ground cannot be levelled at all.
      */
-    private int prepareGround(World world, Blueprint bp, int ox, int oy, int oz, String style) {
+    private int prepareGround(World world, Blueprint bp, int ox, int oy, int oz, String style, double speed) {
+        int groundPerPass = (int) Math.round(GROUND_PER_PASS * speed);
         TerrainPad.Pad pad = TerrainPad.compute(new Rect(ox, oz, bp.width(), bp.depth()), Construction.PAD_BUFFER,
                 groundOf(world), oy);
         if (!pad.valid()) {
@@ -408,7 +548,7 @@ final class ConstructionService {
         Map<Long, Boolean> natural = new HashMap<>();
         int done = 0;
         for (TerrainPad.Change change : pad.changes()) {
-            if (done >= GROUND_PER_PASS) {
+            if (done >= groundPerPass) {
                 return done;
             }
             if (!natural.computeIfAbsent(((long) change.x() << 32) ^ (change.z() & 0xffffffffL), k -> columnNatural(world, change.x(), change.z()))) {
@@ -431,8 +571,8 @@ final class ConstructionService {
         for (Blueprint.Block b : bp.blocks()) {
             cells.add(key(b));
         }
-        for (int z = 0; z < bp.depth() && done < GROUND_PER_PASS; z++) {
-            for (int x = 0; x < bp.width() && done < GROUND_PER_PASS; x++) {
+        for (int z = 0; z < bp.depth() && done < groundPerPass; z++) {
+            for (int x = 0; x < bp.width() && done < groundPerPass; x++) {
                 for (int y = 1; y < bp.height(); y++) { // the floor level itself is left as the ground is
                     Block block = world.getBlockAt(ox + x, oy + y, oz + z);
                     if (!block.getType().isAir() && clearable(block, false)
@@ -506,16 +646,17 @@ final class ConstructionService {
         plugin.requestSave();
     }
 
-    /** How far along the planned streets a finished building lays path (the street grows outward as the village does). */
+    /** How far along the planned streets a finished building grades and paves (the street grows outward as the village does). */
     private static final int PAVE_RANGE = 20;
     private static final int WALKWAY_MAX = 14;
     private static final java.util.Set<Material> PATHABLE = java.util.EnumSet.of(Material.GRASS_BLOCK, Material.DIRT,
             Material.COARSE_DIRT, Material.PODZOL, Material.ROOTED_DIRT, Material.MYCELIUM);
 
     /**
-     * Gives a finished building its street: the planned streets and the square within reach of it are laid with path
-     * blocks, and a walkway of path leads from its entrance out to the street. Only plain ground is changed (never
-     * anything built, and sand stays sand); streets follow the land and are not graded.
+     * Gives a finished building its street (R4.23): the planned streets within reach of it are graded and paved (a hole
+     * is filled, a bump cut down, no step above one block, a narrow stream bridged), the square within reach is paved,
+     * and a walkway leads from its entrance out to the street. Only plain ground is changed (never anything built, and
+     * sand stays sand).
      */
     private void pave(World world, Settlement settlement, ConstructionProject project, Blueprint bp) {
         VillagePlan plan = settlement.plan();
@@ -524,33 +665,135 @@ final class ConstructionService {
         }
         List<Rect> streets = new ArrayList<>();
         plan.roads().forEach(r -> streets.add(r.rect()));
-        if (plan.square() != null) {
-            streets.add(plan.square());
-        }
         Rect near = new Rect(project.x(), project.z(), bp.width(), bp.depth()).inflated(PAVE_RANGE);
+        List<Rect> toGrade = new ArrayList<>();
         for (Rect street : streets) {
-            for (int x = Math.max(street.x(), near.x()); x <= Math.min(street.maxX(), near.maxX()); x++) {
-                for (int z = Math.max(street.z(), near.z()); z <= Math.min(street.maxZ(), near.maxZ()); z++) {
-                    layPath(world, x, z);
+            overlap(street, near).ifPresent(toGrade::add);
+        }
+        List<Rect> everyStreet = new ArrayList<>(streets);
+        if (plan.square() != null) {
+            everyStreet.add(plan.square());
+        }
+        java.util.OptionalInt front = bp.front();
+        if (front.isPresent()) {
+            int dx = front.getAsInt() == 1 ? 1 : front.getAsInt() == 3 ? -1 : 0;
+            int dz = front.getAsInt() == 2 ? 1 : front.getAsInt() == 0 ? -1 : 0;
+            int startX = dx == 0 ? project.x() + bp.width() / 2 : dx > 0 ? project.x() + bp.width() : project.x() - 1;
+            int startZ = dz == 0 ? project.z() + bp.depth() / 2 : dz > 0 ? project.z() + bp.depth() : project.z() - 1;
+            int steps = 0;
+            while (steps < WALKWAY_MAX) { // out from the door until it meets a street or the square
+                final int px = startX + dx * steps;
+                final int pz = startZ + dz * steps;
+                if (everyStreet.stream().anyMatch(r -> r.contains(px, pz))) {
+                    break;
+                }
+                steps++;
+            }
+            if (steps > 0) { // one block wide and straight, from the door to the street
+                int minX = dx >= 0 ? startX : startX - (steps - 1);
+                int minZ = dz >= 0 ? startZ : startZ - (steps - 1);
+                toGrade.add(new Rect(minX, minZ, dx == 0 ? 1 : steps, dz == 0 ? 1 : steps));
+            }
+        }
+        applyGrade(world, StreetGrade.compute(toGrade, streetGround(world)), project.biomeSet());
+        if (plan.square() != null) {
+            Rect square = plan.square();
+            overlap(square, near).ifPresent(r -> {
+                for (int x = r.x(); x <= r.maxX(); x++) {
+                    for (int z = r.z(); z <= r.maxZ(); z++) {
+                        layPath(world, x, z);
+                    }
+                }
+            });
+        }
+    }
+
+    private static java.util.Optional<Rect> overlap(Rect a, Rect b) {
+        int x = Math.max(a.x(), b.x());
+        int z = Math.max(a.z(), b.z());
+        int maxX = Math.min(a.maxX(), b.maxX());
+        int maxZ = Math.min(a.maxZ(), b.maxZ());
+        return maxX < x || maxZ < z ? java.util.Optional.empty() : java.util.Optional.of(new Rect(x, z, maxX - x + 1, maxZ - z + 1));
+    }
+
+    /** As {@link #groundOf}, but a column with something built on it is unmeasured, so a street goes round it and never through. */
+    private static HeightSource streetGround(World world) {
+        HeightSource ground = groundOf(world);
+        return new HeightSource() {
+            @Override
+            public int height(int x, int z) {
+                return world.isChunkLoaded(x >> 4, z >> 4) && columnNatural(world, x, z) ? ground.height(x, z) : UNKNOWN;
+            }
+
+            @Override
+            public boolean water(int x, int z) {
+                return ground.water(x, z);
+            }
+
+            @Override
+            public int floor(int x, int z) {
+                return ground.floor(x, z);
+            }
+        };
+    }
+
+    /** Carries out a street grading: soil into hollows, rock and growth out of the way, path on top, planks over water. */
+    private static void applyGrade(World world, List<StreetGrade.Change> changes, String style) {
+        Material[] soil = soilFor(style);
+        boolean desert = BiomeSet.DESERT.equals(style);
+        Set<Long> blocked = new HashSet<>(); // columns with something in the way of the walking surface
+        for (StreetGrade.Change change : changes) {
+            Block block = world.getBlockAt(change.x(), change.y(), change.z());
+            long column = ((long) change.x() << 32) ^ (change.z() & 0xffffffffL);
+            switch (change.role()) {
+                case FILL -> {
+                    if (clearable(block, true)) {
+                        block.setType(soil[1], false);
+                    } else {
+                        blocked.add(column);
+                    }
+                }
+                case AIR -> {
+                    if (!block.getType().isAir() && clearable(block, true)) {
+                        block.setType(Material.AIR, false);
+                    }
+                }
+                case SURFACE -> {
+                    if (blocked.contains(column) || !clearHeadroom(block)) {
+                        continue;
+                    }
+                    Material here = block.getType();
+                    if (here.isAir() || Tag.REPLACEABLE.isTagged(here)) {
+                        block.setType(desert ? Material.SAND : Material.DIRT_PATH, false);
+                    } else if (!desert && PATHABLE.contains(here)) {
+                        block.setType(Material.DIRT_PATH, false);
+                    }
+                }
+                case BRIDGE -> {
+                    if (block.isLiquid() && clearHeadroom(block)) {
+                        block.setType(Material.OAK_PLANKS, false);
+                    }
                 }
             }
         }
-        java.util.OptionalInt front = bp.front();
-        if (front.isEmpty()) {
-            return;
-        }
-        int dx = front.getAsInt() == 1 ? 1 : front.getAsInt() == 3 ? -1 : 0;
-        int dz = front.getAsInt() == 2 ? 1 : front.getAsInt() == 0 ? -1 : 0;
-        int x = dx == 0 ? project.x() + bp.width() / 2 : dx > 0 ? project.x() + bp.width() : project.x() - 1;
-        int z = dz == 0 ? project.z() + bp.depth() / 2 : dz > 0 ? project.z() + bp.depth() : project.z() - 1;
-        for (int step = 0; step < WALKWAY_MAX; step++, x += dx, z += dz) {
-            final int px = x;
-            final int pz = z;
-            if (streets.stream().anyMatch(r -> r.contains(px, pz))) {
-                break;
+    }
+
+    /** Makes the two blocks over a walking surface free of plants and growing leaves; false if something else stands there. */
+    private static boolean clearHeadroom(Block surface) {
+        for (int up = 1; up <= 2; up++) {
+            Block above = surface.getRelative(0, up, 0);
+            Material m = above.getType();
+            if (m.isAir()) {
+                continue;
             }
-            layPath(world, x, z);
+            boolean plant = Tag.FLOWERS.isTagged(m) || Tag.REPLACEABLE.isTagged(m)
+                    || (Tag.LEAVES.isTagged(m) && above.getBlockData() instanceof Leaves l && !l.isPersistent());
+            if (!plant || above.isLiquid()) {
+                return false;
+            }
+            above.setType(Material.AIR, false);
         }
+        return true;
     }
 
     /** Turns the plain ground at a column into path, if that is what is there. */
