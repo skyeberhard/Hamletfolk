@@ -175,7 +175,7 @@ class ConstructionTest {
     }
 
     @Test
-    void aJoblessAdultTakesTheProjectAndGivesItBackWhenItIsDone() {
+    void aJoblessAdultTakesTheProjectAndStaysABuilderForTheNextOne() {
         Settlement s = village();
         SettlementSimulator sim = SettlementSimulator.withOldAgeDeaths(false);
         ConstructionProject project = propose(s, 5).orElseThrow();
@@ -187,23 +187,88 @@ class ConstructionTest {
         assertEquals(Occupation.BUILDER, s.resident(project.builder()).orElseThrow().occupation());
         assertTrue(s.openProject().isPresent());
 
+        Resident builder = s.resident(project.builder()).orElseThrow();
         Construction.finish(s, project, 6);
         assertEquals(ConstructionProject.Status.DONE, project.status());
         assertTrue(s.openProject().isEmpty());
         assertEquals(VillagePlan.LotStatus.FILLED, s.plan().lots().stream().filter(l -> l.id() == project.lotId())
                 .findFirst().orElseThrow().status());
-        sim.simulateDay(s, 6);
-        assertEquals(0, s.residents().stream().filter(r -> r.occupation() == Occupation.BUILDER).count());
         assertTrue(s.history().stream().anyMatch(e -> e.text().contains("finished building a farm")));
+        assertEquals(1, builder.built());
+        // R4.21: they stay a builder between buildings and take the next one before anyone else is asked.
+        sim.simulateDay(s, 6);
+        assertEquals(Occupation.BUILDER, builder.occupation());
+        ConstructionProject next = new ConstructionProject(s.nextProjectId(), BuildingType.HOUSE, 1, 0, "plains", 0, 64, 0, -1, 7);
+        s.addProject(next);
+        sim.simulateDay(s, 7);
+        assertEquals(builder.id(), next.builder());
+        assertEquals(1, s.residents().stream().filter(r -> r.occupation() == Occupation.BUILDER).count());
+        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("began work on the house")));
     }
 
     @Test
-    void aFamineKeepsEveryoneOnFood() {
+    void aBuilderWithNothingToBuildForAWeekGoesBackToOtherWork() {
         Settlement s = village();
-        propose(s, 5).orElseThrow();
+        SettlementSimulator sim = SettlementSimulator.withOldAgeDeaths(false);
+        ConstructionProject project = propose(s, 5).orElseThrow();
+        s.ledger().add(ResourceType.FOOD, 1000);
+        sim.simulateDay(s, 5);
+        Resident builder = s.resident(project.builder()).orElseThrow();
+        Construction.finish(s, project, 6);
+        for (long day = 6; day < 6 + Construction.BUILDER_IDLE_DAYS; day++) {
+            sim.simulateDay(s, day);
+            assertEquals(Occupation.BUILDER, builder.occupation(), "still a builder on day " + day);
+        }
+        sim.simulateDay(s, 6 + Construction.BUILDER_IDLE_DAYS);
+        assertFalse(builder.occupation() == Occupation.BUILDER, "a week with nothing to build");
+    }
+
+    @Test
+    void buildersGetFasterWithEveryFewBuildingsAndTheHistorySaysSo() {
+        assertEquals(4, Construction.blocksPerPass(0));
+        assertEquals(4, Construction.blocksPerPass(2));
+        assertEquals(6, Construction.blocksPerPass(3));
+        assertEquals(8, Construction.blocksPerPass(6));
+        assertEquals(10, Construction.blocksPerPass(10));
+        assertEquals(10, Construction.blocksPerPass(50));
+        assertEquals("apprentice builder", Construction.builderTitle(0));
+        assertEquals("master builder", Construction.builderTitle(10));
+
+        Settlement s = village();
+        Resident builder = s.residents().iterator().next();
+        builder.setOccupation(Occupation.BUILDER);
+        for (int i = 1; i <= 3; i++) {
+            ConstructionProject p = new ConstructionProject(s.nextProjectId(), BuildingType.HOUSE, 1, 0, "plains", 0, 64, 0, -1, i);
+            s.addProject(p);
+            p.claim(builder.id());
+            Construction.finish(s, p, i);
+        }
+        assertEquals(3, builder.built());
+        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("has finished 3 buildings and is now a builder")));
+
+        Settlement loaded = SettlementCodec.decode(SettlementCodec.encode(s));
+        assertEquals(3, loaded.resident(builder.id()).orElseThrow().built());
+        Map<String, Object> old = SettlementCodec.encode(s);
+        old.put("format", 20);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> residents = (List<Map<String, Object>>) old.get("residents");
+        residents.forEach(r -> r.remove("built"));
+        assertEquals(0, SettlementCodec.decode(old).resident(builder.id()).orElseThrow().built(), "a format-20 save starts at 0");
+    }
+
+    @Test
+    void aFamineKeepsEveryoneOnFoodExceptTheFarmThatEndsIt() {
+        Settlement s = village();
+        assertEquals(BuildingType.FARM, propose(s, 5).orElseThrow().type());
         s.conditions().put("famine", 4L);
         SettlementSimulator.withOldAgeDeaths(false).simulateDay(s, 5);
-        assertEquals(0, s.residents().stream().filter(r -> r.occupation() == Occupation.BUILDER).count());
+        assertEquals(1, s.residents().stream().filter(r -> r.occupation() == Occupation.BUILDER).count(), "the farm is built");
+
+        Settlement h = village();
+        h.addProject(new ConstructionProject(1, BuildingType.HOUSE, 1, 0, "plains", 0, 64, 0, -1, 5));
+        h.conditions().put("famine", 4L);
+        SettlementSimulator.withOldAgeDeaths(false).simulateDay(h, 5);
+        assertEquals(0, h.residents().stream().filter(r -> r.occupation() == Occupation.BUILDER).count(), "a house waits");
     }
 
     @Test
@@ -220,7 +285,7 @@ class ConstructionTest {
     }
 
     @Test
-    void aCancelledProjectFreesTheBuilderAndMovesThePlanOn() {
+    void aCancelledProjectLeavesTheBuilderFreeForTheNextAndMovesThePlanOn() {
         Settlement s = village();
         SettlementSimulator sim = SettlementSimulator.withOldAgeDeaths(false);
         ConstructionProject project = propose(s, 5).orElseThrow();
@@ -228,7 +293,8 @@ class ConstructionTest {
         sim.simulateDay(s, 5);
         Construction.cancel(s, project, 6, "something was built there");
         sim.simulateDay(s, 6);
-        assertEquals(0, s.residents().stream().filter(r -> r.occupation() == Occupation.BUILDER).count());
+        assertEquals(1, s.residents().stream().filter(r -> r.occupation() == Occupation.BUILDER).count(), "kept for the next");
+        assertTrue(s.projects().stream().noneMatch(p -> p.status() == ConstructionProject.Status.ACTIVE));
         assertEquals(ConstructionProject.Status.CANCELLED, project.status());
         assertTrue(s.history().stream().anyMatch(e -> e.text().contains("given up")));
     }
@@ -296,7 +362,7 @@ class ConstructionTest {
         old.remove("projects");
         old.put("format", 18);
         assertTrue(SettlementCodec.decode(old).projects().isEmpty());
-        assertEquals(20, SettlementCodec.FORMAT_VERSION);
+        assertEquals(21, SettlementCodec.FORMAT_VERSION);
     }
 
     @Test
@@ -329,7 +395,8 @@ class ConstructionTest {
     @Test
     void aFamineReleasesTheBuilderAndFarmsComeBeforeBuilding() {
         Settlement s = village();
-        ConstructionProject project = propose(s, 5).orElseThrow();
+        ConstructionProject project = new ConstructionProject(1, BuildingType.HOUSE, 1, 0, "plains", 0, 64, 0, -1, 5);
+        s.addProject(project);
         SettlementSimulator sim = SettlementSimulator.withOldAgeDeaths(false);
         s.ledger().add(ResourceType.FOOD, 500);
         sim.simulateDay(s, 5);
@@ -338,6 +405,15 @@ class ConstructionTest {
         sim.simulateDay(s, 6);
         assertEquals(ConstructionProject.Status.QUEUED, project.status());
         assertEquals(0, s.residents().stream().filter(r -> r.occupation() == Occupation.BUILDER).count());
+
+        // A farm is what ends a famine: its builder stays on it.
+        Settlement f = village();
+        ConstructionProject farm = propose(f, 5).orElseThrow();
+        f.ledger().add(ResourceType.FOOD, 500);
+        sim.simulateDay(f, 5);
+        f.conditions().put("famine", 5L);
+        sim.simulateDay(f, 6);
+        assertEquals(ConstructionProject.Status.ACTIVE, farm.status());
 
         // Farm places free and food short: the jobless go to the farm first.
         Settlement fed = village();
@@ -441,11 +517,15 @@ class ConstructionTest {
         Resident mason = person(Occupation.MASON);
         s.addResident(mason);
         s.addResident(person(Occupation.TOOLSMITH)); // the only smith: not to be taken
+        s.addResident(person(Occupation.LUMBERJACK)); // R4.20: nor the only lumberjack
         s.setPlan(PlanGenerator.generate(0, 0, 7L, "plains", HeightSource.flat(64)));
         ConstructionProject project = new ConstructionProject(1, BuildingType.HOUSE, 1, 0, "plains", 0, 64, 0, -1, 5);
         s.addProject(project);
         Construction.staffBuilders(s, 6, false);
         assertEquals(ConstructionProject.Status.QUEUED, project.status(), "not yet: someone may still be out of work");
+        Construction.staffBuilders(s, 8, false);
+        assertEquals(ConstructionProject.Status.QUEUED, project.status(), "R4.20: the only mason is not taken either");
+        s.addResident(person(Occupation.MASON));
         Construction.staffBuilders(s, 8, false);
         assertEquals(ConstructionProject.Status.ACTIVE, project.status());
         assertEquals(mason.id(), project.builder());
@@ -749,5 +829,117 @@ class ConstructionTest {
         }
         assertEquals(2, s.tierOf(new Building(BuildingType.FARM, 4000, 65, 5000, 0, "the builders")), "its tier survives the trimming");
         assertTrue(s.projects().size() <= Settlement.MAX_CLOSED_PROJECTS + 2);
+    }
+
+    @Test
+    void aBuildingThatLacksWoodMakesAJoblessResidentALumberjackWhateverTheStockPerHead() {
+        SettlementSimulator sim = SettlementSimulator.withOldAgeDeaths(false);
+        Settlement control = village();
+        control.ledger().take(ResourceType.WOOD, 180); // 20 wood: above the 18 (3 a head) that counts as short
+        control.ledger().add(ResourceType.FOOD, 500);
+        sim.simulateDay(control, 5);
+        assertEquals(0, control.residents().stream().filter(r -> r.occupation() == Occupation.LUMBERJACK).count());
+
+        Settlement s = village();
+        s.ledger().take(ResourceType.WOOD, 180);
+        s.ledger().take(ResourceType.STONE, 200);
+        s.ledger().add(ResourceType.FOOD, 500);
+        assertTrue(propose(s, 5).isEmpty(), "every plainest design costs 25 and it has 20");
+        assertTrue(Construction.lacking(s, 5).contains(ResourceType.WOOD));
+        Settlement late = SettlementCodec.decode(SettlementCodec.encode(s)); // the same, but checked long after
+        s.setLastSimulatedDay(4);
+        sim.simulateDay(s, 5);
+        assertEquals(1, s.residents().stream().filter(r -> r.occupation() == Occupation.LUMBERJACK).count());
+        assertFalse(Construction.lacking(s, 5 + Construction.LACK_MEMORY_DAYS + 1).contains(ResourceType.WOOD), "forgotten in time");
+        late.setLastSimulatedDay(5 + Construction.LACK_MEMORY_DAYS);
+        sim.simulateDay(late, 6 + Construction.LACK_MEMORY_DAYS);
+        assertEquals(0, late.residents().stream().filter(r -> r.occupation() == Occupation.LUMBERJACK).count(), "a stale lack hires nobody");
+    }
+
+    @Test
+    void withNobodyJoblessAFoodWorkerIsMovedToTheTradeABuildingLacksButOnlyWhenTheLarderIsFull() {
+        SettlementSimulator sim = SettlementSimulator.withOldAgeDeaths(false);
+        for (int food : new int[] {30, 500}) {
+            Settlement s = new Settlement(VILLAGE, "Farmham", "world", 0, 0, 0);
+            for (int i = 0; i < 4; i++) {
+                s.addResident(person(Occupation.FARMER));
+            }
+            s.registerBuilding(new Building(BuildingType.FARM, 0, 64, 0, 0, "test"));
+            s.ledger().add(ResourceType.FOOD, food);
+            s.ledger().add(ResourceType.WOOD, 20);
+            s.conditions().put(Construction.LACKS + "WOOD", 5L);
+            s.setLastSimulatedDay(4);
+            sim.simulateDay(s, 5);
+            long lumberjacks = s.residents().stream().filter(r -> r.occupation() == Occupation.LUMBERJACK).count();
+            assertEquals(food >= 80 ? 1 : 0, lumberjacks, "food " + food);
+            if (lumberjacks == 1) {
+                assertTrue(s.history().stream().anyMatch(e -> e.text().contains("to work as a lumberjack")));
+                sim.simulateDay(s, 6);
+                assertEquals(1, s.residents().stream().filter(r -> r.occupation() == Occupation.LUMBERJACK).count(), "one is enough");
+            }
+        }
+    }
+
+    @Test
+    void aNeedTheVillageCannotPayForIsSavedUpForAndAWantKeepsOnlyWhatStopsItBeingShort() {
+        Settlement s = village();
+        s.ledger().take(ResourceType.WOOD, 170);
+        s.ledger().take(ResourceType.STONE, 200);
+        ConstructionProject farm = propose(s, 5).orElseThrow();
+        farm.setSign(farm.x(), 65, farm.z() - 1);
+        s.registerBuilding(new Building(BuildingType.FARM, farm.x(), 65, farm.z() - 1, 5, "village"));
+        Construction.finish(s, farm, 6);
+        for (BuildingType type : BuildingType.values()) {
+            if (s.buildingCount(type) == 0) {
+                s.registerBuilding(new Building(type, 1000 + type.ordinal(), 64, 1000, 0, "a player"));
+            }
+        }
+        s.ledger().add(ResourceType.FOOD, 1000);
+        s.ledger().add(ResourceType.STONE, 45); // under twice the 25 an upgrade costs, but 27 over the 18 that is short
+        s.housing().setChunk(0, 0, 2); // six people, two beds: a house is needed, and no wood to pay for one
+        s.ledger().take(ResourceType.WOOD, 30); // spent on the farm (core only charges as blocks go down)
+        // Every house design costs 50 wood, which it does not have; the farm's tier 2 costs 25 stone.
+        Function<TemplateCatalog.Template, Optional<Blueprint>> designs = t -> t.type() != BuildingType.HOUSE ? blueprints(t)
+                : Optional.of(new Blueprint(t.key(), 5, 2, 5, java.util.stream.IntStream.range(0, 50)
+                        .mapToObj(i -> new Blueprint.Block(i % 5, i / 25, (i / 5) % 5, "OAK_PLANKS")).toList()));
+        assertTrue(Construction.propose(s, 15, "plains", 200, catalog, designs, (x, z) -> 64).isEmpty(),
+                "no farm upgrade while the house it needs waits");
+        assertTrue(Construction.lacking(s, 15).contains(ResourceType.WOOD));
+
+        s.housing().setChunk(0, 0, 20);
+        Optional<ConstructionProject> upgrade = Construction.propose(s, 16, "plains", 200, catalog, designs, (x, z) -> 64);
+        assertTrue(upgrade.isPresent() && upgrade.get().isUpgrade(), "housed, it can improve the farm");
+    }
+
+    @Test
+    void aMineItHasNoWayToPayForDoesNotStopAVillageImprovingWhatItHas() {
+        Settlement s = village();
+        s.ledger().take(ResourceType.WOOD, 170);
+        s.ledger().take(ResourceType.STONE, 200);
+        ConstructionProject farm = propose(s, 5).orElseThrow();
+        farm.setSign(farm.x(), 65, farm.z() - 1);
+        s.registerBuilding(new Building(BuildingType.FARM, farm.x(), 65, farm.z() - 1, 5, "village"));
+        Construction.finish(s, farm, 6);
+        for (BuildingType type : BuildingType.values()) {
+            if (s.buildingCount(type) == 0 && type != BuildingType.MINE) {
+                s.registerBuilding(new Building(type, 1000 + type.ordinal(), 64, 1000, 0, "a player"));
+            }
+        }
+        s.ledger().add(ResourceType.FOOD, 1000);
+        s.housing().setChunk(0, 0, 20);
+        // Mines cost stone (generated, tier 1 needs 4), which it has none of and no way to make; the farm's tier 2 costs wood here.
+        Function<TemplateCatalog.Template, Optional<Blueprint>> designs = t -> t.type() == BuildingType.MINE ? blueprints(t)
+                : Optional.of(new Blueprint(t.key(), 5, 1, 5, java.util.stream.IntStream.range(0, 25)
+                        .mapToObj(i -> new Blueprint.Block(i % 5, 0, i / 5, "OAK_PLANKS")).toList()));
+        s.ledger().add(ResourceType.WOOD, 100);
+        Optional<ConstructionProject> upgrade = Construction.propose(s, 15, "plains", 200, catalog, designs, (x, z) -> 64);
+        assertTrue(upgrade.isPresent() && upgrade.get().isUpgrade(), "no mine, but the farm is improved: " + upgrade);
+    }
+
+    @Test
+    void cropsAreSownNotPaidFor() {
+        assertTrue(Blueprint.halvesOf("WHEAT[age=0]").isEmpty());
+        assertTrue(Blueprint.halvesOf("CARROTS").isEmpty());
+        assertTrue(Blueprint.halvesOf("HAY_BLOCK").isPresent(), "a bale is still made of wheat");
     }
 }

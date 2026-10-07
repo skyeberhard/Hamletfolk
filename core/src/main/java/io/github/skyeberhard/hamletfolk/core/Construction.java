@@ -184,7 +184,8 @@ public final class Construction {
 
     /** The building is up: the project is done, the lot is built on, the builder is free, and the history says so. */
     public static void finish(Settlement settlement, ConstructionProject project, long day) {
-        String who = project.builder() == null ? null : settlement.resident(project.builder()).map(Resident::fullName).orElse(null);
+        Optional<Resident> builder = project.builder() == null ? Optional.empty() : settlement.resident(project.builder());
+        String who = builder.map(Resident::fullName).orElse(null);
         project.finish(day);
         if (settlement.plan() != null && project.lotId() >= 0) {
             settlement.plan().fill(project.lotId());
@@ -192,6 +193,43 @@ public final class Construction {
         settlement.record(day, HistoryEvent.Kind.BUILDING, (who == null ? "The builders" : who) + " finished "
                 + (project.isUpgrade() ? "upgrading the " : "building a ") + project.type().label().toLowerCase(Locale.ROOT)
                 + " (tier " + project.tier() + ").");
+        // R4.21: every building finished makes the builder better at it.
+        builder.ifPresent(r -> {
+            int before = builderLevel(r.built());
+            r.setBuilt(r.built() + 1);
+            if (builderLevel(r.built()) > before) {
+                settlement.record(day, HistoryEvent.Kind.MILESTONE, r.fullName() + " has finished " + r.built()
+                        + " buildings and is now a " + builderTitle(r.built()) + ".");
+            }
+        });
+    }
+
+    // ----- builder skill (R4.21) -----
+
+    /** Buildings finished to reach each level, what each level is called, and the blocks a builder places a second. */
+    static final int[] LEVEL_AT = {0, 3, 6, 10};
+    private static final String[] LEVEL_TITLES = {"apprentice builder", "builder", "journeyman builder", "master builder"};
+    private static final int[] BLOCKS_PER_PASS = {4, 6, 8, 10};
+
+    /** The level (0 to 3) a builder with this many finished buildings has reached. */
+    public static int builderLevel(int built) {
+        int level = 0;
+        for (int i = 0; i < LEVEL_AT.length; i++) {
+            if (built >= LEVEL_AT[i]) {
+                level = i;
+            }
+        }
+        return level;
+    }
+
+    /** e.g. "journeyman builder". */
+    public static String builderTitle(int built) {
+        return LEVEL_TITLES[builderLevel(built)];
+    }
+
+    /** How many blocks a builder with this many finished buildings places each pass (about a second). */
+    public static int blocksPerPass(int built) {
+        return BLOCKS_PER_PASS[builderLevel(built)];
     }
 
     /** The project is given up (the site was built on, or the village is gone); the lot is left alone. */
@@ -212,77 +250,81 @@ public final class Construction {
     // ----- builders -----
 
     /**
-     * One builder per open project. A jobless adult (not a child or an elder) takes a queued project unless the village
-     * is short of food; a builder whose project is gone goes back to being jobless, and a project whose builder has gone
-     * (left, died, or been called up as a guard) goes back in the queue.
+     * One builder per open project. A builder keeps the trade between buildings and takes the next project before anyone
+     * else is asked (R4.21); one with nothing to build for {@link #BUILDER_IDLE_DAYS} days goes back to other work. With
+     * no builder free, a jobless adult (not a child or an elder) takes a queued project unless the village is short of
+     * food. A famine puts every hand back on food, except on a farm, which is what ends it. A project whose builder has
+     * gone (left, died, or been called up as a guard) goes back in the queue.
      */
     static void staffBuilders(Settlement settlement, long day, boolean famine) {
         for (ConstructionProject project : settlement.projects()) {
             if (project.status() == ConstructionProject.Status.ACTIVE
-                    && (famine || settlement.resident(project.builder()).filter(r -> r.occupation() == Occupation.BUILDER).isEmpty())) {
-                project.release(); // a famine puts every hand back on food
+                    && ((famine && project.type() != BuildingType.FARM)
+                            || settlement.resident(project.builder()).filter(r -> r.occupation() == Occupation.BUILDER).isEmpty())) {
+                project.release();
             }
         }
-        // Food first (R2.3): while the farms have free places and there is not enough food, the jobless go to them.
-        long farmers = settlement.residents().stream().filter(r -> r.adult() && r.occupation() == Occupation.FARMER).count();
-        boolean foodShort = famine || (SettlementSimulator.placesFor(settlement, Occupation.FARMER) > farmers
-                && settlement.ledger().get(ResourceType.FOOD) < FOOD_FIRST_PER_RESIDENT * Math.max(1, settlement.population()));
+        List<Resident> idle = new ArrayList<>();
         for (Resident r : settlement.residents()) {
             if (r.occupation() == Occupation.BUILDER && settlement.projects().stream().noneMatch(
                     p -> p.status() == ConstructionProject.Status.ACTIVE && r.id().equals(p.builder()))) {
-                r.setOccupation(Occupation.UNEMPLOYED);
+                idle.add(r);
             }
         }
-        if (foodShort) {
-            return;
+        if (idle.isEmpty()) {
+            settlement.removeCondition(BUILDER_IDLE);
+        } else {
+            long since = settlement.conditions().computeIfAbsent(BUILDER_IDLE, k -> day);
+            if (famine || day - since >= BUILDER_IDLE_DAYS) {
+                idle.forEach(r -> r.setOccupation(Occupation.UNEMPLOYED));
+                idle.clear();
+                settlement.removeCondition(BUILDER_IDLE);
+            }
         }
         Optional<ConstructionProject> queued = settlement.projects().stream()
                 .filter(p -> p.status() == ConstructionProject.Status.QUEUED).findFirst();
         if (queued.isEmpty()) {
             return;
         }
+        String what = queued.get().type().label().toLowerCase(Locale.ROOT);
+        if (!idle.isEmpty()) {
+            queued.get().claim(idle.get(0).id());
+            settlement.removeCondition(BUILDER_IDLE);
+            settlement.record(day, HistoryEvent.Kind.MILESTONE, idle.get(0).fullName() + " began work on the " + what + ".");
+            return;
+        }
+        // Food first (R2.3): while the farms have free places and there is not enough food, the jobless go to them.
+        long farmers = settlement.residents().stream().filter(r -> r.adult() && r.occupation() == Occupation.FARMER).count();
+        boolean foodShort = famine || (SettlementSimulator.placesFor(settlement, Occupation.FARMER) > farmers
+                && settlement.ledger().get(ResourceType.FOOD) < FOOD_FIRST_PER_RESIDENT * Math.max(1, settlement.population()));
+        if (foodShort && queued.get().type() != BuildingType.FARM) {
+            return;
+        }
         for (Resident r : settlement.residents()) {
             if (r.adult() && r.stage(day) != LifeStage.ELDER && r.occupation() == Occupation.UNEMPLOYED) {
                 r.setOccupation(Occupation.BUILDER);
                 queued.get().claim(r.id());
-                settlement.record(day, HistoryEvent.Kind.MILESTONE, r.fullName() + " took on the work of building the "
-                        + queued.get().type().label().toLowerCase(Locale.ROOT) + ".");
+                settlement.record(day, HistoryEvent.Kind.MILESTONE, r.fullName() + " took on the work of building the " + what + ".");
                 return;
             }
         }
-        // Nobody is out of work. A project that has waited a few days for a builder takes someone off a job that does not
-        // feed the village: a village that is fully employed still has to be able to put up a house.
+        // Nobody is out of work. A project that has waited a few days for a builder takes someone off a job the village
+        // can spare: a village that is fully employed still has to be able to put up a house.
         if (day - queued.get().queuedDay() >= DRAFT_AFTER_DAYS) {
-            Resident drafted = null;
-            boolean foodPlentiful = settlement.ledger().get(ResourceType.FOOD)
-                    >= 2 * FOOD_FIRST_PER_RESIDENT * Math.max(1, settlement.population());
-            long foodWorkers = settlement.residents().stream()
-                    .filter(r -> r.adult() && r.occupation().produces() == ResourceType.FOOD).count();
-            for (Resident r : settlement.residents()) {
-                Occupation job = r.occupation();
-                if (!r.adult() || r.stage(day) == LifeStage.ELDER || job == Occupation.BUILDER || job == Occupation.GUARD
-                        || job == Occupation.MERCHANT || SettlementSimulator.lastToolMaker(settlement, r)) {
-                    continue;
-                }
-                // Food workers only when the larder is well stocked, and never the last one: otherwise a village whose
-                // people all farm and fish could never build anything.
-                if (job.produces() == ResourceType.FOOD && (!foodPlentiful || foodWorkers <= 1)) {
-                    continue;
-                }
-                // Idlers first, then whoever is least busy; ties go to the first in the list so it is repeatable.
-                if (drafted == null || (job == Occupation.NITWIT && drafted.occupation() != Occupation.NITWIT)) {
-                    drafted = r;
-                }
-            }
+            Resident drafted = SettlementSimulator.spareWorker(settlement, day);
             if (drafted != null) {
                 String was = drafted.occupation().title();
                 drafted.setOccupation(Occupation.BUILDER);
                 queued.get().claim(drafted.id());
                 settlement.record(day, HistoryEvent.Kind.MILESTONE, drafted.fullName() + " put down the work of a " + was
-                        + " to build the " + queued.get().type().label().toLowerCase(Locale.ROOT) + ", as there was no one else.");
+                        + " to build the " + what + ", as there was no one else.");
             }
         }
     }
+
+    /** R4.21: days a builder waits for something to build before going back to other work. */
+    static final int BUILDER_IDLE_DAYS = 7;
+    static final String BUILDER_IDLE = "builderIdleSince";
 
     /** Days a project waits for someone out of work before a worker in another trade is taken off it. */
     static final int DRAFT_AFTER_DAYS = 3;
@@ -310,6 +352,7 @@ public final class Construction {
         }
         String biome = BiomeSet.normalize(style);
         boolean squareTried = false;
+        boolean needUnmet = false;
         for (Planner.Directive directive : Planner.directives(settlement, day, treasuryLimit)) {
             if (directive.kind() != Planner.Kind.BUILD) {
                 continue;
@@ -334,6 +377,10 @@ public final class Construction {
                 }
                 first = false;
             }
+            // R4.20: a need with somewhere to go that the village cannot pay for yet, for want of something it can make, is
+            // saved up for, not spent past. Not the mine: a village with no stone and no mine could never make the stone.
+            needUnmet |= !first && directive.tier() != Planner.Tier.GROWTH && directive.tier() != Planner.Tier.SUPPLY
+                    && savingFor(settlement, catalog.ladder(type.get(), biome), blueprints);
             // No lot, or no way to pay for another: the need is met by improving a building the village already has, if it can.
             if (directive.tier() != Planner.Tier.GROWTH) { // a want (a shop, a treasury) is not a reason to spend everything
                 Optional<ConstructionProject> improved = upgrade(settlement, day, biome, catalog, blueprints, terrain,
@@ -350,6 +397,9 @@ public final class Construction {
             if (square.isPresent()) {
                 return square;
             }
+        }
+        if (needUnmet) {
+            return Optional.empty();
         }
         // Every need is met. What the village wants now follows what it is good at: the buildings that serve its direction
         // are improved first, then any other, at most one a week and never a building just finished.
@@ -534,7 +584,11 @@ public final class Construction {
         List<TemplateCatalog.Template> ladder = catalog.ladder(type, biome);
         Map<ResourceType, Integer> stock = new EnumMap<>(ResourceType.class);
         for (ResourceType resource : ResourceType.values()) {
-            stock.put(resource, settlement.ledger().get(resource) / margin);
+            // A want keeps twice its cost in store, or, where the storage limit is too low for that, enough that the
+            // material is not left short (R4.20): otherwise a full store could never pay for a bigger building.
+            int have = settlement.ledger().get(resource);
+            stock.put(resource, margin <= 1 ? have
+                    : Math.max(have / margin, have - SettlementSimulator.wantedLevel(settlement, resource)));
         }
         // An upgrade is built over the old building, centred on it; a new building is centred on its lot.
         // Every building is turned so its entrance faces the nearest street or the square; an upgrade keeps the old facing.
@@ -593,15 +647,67 @@ public final class Construction {
     /** Days between reminders that the village wants a building it cannot build. */
     static final int BLOCKED_REMINDER_DAYS = 5;
     static final String BLOCKED = "constructionBlocked";
+    /** R4.20: the last day the plainest design of a wanted building lacked a material, one condition per material. */
+    static final String LACKS = "constructionLacks:";
+    /** R4.20: how long a material the village could not build for still counts as wanted. */
+    static final int LACK_MEMORY_DAYS = 10;
 
     /**
-     * The village wants a building and has a lot for it but cannot start: say what it lacks in the history, now and then,
-     * so a player can see why nothing is happening (and donate what is missing).
+     * R4.20: the materials the village's building is waiting on: what the open project ran out of, and what the plainest
+     * design of a building it wanted lacked in the last {@link #LACK_MEMORY_DAYS} days. The trades that make them are
+     * taken on (see SettlementSimulator), whatever the stock per head.
+     */
+    public static java.util.Set<ResourceType> lacking(Settlement settlement, long day) {
+        java.util.Set<ResourceType> out = java.util.EnumSet.noneOf(ResourceType.class);
+        settlement.openProject().map(ConstructionProject::waitingFor).ifPresent(out::add);
+        for (ResourceType type : ResourceType.values()) {
+            Long seen = settlement.conditions().get(LACKS + type.name());
+            if (seen != null && day >= seen && day - seen <= LACK_MEMORY_DAYS) {
+                out.add(type);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * R4.20: true if the plainest design of a building is short of a material the village can make itself, so waiting
+     * will pay for it: wood and food always, stone where a mine has places or a mason works, metal where a mine has places.
+     * A lot that cannot be graded, or a material nobody can make, is not something to save up for.
+     */
+    private static boolean savingFor(Settlement settlement, List<TemplateCatalog.Template> ladder,
+            Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints) {
+        if (ladder.isEmpty()) {
+            return false;
+        }
+        Optional<Blueprint> plainest = blueprints.apply(ladder.get(0));
+        if (plainest.isEmpty()) {
+            return false;
+        }
+        for (Map.Entry<ResourceType, Integer> cost : priceOf(plainest.get()).entrySet()) {
+            if (settlement.ledger().get(cost.getKey()) < cost.getValue() && canMake(settlement, cost.getKey())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean canMake(Settlement settlement, ResourceType resource) {
+        boolean mine = SettlementSimulator.placesFor(settlement, Occupation.MINER) > 0;
+        return switch (resource) {
+            case WOOD, FOOD -> true;
+            case STONE -> mine || settlement.residents().stream().anyMatch(r -> r.occupation() == Occupation.MASON);
+            case METAL -> mine;
+            default -> false;
+        };
+    }
+
+    /**
+     * The village wants a building and has a lot for it but cannot start: notes what it lacks (R4.20) and says so in the
+     * history, now and then, so a player can see why nothing is happening (and donate what is missing).
      */
     private static void explainWhyNot(Settlement settlement, long day, BuildingType type, List<TemplateCatalog.Template> ladder,
             Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints, VillagePlan.Lot lot) {
-        Long last = settlement.conditions().get(BLOCKED + ":" + type.name());
-        if ((last != null && day - last < BLOCKED_REMINDER_DAYS) || ladder.isEmpty()) {
+        if (ladder.isEmpty()) {
             return;
         }
         Optional<Blueprint> first = blueprints.apply(ladder.get(0));
@@ -617,12 +723,17 @@ public final class Construction {
             priceOf(first.get()).forEach((resource, units) -> {
                 int have = settlement.ledger().get(resource);
                 if (have < units) {
+                    settlement.conditions().put(LACKS + resource.name(), day);
                     lacks.append(lacks.length() == 0 ? "" : ", ").append(units).append(' ')
                             .append(resource.name().toLowerCase(Locale.ROOT)).append(" (it has ").append(have).append(')');
                 }
             });
             text = settlement.name() + " wants a " + name + " but cannot afford the plainest one yet: it needs "
                     + (lacks.length() == 0 ? "more of something" : lacks.toString()) + ".";
+        }
+        Long last = settlement.conditions().get(BLOCKED + ":" + type.name());
+        if (last != null && day - last < BLOCKED_REMINDER_DAYS) {
+            return;
         }
         settlement.conditions().put(BLOCKED + ":" + type.name(), day);
         settlement.record(day, HistoryEvent.Kind.BUILDING, text);

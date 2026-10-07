@@ -40,6 +40,11 @@ class PlannerTest {
         return Planner.run(s, day, LIMIT);
     }
 
+    /** The directives apart from the mine a village with none always asks for first (R4.20). */
+    private static List<Planner.Directive> needs(List<Planner.Directive> directives) {
+        return directives.stream().filter(d -> d.tier() != Planner.Tier.SUPPLY).toList();
+    }
+
     private static boolean met(Settlement s, Planner.Tier tier) {
         return s.hasCondition(Planner.MET_PREFIX + tier.name());
     }
@@ -55,7 +60,9 @@ class PlannerTest {
         assertEquals("farm", first.get(0).target());
 
         s.ledger().add(ResourceType.FOOD, 200); // food is met
-        List<Planner.Directive> second = run(s, 2);
+        List<Planner.Directive> withMine = run(s, 2);
+        assertEquals("mine", withMine.get(0).target(), "then a mine, ahead of the rest (R4.20): " + withMine);
+        List<Planner.Directive> second = needs(withMine);
         assertTrue(met(s, Planner.Tier.FOOD));
         assertTrue(second.stream().allMatch(d -> d.tier() == Planner.Tier.SHELTER), "now shelter: " + second);
         assertEquals("house", second.get(0).target());
@@ -122,7 +129,7 @@ class PlannerTest {
         building(s, BuildingType.SMITHY, 0);
         List<Planner.Directive> b = Planner.directives(s, 2, LIMIT);
         assertTrue(b.stream().anyMatch(d -> d.target().equals("mine")), b.toString());
-        assertTrue(b.get(0).reason().contains("tools"), "the reason names where the chain started: " + b.get(0).reason());
+        assertTrue(needs(b).get(0).reason().contains("tools"), "the reason names where the chain started: " + b);
 
         // A mine with free places: take on miners.
         building(s, BuildingType.MINE, 1);
@@ -143,7 +150,7 @@ class PlannerTest {
         }
         s.ledger().add(ResourceType.FOOD, 500);
         s.housing().setChunk(0, 0, 1);
-        List<Planner.Directive> d = run(s, 1);
+        List<Planner.Directive> d = needs(run(s, 1));
         assertEquals("house", d.get(0).target());
         assertTrue(d.get(0).reason().contains("2 houses"), d.get(0).reason()); // six without a bed, three to a house
     }
@@ -157,7 +164,7 @@ class PlannerTest {
         s.housing().setChunk(0, 0, 10); // exactly ten beds for ten residents: shelter met, no free bed
         run(s, 1);
         assertTrue(met(s, Planner.Tier.FOOD) && met(s, Planner.Tier.SHELTER) && met(s, Planner.Tier.SAFETY));
-        List<Planner.Directive> growth = Planner.directives(s, 1, LIMIT);
+        List<Planner.Directive> growth = needs(Planner.directives(s, 1, LIMIT));
         assertTrue(growth.stream().allMatch(d -> d.tier() == Planner.Tier.GROWTH), growth.toString());
         assertTrue(growth.stream().anyMatch(d -> d.target().equals("shop")), "surplus and no shop: " + growth);
 
@@ -262,7 +269,7 @@ class PlannerTest {
         s.recordIncident(1);
         s.recordIncident(1);
         run(s, 2); // wary, nobody fit to guard
-        List<Planner.Directive> plan = Planner.directives(s, 2, LIMIT);
+        List<Planner.Directive> plan = needs(Planner.directives(s, 2, LIMIT));
         assertTrue(plan.stream().allMatch(d -> d.tier() == Planner.Tier.SAFETY), plan.toString());
         assertTrue(plan.stream().anyMatch(d -> d.target().equals("guard")), plan.toString());
     }
@@ -281,6 +288,23 @@ class PlannerTest {
         run(s, 1);
         List<Planner.Directive> safety = Planner.directives(s, 2, LIMIT);
         assertTrue(safety.stream().anyMatch(d -> d.kind() == Planner.Kind.IMPORT && d.target().equals("tools")), safety.toString());
+    }
+
+    @Test
+    void onceFedAVillageWithNoMineAsksForOneFirstWithoutHoldingTheRestUp() {
+        Settlement hungry = village(); // no food: a farm, and nothing about a mine yet
+        assertTrue(run(hungry, 1).stream().noneMatch(d -> d.target().equals("mine")));
+
+        Settlement s = village();
+        s.ledger().add(ResourceType.FOOD, 200);
+        s.housing().setChunk(0, 0, 0); // no beds: shelter is open too
+        List<Planner.Directive> plan = run(s, 1);
+        assertEquals(Planner.Tier.SUPPLY, plan.get(0).tier());
+        assertEquals("mine", plan.get(0).target());
+        assertTrue(plan.stream().anyMatch(d -> d.target().equals("house")), "the houses are still asked for: " + plan);
+
+        building(s, BuildingType.MINE, 0);
+        assertTrue(run(s, 2).stream().noneMatch(d -> d.tier() == Planner.Tier.SUPPLY), "a mine, so no more asking");
     }
 
     @Test

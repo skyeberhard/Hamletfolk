@@ -49,8 +49,6 @@ import org.bukkit.entity.Villager;
  */
 final class ConstructionService {
     private static final long PERIOD_TICKS = 20;
-    /** Blocks paid for and placed per pass: about this many a second. */
-    private static final int BLOCKS_PER_PASS = 4;
     /** Free ground work (clearing trees, filling hollows) per pass. */
     private static final int GROUND_PER_PASS = 48;
     /** The most a block is placed again if it never ends up matching (a torch that pops off, say), before it is left. */
@@ -179,6 +177,7 @@ final class ConstructionService {
         if (builder.isEmpty()) {
             return;
         }
+        int perPass = Construction.blocksPerPass(builder.get().built()); // R4.21: 4 a second, up to 10 for a master
         List<TemplateCatalog.Template> ladder = plugin.templates().catalog().ladder(project.type(), project.biomeSet());
         if (project.tier() > ladder.size()) {
             giveUp(settlement, project, "there is no such design any more", false);
@@ -247,7 +246,7 @@ final class ConstructionService {
         int placed = 0;
         long day = settlement.lastSimulatedDay();
         for (Construction.Step step : steps) {
-            if (placed >= BLOCKS_PER_PASS) {
+            if (placed >= perPass) {
                 break;
             }
             Blueprint.Block block = step.block();

@@ -74,6 +74,8 @@ public final class Resident {
     private long lastBlockedDay = -1;
     /** R3.5: what they have put by, in hundredths of an emerald. */
     private int wealth;
+    /** R4.21: buildings and upgrades this resident has finished as a builder. */
+    private int built;
 
     public Resident(UUID id, String givenName, String familyName, Gender gender, Traits traits,
                     Occupation occupation, boolean adult, long bornDay, UUID parentA, UUID parentB, Needs needs) {
@@ -97,6 +99,15 @@ public final class Resident {
     /** R3.5: what this resident has put by, in hundredths of an emerald. */
     public int wealth() {
         return wealth;
+    }
+
+    /** R4.21: buildings and upgrades this resident has finished as a builder. */
+    public int built() {
+        return built;
+    }
+
+    void setBuilt(int built) {
+        this.built = Math.max(0, built);
     }
 
     /** R3.5: adds to what they have put by (never below nothing, never above {@link Wealth#MAX}). */
@@ -221,6 +232,7 @@ public final class Resident {
                 parentA, parentB, new Needs(needs.food(), needs.safety(), needs.purpose()));
         copy.lastBlockedDay = lastBlockedDay;
         copy.wealth = wealth; // R3.5: a cured villager keeps what they had put by
+        copy.built = built; // R4.21: and their skill
         copy.familiarity.putAll(familiarity);
         return copy;
     }

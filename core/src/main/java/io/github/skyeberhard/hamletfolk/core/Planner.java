@@ -35,7 +35,8 @@ public final class Planner {
     }
 
     public enum Tier {
-        FOOD, SHELTER, SAFETY, GROWTH;
+        /** R4.20: SUPPLY (a mine, for stone and metal) is asked for alongside the tier after food, not as a gate. */
+        FOOD, SUPPLY, SHELTER, SAFETY, GROWTH;
 
         public String label() {
             return name().toLowerCase(Locale.ROOT);
@@ -103,6 +104,7 @@ public final class Planner {
             case SHELTER -> settlement.housing().counted()
                     ? Math.min(2.0, (double) settlement.housingCapacity() / population) : 1.0;
             case SAFETY -> safetyRatio(settlement, day);
+            case SUPPLY -> settlement.buildingCount(BuildingType.MINE) > 0 ? 1.0 : 0.0;
             case GROWTH -> 2.0;
         };
     }
@@ -182,13 +184,29 @@ public final class Planner {
                     case FOOD -> food(settlement);
                     case SHELTER -> shelter(settlement);
                     case SAFETY -> safety(settlement, day);
-                    case GROWTH -> List.of();
+                    case SUPPLY, GROWTH -> List.of();
                 };
-                return withLots(settlement, found.isEmpty() ? List.of(new Directive(tier, Kind.WAIT, tier.label(), "it is at "
-                        + Math.round(ratio(settlement, tier, day) * 100) + "% and the village is working back to full")) : found);
+                List<Directive> out = found.isEmpty() ? List.of(new Directive(tier, Kind.WAIT, tier.label(), "it is at "
+                        + Math.round(ratio(settlement, tier, day) * 100) + "% and the village is working back to full")) : found;
+                return withLots(settlement, tier == Tier.FOOD ? out : withSupply(settlement, out));
             }
         }
-        return withLots(settlement, growth(settlement, treasuryLimit));
+        return withLots(settlement, withSupply(settlement, growth(settlement, treasuryLimit)));
+    }
+
+    /**
+     * R4.20: once food is covered, a village with no mine wants one ahead of everything else, as stone and metal come
+     * from nowhere else. It goes first in the list rather than holding the rest up, so a village that cannot build a mine
+     * yet still gets on with its houses.
+     */
+    private static List<Directive> withSupply(Settlement settlement, List<Directive> rest) {
+        if (settlement.buildingCount(BuildingType.MINE) > 0) {
+            return rest;
+        }
+        List<Directive> out = new ArrayList<>();
+        out.add(new Directive(Tier.SUPPLY, Kind.BUILD, "mine", "stone and metal come from a mine; the village has none"));
+        out.addAll(rest);
+        return out;
     }
 
     /** R8.3: a directive to build something says which reserved lot it would go on, once the village has a plan. */

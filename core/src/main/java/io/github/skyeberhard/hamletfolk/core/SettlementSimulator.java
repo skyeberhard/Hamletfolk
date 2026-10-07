@@ -268,6 +268,7 @@ public final class SettlementSimulator {
         staffGuards(settlement, day);
         Construction.staffBuilders(settlement, day, settlement.hasCondition("famine")); // R4.8: a famine puts every hand on food
         assignJob(settlement, day);
+        staffSuppliers(settlement, day);
         Random random = new Random(settlement.id().getMostSignificantBits() ^ (day * 0x9E3779B97F4A7C15L));
         Ledger ledger = settlement.ledger();
 
@@ -487,6 +488,11 @@ public final class SettlementSimulator {
         if (resource == null) {
             return Double.MAX_VALUE;
         }
+        // R4.20: a material the village's building is waiting on is short, however much is in store. Food has its own tier.
+        // The day being simulated is the one after the last one finished.
+        if (resource != ResourceType.FOOD && Construction.lacking(settlement, settlement.lastSimulatedDay() + 1).contains(resource)) {
+            return 0.0;
+        }
         double wanted = (double) settlement.population()
                 * (resource == ResourceType.FOOD ? FOOD_WANTED_PER_HEAD : STOCK_WANTED_PER_HEAD);
         return settlement.ledger().get(resource) / wanted;
@@ -560,7 +566,7 @@ public final class SettlementSimulator {
     }
 
     /** The stock per resident below which a resource counts as short (the same test R4.3 uses). */
-    private static int wantedLevel(Settlement settlement, ResourceType type) {
+    static int wantedLevel(Settlement settlement, ResourceType type) {
         return settlement.population() * (type == ResourceType.FOOD ? FOOD_WANTED_PER_HEAD : STOCK_WANTED_PER_HEAD);
     }
 
@@ -850,7 +856,7 @@ public final class SettlementSimulator {
             if (!r.adult() || r.stage(day) == LifeStage.ELDER || r.traits().bravery() < GUARD_MIN_BRAVERY
                     || r.occupation() == Occupation.GUARD || r.occupation() == Occupation.MERCHANT || r.occupation() == Occupation.BUILDER
                     || (r.occupation() != Occupation.UNEMPLOYED && r.occupation().produces() == ResourceType.FOOD)
-                    || lastToolMaker(settlement, r)) {
+                    || onlySupplier(settlement, r)) {
                 continue;
             }
             if (chosen == null || guardPreference(r).compareTo(guardPreference(chosen)) > 0) {
@@ -861,14 +867,86 @@ public final class SettlementSimulator {
     }
 
     /**
-     * True if this resident is the village's only smith or miner: guards are armed with the tools they make and the
-     * metal they dig, so calling up the last one would cut off what arms the guards.
+     * True if this resident is the only one in a trade that supplies the village: a smith or a miner (guards are armed
+     * with the tools they make and the metal they dig), or, since R4.20, a lumberjack or a mason, whose wood and stone
+     * are what the village builds with. The last of these is never called up or moved to other work.
      */
-    static boolean lastToolMaker(Settlement settlement, Resident resident) {
+    static boolean onlySupplier(Settlement settlement, Resident resident) {
         Occupation job = resident.occupation();
-        boolean makesToolsOrMetal = job.produces() == ResourceType.TOOLS || job.secondaryProduces() == ResourceType.METAL;
-        return makesToolsOrMetal && settlement.residents().stream()
-                .filter(r -> r.adult() && r.occupation() == job).count() <= 1;
+        ResourceType makes = job.produces();
+        boolean supplies = makes == ResourceType.TOOLS || makes == ResourceType.WOOD || makes == ResourceType.STONE
+                || job.secondaryProduces() == ResourceType.METAL;
+        return supplies && settlement.residents().stream().filter(r -> r.adult() && r.occupation() == job).count() <= 1;
+    }
+
+    /**
+     * R4.8, R4.20: the worker the village can best spare for another trade: a builder with nothing to build first, then an
+     * idler, otherwise the first adult in the list. Never a child or an elder, a builder at work, a guard or merchant, or the only one in a supplying trade (see
+     * {@link #onlySupplier}), and a food worker only while the larder holds twice what counts as short and there is
+     * another food worker. Null if nobody can be spared.
+     */
+    static Resident spareWorker(Settlement settlement, long day) {
+        boolean foodPlentiful = settlement.ledger().get(ResourceType.FOOD)
+                >= 2 * FOOD_WANTED_PER_HEAD * Math.max(1, settlement.population());
+        long foodWorkers = settlement.residents().stream()
+                .filter(r -> r.adult() && r.occupation().produces() == ResourceType.FOOD).count();
+        Resident chosen = null;
+        for (Resident r : settlement.residents()) {
+            Occupation job = r.occupation();
+            boolean idleBuilder = job == Occupation.BUILDER && settlement.projects().stream()
+                    .noneMatch(p -> p.status() == ConstructionProject.Status.ACTIVE && r.id().equals(p.builder()));
+            if (!r.adult() || r.stage(day) == LifeStage.ELDER || (job == Occupation.BUILDER && !idleBuilder)
+                    || job == Occupation.GUARD || job == Occupation.MERCHANT || onlySupplier(settlement, r)) {
+                continue;
+            }
+            // Food workers only when the larder is well stocked, and never the last one.
+            if (job.produces() == ResourceType.FOOD && (!foodPlentiful || foodWorkers <= 1)) {
+                continue;
+            }
+            // Idle builders, then idlers; ties go to the first in the list so it is repeatable.
+            if (chosen == null || spareRank(settlement, r) > spareRank(settlement, chosen)) {
+                chosen = r;
+            }
+        }
+        return chosen;
+    }
+
+    private static int spareRank(Settlement settlement, Resident r) {
+        return r.occupation() == Occupation.BUILDER ? 2 : r.occupation() == Occupation.NITWIT ? 1 : 0;
+    }
+
+    /** R4.20: the trade that makes each building material. */
+    private static final Map<ResourceType, Occupation> SUPPLIERS = Map.of(
+            ResourceType.WOOD, Occupation.LUMBERJACK, ResourceType.STONE, Occupation.MINER, ResourceType.METAL, Occupation.MINER);
+
+    /**
+     * R4.20: the village's building is waiting on a material nobody makes. A jobless adult takes the trade (assignJob
+     * counts the material as short); with nobody out of work, one worker a day is moved to it (see {@link #spareWorker}).
+     * Not in a famine, and only into a trade nobody holds yet and that has somewhere to work.
+     */
+    private void staffSuppliers(Settlement settlement, long day) {
+        if (settlement.hasCondition("famine") || settlement.residents().stream()
+                .anyMatch(r -> r.adult() && r.occupation() == Occupation.UNEMPLOYED)) {
+            return;
+        }
+        java.util.Set<ResourceType> lacking = Construction.lacking(settlement, day);
+        for (ResourceType material : List.of(ResourceType.WOOD, ResourceType.STONE, ResourceType.METAL)) {
+            Occupation trade = SUPPLIERS.get(material);
+            if (!lacking.contains(material) || !workstationFree.test(settlement, trade)
+                    || settlement.residents().stream().anyMatch(r -> r.adult() && r.occupation() == trade)) {
+                continue;
+            }
+            Resident moved = spareWorker(settlement, day);
+            if (moved == null) {
+                return;
+            }
+            String was = moved.occupation().title();
+            moved.setOccupation(trade);
+            settlement.record(day, HistoryEvent.Kind.MILESTONE, moved.fullName() + " put down the work of a " + was
+                    + " to work as a " + trade.title() + ": " + settlement.name() + " needs "
+                    + material.name().toLowerCase(Locale.ROOT) + " to build.");
+            return;
+        }
     }
 
     /**

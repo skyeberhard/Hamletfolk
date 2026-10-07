@@ -402,7 +402,8 @@ final class SettlementCommand implements TabExecutor {
         } else {
             var p = open.get();
             String who = p.builder() == null ? "nobody has taken it on yet"
-                    : s.resident(p.builder()).map(r -> r.fullName() + " is building it").orElse("its builder has gone");
+                    : s.resident(p.builder()).map(r -> r.fullName() + ", " + io.github.skyeberhard.hamletfolk.core.Construction.builderTitle(r.built()) + " ("
+                            + r.built() + " built), is building it").orElse("its builder has gone");
             String progress = p.blocksLeft() < 0 ? "not started" : p.blocksLeft() + " blocks to go";
             String waiting = p.waitingFor() == null ? "" : ", waiting for " + p.waitingFor().name().toLowerCase(Locale.ROOT);
             player.sendMessage(Component.text("Building: " + (p.isUpgrade() ? "an upgrade of the " : "a ")

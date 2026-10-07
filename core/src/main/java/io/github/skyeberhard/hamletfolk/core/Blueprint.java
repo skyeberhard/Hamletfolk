@@ -62,14 +62,18 @@ public record Blueprint(String key, int width, int height, int depth, List<Block
         return units;
     }
 
+    /** R4.20: crops a farm is laid out with grow from seed, so a hungry village can still plant its first farm. */
+    private static final java.util.Set<String> PLANTED = java.util.Set.of("WHEAT", "CARROTS", "POTATOES", "BEETROOTS",
+            "MELON_STEM", "PUMPKIN_STEM", "ATTACHED_MELON_STEM", "ATTACHED_PUMPKIN_STEM");
+
     /** What one block of a material costs, in half-units of a resource. */
     public record Halves(ResourceType type, int halves) {
     }
 
-    /** R4.8: the cost of placing one block, or empty if it is free (air, torches, doors, chests). */
+    /** R4.8: the cost of placing one block, or empty if it is free (air, torches, doors, chests, crops). */
     public static Optional<Halves> halvesOf(String material) {
         String name = name(material);
-        if ("AIR".equalsIgnoreCase(name)) {
+        if ("AIR".equalsIgnoreCase(name) || PLANTED.contains(name.toUpperCase(Locale.ROOT))) {
             return Optional.empty();
         }
         Optional<ResourceMapper.Value> value = blockValue(name);
