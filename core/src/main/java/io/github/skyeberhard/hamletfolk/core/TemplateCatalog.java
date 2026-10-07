@@ -88,6 +88,9 @@ public final class TemplateCatalog {
                     rungs.add(new Template(type, biome, i + 1, vanilla(biome, "town_centers", pieces[i]), Source.VANILLA));
                 }
             }
+            case STREET_LIGHTS, PALISADE -> {
+                // works on the plan: no template, so no rungs
+            }
             case SMITHY -> rungs.add(new Template(type, biome, 1, vanilla(biome, "houses", biome + "_tool_smith_1"),
                     Source.VANILLA));
             default -> {

@@ -16,7 +16,11 @@ public enum BuildingType {
     SHOP("Shop"),
     TREASURY("Treasury"),
     /** R4.7: the village's meeting place, with its bell: the game's own town-centre pieces, built once on the main square. */
-    SQUARE("Town Square");
+    SQUARE("Town Square"),
+    /** R5.6: street lights, a work along the plan's streets rather than a building on a lot (no sign, no lot, no template). */
+    STREET_LIGHTS("Street Lights"),
+    /** R5.6: a fence ring round the village, also a work on the plan rather than a building. */
+    PALISADE("Palisade");
 
     /** R2.3: how many residents one building gives work to. */
     public static final int WORKERS_PER_BUILDING = 4;
@@ -47,8 +51,13 @@ public enum BuildingType {
             case MINE -> Optional.of(Occupation.MINER);
             case SMITHY -> Optional.of(Occupation.TOOLSMITH);
             case SHOP -> Optional.of(Occupation.MERCHANT);
-            case HOUSE, GUARD_POST, TREASURY, SQUARE -> Optional.empty();
+            case HOUSE, GUARD_POST, TREASURY, SQUARE, STREET_LIGHTS, PALISADE -> Optional.empty();
         };
+    }
+
+    /** R5.6: true for a work on the plan (street lights, a palisade): built by the village, never registered with a sign. */
+    public boolean isWorks() {
+        return this == STREET_LIGHTS || this == PALISADE;
     }
 
     /** e.g. "Guard Post". */
@@ -75,6 +84,17 @@ public enum BuildingType {
             return Optional.empty();
         }
         String wanted = squash(line.substring(1, line.length() - 1));
+        for (BuildingType type : values()) {
+            if (!type.isWorks() && squash(type.label).equals(wanted)) {
+                return Optional.of(type);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** The kind a planner directive's target names ("farm", "guard_post", "street_lights"), works included. */
+    public static Optional<BuildingType> fromTarget(String target) {
+        String wanted = squash(target);
         for (BuildingType type : values()) {
             if (squash(type.label).equals(wanted)) {
                 return Optional.of(type);

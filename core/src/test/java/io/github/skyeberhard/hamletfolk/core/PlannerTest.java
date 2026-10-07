@@ -350,4 +350,37 @@ class PlannerTest {
             assertFalse(Dialogue.smallTalk(adult, s, 40, random).contains("There's talk"), "an old one does not");
         }
     }
+
+    @Test
+    void afterTheFirstAttackTheVillageWantsLightsThenAPalisadeAndNeitherTwice() {
+        Settlement s = village();
+        s.setPlan(PlanGenerator.generate(0, 0, 7L, "plains", HeightSource.flat(64)));
+        s.ledger().add(ResourceType.FOOD, 300);
+        s.housing().setChunk(0, 0, 12);
+        building(s, BuildingType.MINE, 0);
+        assertTrue(Planner.directives(s, 5, LIMIT).stream().noneMatch(d -> d.target().equals("street_lights")), "never attacked, no lights");
+
+        s.recordIncident(5);
+        List<Planner.Directive> first = Planner.directives(s, 5, LIMIT);
+        assertEquals("street_lights", first.get(0).target(), first.toString());
+        assertEquals(Planner.Tier.SAFETY, first.get(0).tier());
+        assertTrue(first.get(0).text().startsWith("Put up the street lights"), first.get(0).text());
+        assertTrue(first.stream().noneMatch(d -> d.target().equals("palisade")), "lights first");
+
+        ConstructionProject lights = new ConstructionProject(s.nextProjectId(), BuildingType.STREET_LIGHTS, 1, 0, "plains", 0, 0, 0, -1, 5);
+        s.addProject(lights);
+        assertTrue(Planner.directives(s, 6, LIMIT).stream().noneMatch(d -> d.target().equals("street_lights")), "in hand: not asked again");
+        assertTrue(Planner.directives(s, 6, LIMIT).stream().noneMatch(d -> d.target().equals("palisade")), "not before the lights stand");
+
+        Construction.finish(s, lights, 7);
+        List<Planner.Directive> next = Planner.directives(s, 8, LIMIT);
+        assertEquals("palisade", next.get(0).target(), next.toString());
+        assertTrue(next.get(0).reason().contains("once"), next.get(0).reason());
+
+        ConstructionProject fence = new ConstructionProject(s.nextProjectId(), BuildingType.PALISADE, 1, 0, "plains", 0, 0, 0, -1, 8);
+        s.addProject(fence);
+        Construction.finish(s, fence, 9);
+        assertTrue(Planner.directives(s, 10, LIMIT).stream().noneMatch(d -> d.target().equals("palisade") || d.target().equals("street_lights")),
+                "both built: nothing more to ask for");
+    }
 }

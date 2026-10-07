@@ -38,7 +38,13 @@ class BuildingTest {
         assertEquals(Optional.empty(), BuildingType.fromSign(null));
         assertEquals(Optional.empty(), BuildingType.fromSign("[Farm] and more"));
         for (BuildingType type : BuildingType.values()) {
-            assertEquals(Optional.of(type), BuildingType.fromSign(type.signText()), "every type reads its own sign text");
+            if (type.isWorks()) {
+                // R5.6: a work on the plan is built by the village and cannot be registered by a sign
+                assertEquals(Optional.empty(), BuildingType.fromSign(type.signText()), type + " has no sign");
+                assertEquals(Optional.of(type), BuildingType.fromTarget(type.name().toLowerCase()), type + " is a planner target");
+            } else {
+                assertEquals(Optional.of(type), BuildingType.fromSign(type.signText()), "every type reads its own sign text");
+            }
         }
     }
 

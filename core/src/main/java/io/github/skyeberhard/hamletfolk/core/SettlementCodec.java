@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 21;
+    public static final int FORMAT_VERSION = 22;
 
     private SettlementCodec() {
     }
@@ -389,6 +389,8 @@ public final class SettlementCodec {
         // an older build must refuse a save that may contain it.
         // v17 -> v18: "plan" (R8.3, the streets and lots) is optional, so an old save has none until the ground is surveyed.
         // v16 -> v17: "decisions" (R8.1, the planner's log) is optional, so an old save has none; the planner fills it in.
+        // v21 -> v22: construction projects may be the works STREET_LIGHTS and PALISADE (R5.6, no lot, no sign); an older build
+        // would fail on the unknown type, so it must refuse the save.
         // v20 -> v21: "built" (R4.21, the buildings a resident has finished) is optional, so an old save's builders start at 0.
         // v13 -> v14: the treasury got a limit (R2.6). So that no existing village loses emeralds, what it holds now (the
         // treasury and the rewards set aside for open requests) is kept as the room it may keep ("treasuryLegacy"); a

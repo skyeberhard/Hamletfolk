@@ -362,7 +362,7 @@ class ConstructionTest {
         old.remove("projects");
         old.put("format", 18);
         assertTrue(SettlementCodec.decode(old).projects().isEmpty());
-        assertEquals(21, SettlementCodec.FORMAT_VERSION);
+        assertEquals(22, SettlementCodec.FORMAT_VERSION);
     }
 
     @Test
@@ -840,15 +840,27 @@ class ConstructionTest {
         s.ledger().add(ResourceType.FOOD, 500);
         assertTrue(propose(s, 5).isEmpty(), "every plainest design costs 25 and it has 20");
         assertTrue(Construction.lacking(s, 5).contains(ResourceType.WOOD), "20 wood is above the 18 that counts as short");
-        Settlement late = SettlementCodec.decode(SettlementCodec.encode(s)); // the same, but checked long after
         s.setLastSimulatedDay(4);
         sim.simulateDay(s, 5);
         assertEquals(1, s.residents().stream().filter(r -> r.occupation() == Occupation.LUMBERJACK).count());
-        assertFalse(Construction.lacking(s, 5 + Construction.LACK_MEMORY_DAYS + 1).contains(ResourceType.WOOD), "forgotten in time");
-        late.setLastSimulatedDay(5 + Construction.LACK_MEMORY_DAYS);
-        sim.simulateDay(late, 6 + Construction.LACK_MEMORY_DAYS);
-        // (a village of six keeps a lumberjack anyway since R4.24, so what a stale lack cannot do is hire a second)
-        assertEquals(1, late.residents().stream().filter(r -> r.occupation() == Occupation.LUMBERJACK).count());
+    }
+
+    @Test
+    void aStaleLackHiresNobodyButAFreshOneDoes() {
+        SettlementSimulator sim = SettlementSimulator.withOldAgeDeaths(false);
+        for (long lackDay : new long[] {5, 5 + Construction.LACK_MEMORY_DAYS + 3}) {
+            Settlement s = new Settlement(VILLAGE, "Smallham", "world", 0, 0, 0); // under four: no permanent lumberjack
+            for (int i = 0; i < 3; i++) {
+                s.addResident(person(Occupation.UNEMPLOYED));
+            }
+            s.ledger().add(ResourceType.FOOD, 500);
+            s.ledger().add(ResourceType.WOOD, 20); // above the 9 (3 a head) that counts as short
+            s.conditions().put(Construction.LACKS + "WOOD", lackDay);
+            s.setLastSimulatedDay(4 + Construction.LACK_MEMORY_DAYS + 3);
+            sim.simulateDay(s, 5 + Construction.LACK_MEMORY_DAYS + 3);
+            long lumberjacks = s.residents().stream().filter(r -> r.occupation() == Occupation.LUMBERJACK).count();
+            assertEquals(lackDay == 5 ? 0 : 1, lumberjacks, "lack noted on day " + lackDay);
+        }
     }
 
     @Test
@@ -936,5 +948,105 @@ class ConstructionTest {
         assertTrue(Blueprint.halvesOf("WHEAT[age=0]").isEmpty());
         assertTrue(Blueprint.halvesOf("CARROTS").isEmpty());
         assertTrue(Blueprint.halvesOf("HAY_BLOCK").isPresent(), "a bale is still made of wheat");
+    }
+
+    /** A fed, housed village with a mine, so only the defence directives are open, and it has been attacked. */
+    private Settlement attacked() {
+        Settlement s = village();
+        s.ledger().add(ResourceType.FOOD, 500);
+        s.housing().setChunk(0, 0, 20);
+        s.registerBuilding(new Building(BuildingType.MINE, 1000, 64, 1000, 0, "a player"));
+        s.recordIncident(4);
+        return s;
+    }
+
+    @Test
+    void anAttackedVillageLightsItsStreetsThenRaisesAPalisadeWithTheWorksOnThePlanNotOnALot() {
+        Settlement s = attacked();
+        ConstructionProject lights = propose(s, 5).orElseThrow();
+        assertEquals(BuildingType.STREET_LIGHTS, lights.type());
+        assertEquals(-1, lights.lotId(), "a work has no lot");
+        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("light its streets")));
+
+        SettlementSimulator sim = SettlementSimulator.withOldAgeDeaths(false);
+        sim.simulateDay(s, 5);
+        assertEquals(ConstructionProject.Status.ACTIVE, lights.status(), "a jobless adult takes it up like any project");
+
+        Construction.finish(s, lights, 6);
+        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("finished lighting the streets")));
+        ConstructionProject fence = propose(s, 7).orElseThrow();
+        assertEquals(BuildingType.PALISADE, fence.type());
+        Construction.finish(s, fence, 8);
+        Optional<ConstructionProject> again = propose(s, 9);
+        assertTrue(again.isEmpty() || again.get().type() != BuildingType.PALISADE, "built once");
+
+        Settlement loaded = SettlementCodec.decode(SettlementCodec.encode(s));
+        assertTrue(Construction.worksDone(loaded, BuildingType.STREET_LIGHTS) && Construction.worksDone(loaded, BuildingType.PALISADE));
+        assertTrue(loaded.buildingCount(BuildingType.PALISADE) == 0, "never a registered building");
+    }
+
+    @Test
+    void aVillageThatCannotPayForItsDefencesSavesUpAndAsksForWoodInsteadOfUpgrading() {
+        Settlement s = attacked();
+        int lightsCost = Works.price(BuildingType.STREET_LIGHTS, s.plan()).get(ResourceType.WOOD);
+        assertTrue(lightsCost > 2, "the lights cost something: " + lightsCost);
+        s.ledger().take(ResourceType.WOOD, 200 - (lightsCost - 1)); // one wood short
+        assertTrue(propose(s, 5).isEmpty(), "nothing else (the shop, the square, an upgrade) is started meanwhile");
+        assertTrue(Construction.lacking(s, 5).contains(ResourceType.WOOD), "wood is asked for, so a lumberjack is taken on");
+        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("wants the street lights but cannot start yet")));
+        long notes = s.history().stream().filter(e -> e.text().contains("cannot start yet")).count();
+        propose(s, 6);
+        assertEquals(notes, s.history().stream().filter(e -> e.text().contains("cannot start yet")).count(), "not every day");
+
+        s.ledger().add(ResourceType.WOOD, 10);
+        assertEquals(BuildingType.STREET_LIGHTS, propose(s, 7).orElseThrow().type());
+    }
+
+    @Test
+    void aVillageThatWasNeverAttackedBuildsNoDefences() {
+        Settlement s = village();
+        s.ledger().add(ResourceType.FOOD, 500);
+        s.housing().setChunk(0, 0, 20);
+        s.registerBuilding(new Building(BuildingType.MINE, 1000, 64, 1000, 0, "a player"));
+        for (long day = 5; day < 12; day++) {
+            propose(s, day).ifPresent(p -> assertFalse(p.type().isWorks(), "no defences without an attack: " + p.type()));
+        }
+    }
+
+    @Test
+    void aQueuedWorkWithNoBuilderFreeIsNotDroppedAsUnwantedAndWaitsItsTurn() {
+        // Everyone has a job and the larder is not plentiful, so for days nobody can be spared to build.
+        Settlement s = new Settlement(VILLAGE, "Busyham", "world", 0, 0, 0);
+        for (int i = 0; i < 4; i++) {
+            s.addResident(person(Occupation.FARMER));
+        }
+        s.setPlan(PlanGenerator.generate(0, 0, 7L, "plains", HeightSource.flat(64)));
+        s.registerBuilding(new Building(BuildingType.FARM, 500, 64, 500, 0, "a player"));
+        s.registerBuilding(new Building(BuildingType.MINE, 510, 64, 500, 0, "a player"));
+        s.ledger().add(ResourceType.FOOD, 70); // fed, but not plentiful: no food worker is spared
+        s.ledger().add(ResourceType.WOOD, 200);
+        s.housing().setChunk(0, 0, 12);
+        s.recordIncident(2);
+        ConstructionProject lights = Construction.propose(s, 3, "plains", 200, catalog, this::blueprints, (x, z) -> 64).orElseThrow();
+        assertEquals(BuildingType.STREET_LIGHTS, lights.type());
+        for (long day = 4; day <= 12; day++) {
+            Construction.propose(s, day, "plains", 200, catalog, this::blueprints, (x, z) -> 64);
+        }
+        assertEquals(ConstructionProject.Status.QUEUED, lights.status(), "still waiting, not cancelled as 'not needed any more'");
+        assertTrue(s.history().stream().noneMatch(e -> e.text().contains("not needed any more")));
+    }
+
+    @Test
+    void theRecordThatLightsAndAPalisadeStandSurvivesManyLaterProjects() {
+        Settlement s = attacked();
+        ConstructionProject lights = new ConstructionProject(s.nextProjectId(), BuildingType.STREET_LIGHTS, 1, 0, "plains", 0, 0, 0, -1, 5);
+        s.addProject(lights);
+        Construction.finish(s, lights, 6);
+        for (int i = 0; i < Settlement.MAX_CLOSED_PROJECTS + 5; i++) {
+            ConstructionProject other = new ConstructionProject(s.nextProjectId(), BuildingType.HOUSE, 1, 0, "plains", 0, 64, 0, -1, 7);
+            s.addProject(other);
+            Construction.cancel(s, other, 8, "test");
+        }
+        assertTrue(Construction.worksDone(s, BuildingType.STREET_LIGHTS), "not pruned, so the village does not ask for lights again");
     }
 }

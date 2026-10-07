@@ -190,9 +190,13 @@ public final class Construction {
         if (settlement.plan() != null && project.lotId() >= 0) {
             settlement.plan().fill(project.lotId());
         }
-        settlement.record(day, HistoryEvent.Kind.BUILDING, (who == null ? "The builders" : who) + " finished "
-                + (project.isUpgrade() ? "upgrading the " : "building a ") + project.type().label().toLowerCase(Locale.ROOT)
-                + " (tier " + project.tier() + ").");
+        String what = switch (project.type()) {
+            case STREET_LIGHTS -> "lighting the streets.";
+            case PALISADE -> "raising the palisade.";
+            default -> (project.isUpgrade() ? "upgrading the " : "building a ") + project.type().label().toLowerCase(Locale.ROOT)
+                    + " (tier " + project.tier() + ").";
+        };
+        settlement.record(day, HistoryEvent.Kind.BUILDING, (who == null ? "The builders" : who) + " finished " + what);
         // R4.21: every building finished makes the builder better at it.
         builder.ifPresent(r -> {
             int before = builderLevel(r.built());
@@ -322,6 +326,72 @@ public final class Construction {
         }
     }
 
+    // ----- works on the plan (R5.6) -----
+
+    /** Days before a given-up work is tried again. */
+    static final int WORKS_RETRY_DAYS = 10;
+    /** A work is started once the stores hold this share of the storage limit, or its price if that is less, and then paid for as it goes. */
+    static final double WORKS_START_SHARE = 0.7;
+
+    /** True if the village has the work, or is putting it up (a finished project, or one in hand). */
+    public static boolean hasWorks(Settlement settlement, BuildingType type) {
+        return settlement.projects().stream().anyMatch(p -> p.type() == type
+                && (p.status() == ConstructionProject.Status.DONE || p.isOpen()));
+    }
+
+    /** True if the village has finished the work. */
+    public static boolean worksDone(Settlement settlement, BuildingType type) {
+        return settlement.projects().stream().anyMatch(p -> p.type() == type && p.status() == ConstructionProject.Status.DONE);
+    }
+
+    /** True if there is nothing to start: it stands or is in hand, was given up lately, or the plan has no place for it. */
+    private static boolean worksSettled(Settlement settlement, BuildingType type, long day) {
+        return hasWorks(settlement, type) || Works.spots(type, settlement.plan()).isEmpty()
+                || settlement.projects().stream().anyMatch(p -> p.type() == type
+                        && p.status() == ConstructionProject.Status.CANCELLED && day - p.finishedDay() < WORKS_RETRY_DAYS);
+    }
+
+    /**
+     * Queues the work if the stores can start it: they hold its price, or most of the storage limit if the price is more than
+     * that. Otherwise notes what is lacking (so the trade that makes it is taken on, R4.20) and says so in the history now and
+     * then.
+     */
+    private static Optional<ConstructionProject> proposeWorks(Settlement settlement, long day, BuildingType type, String reason) {
+        VillagePlan plan = settlement.plan();
+        Map<ResourceType, Integer> price = priceOfWorks(settlement, type);
+        StringBuilder lacks = new StringBuilder();
+        price.forEach((resource, units) -> {
+            int needed = Math.min(units, (int) (SettlementSimulator.capacity(settlement, resource) * WORKS_START_SHARE));
+            int have = settlement.ledger().get(resource);
+            if (have < needed) {
+                settlement.conditions().put(LACKS + resource.name(), day);
+                lacks.append(lacks.length() == 0 ? "" : ", ").append(needed).append(' ')
+                        .append(resource.name().toLowerCase(Locale.ROOT)).append(" (it has ").append(have).append(')');
+            }
+        });
+        String name = type == BuildingType.STREET_LIGHTS ? "the street lights" : "the palisade";
+        if (lacks.length() > 0) {
+            Long last = settlement.conditions().get(BLOCKED + ":" + type.name());
+            if (last == null || day - last >= BLOCKED_REMINDER_DAYS) {
+                settlement.conditions().put(BLOCKED + ":" + type.name(), day);
+                settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " wants " + name
+                        + " but cannot start yet: it needs " + lacks + ".");
+            }
+            return Optional.empty();
+        }
+        ConstructionProject project = new ConstructionProject(settlement.nextProjectId(), type, 1, 0, "plains",
+                plan.centerX(), 0, plan.centerZ(), -1, day);
+        settlement.addProject(project);
+        settlement.conditions().put(DECIDED, day);
+        settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " set out to "
+                + (type == BuildingType.STREET_LIGHTS ? "light its streets" : "raise a palisade") + ": " + reason + ".");
+        return Optional.of(project);
+    }
+
+    private static Map<ResourceType, Integer> priceOfWorks(Settlement settlement, BuildingType type) {
+        return Works.price(type, settlement.plan());
+    }
+
     /** R4.21: days a builder waits for something to build before going back to other work. */
     static final int BUILDER_IDLE_DAYS = 7;
     static final String BUILDER_IDLE = "builderIdleSince";
@@ -357,11 +427,22 @@ public final class Construction {
             if (directive.kind() != Planner.Kind.BUILD) {
                 continue;
             }
-            Optional<BuildingType> type = BuildingType.fromSign("[" + directive.target() + "]");
-            if (type.isEmpty()) {
+            Optional<BuildingType> type = BuildingType.fromTarget(directive.target());
+            if (type.isEmpty() || (needUnmet && directive.tier() == Planner.Tier.GROWTH)) {
+                continue; // (a want waits for a need the village is saving up for)
+            }
+            if (type.get().isWorks()) {
+                // R5.6: lights and a palisade are laid out on the plan, not on a lot. One the village cannot yet pay for is saved up for.
+                if (!worksSettled(settlement, type.get(), day)) {
+                    Optional<ConstructionProject> works = proposeWorks(settlement, day, type.get(), directive.reason());
+                    if (works.isPresent()) {
+                        return works;
+                    }
+                    needUnmet = true;
+                }
                 continue;
             }
-            if (!squareTried && directive.tier() != Planner.Tier.FOOD) {
+            if (!squareTried && !needUnmet && directive.tier() != Planner.Tier.FOOD) {
                 squareTried = true; // food comes first, then the meeting place, then the rest
                 Optional<ConstructionProject> square = proposeSquare(settlement, day, biome, catalog, blueprints, terrain);
                 if (square.isPresent()) {
@@ -392,7 +473,7 @@ public final class Construction {
         }
         boolean foodNeeded = Planner.directives(settlement, day, treasuryLimit).stream()
                 .anyMatch(d -> d.kind() == Planner.Kind.BUILD && d.tier() == Planner.Tier.FOOD);
-        if (!squareTried && !foodNeeded) { // never ahead of a farm a hungry village cannot yet build
+        if (!squareTried && !foodNeeded && !needUnmet) { // never ahead of a farm a hungry village cannot yet build, or a need it is saving for
             Optional<ConstructionProject> square = proposeSquare(settlement, day, biome, catalog, blueprints, terrain);
             if (square.isPresent()) {
                 return square;
@@ -540,7 +621,8 @@ public final class Construction {
     private static void dropStaleQueuedProject(Settlement settlement, long day, int treasuryLimit) {
         Optional<ConstructionProject> open = settlement.openProject();
         if (open.isEmpty() || open.get().status() != ConstructionProject.Status.QUEUED || open.get().isUpgrade()
-                || open.get().type() == BuildingType.SQUARE || open.get().queuedDay() >= day) { // the planner never asks for a square
+                || open.get().type() == BuildingType.SQUARE || open.get().queuedDay() >= day // the planner never asks for a square
+                || open.get().type().isWorks()) { // and stops asking for a work once it is in hand, so it would look unwanted
             return;
         }
         String target = open.get().type().name().toLowerCase(Locale.ROOT);

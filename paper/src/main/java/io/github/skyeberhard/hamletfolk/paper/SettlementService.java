@@ -516,9 +516,14 @@ final class SettlementService {
     void simulate(Settlement settlement) {
         World world = Bukkit.getWorld(settlement.world());
         if (world != null && inScope(world)) {
-            simulator.simulateTo(settlement, day(world), config.maxCatchUpDays());
+            simulator.simulateTo(settlement, villageDay(settlement, world), config.maxCatchUpDays());
             reapDeparted(settlement);
         }
+    }
+
+    /** The day a village's own clock should be at: its world's day plus what a warp put it ahead. */
+    static long villageDay(Settlement settlement, World world) {
+        return day(world) + settlement.clockAhead();
     }
 
     /** R4.22: the most days one warp runs a village ahead. */
@@ -536,6 +541,9 @@ final class SettlementService {
         }
         int n = Math.max(1, Math.min(MAX_WARP_DAYS, days));
         int simulated = simulator.simulateTo(settlement, settlement.lastSimulatedDay() + n, n);
+        // From here the village's clock keeps pace with the world's, that far ahead of it: it does not stand still until
+        // the world catches up, so its builders, decisions and days carry on as usual.
+        settlement.setClockAhead(settlement.lastSimulatedDay() - day(world));
         reapDeparted(settlement);
         plugin.requestSave();
         return simulated;

@@ -17,7 +17,10 @@ import java.util.Map;
  * blocks and never touches a column that has something built on it.
  */
 public final class StreetGrade {
-    /** Longest dip (or bump) along a street that is filled (or cut) outright, in blocks. */
+    /**
+     * Longest dip (or bump) along a street that is filled (or cut) outright, in blocks. A longer one is only partly filled:
+     * the street ramps down into it a block at a time.
+     */
     public static final int MAX_DIP = 8;
     /** Widest water, measured along the street, that a bridge crosses. */
     public static final int MAX_BRIDGE = 6;
@@ -51,6 +54,7 @@ public final class StreetGrade {
         int[] height = new int[length];
         boolean[] water = new boolean[length];
         boolean[] measured = new boolean[length];
+        boolean[] fixed = new boolean[length]; // a slice crossing a street already graded keeps that street's height
         for (int i = 0; i < length; i++) {
             // Columns the source cannot measure (unloaded, or with something built on them) are left out of the slice.
             int[] column = new int[across];
@@ -59,13 +63,14 @@ public final class StreetGrade {
             for (int j = 0; j < across; j++) {
                 int x = alongX ? street.x() + i : street.x() + j;
                 int z = alongX ? street.z() + j : street.z() + i;
-                Integer fixed = done.get(TerrainPad.key(x, z));
-                int h = fixed != null ? fixed : terrain.height(x, z);
+                Integer already = done.get(TerrainPad.key(x, z));
+                int h = already != null ? already : terrain.height(x, z);
                 if (h == HeightSource.UNKNOWN) {
                     continue;
                 }
+                fixed[i] |= already != null;
                 column[known++] = h;
-                if (fixed == null && terrain.water(x, z)) {
+                if (already == null && terrain.water(x, z)) {
                     wet++;
                 }
             }
@@ -103,7 +108,11 @@ public final class StreetGrade {
             while (end + 1 < length && usable[end + 1]) {
                 end++;
             }
-            smooth(height, water, target, start, end);
+            boolean[] lock = new boolean[length];
+            for (int i = start; i <= end; i++) {
+                lock[i] = water[i] || fixed[i];
+            }
+            smooth(height, water, lock, target, start, end);
             start = end + 1;
         }
         for (int i = 0; i < length; i++) {
@@ -135,12 +144,13 @@ public final class StreetGrade {
 
     /**
      * Smooths the slices {@code lo..hi} (all measured): dips of up to {@link #MAX_DIP} slices are filled to the lower rim,
-     * bumps of that length cut to the higher base, and steps limited to one block. Bridge slices keep the water's height.
+     * bumps of that length cut to the higher base, and steps limited to one block. Bridge slices keep the water's height,
+     * and so do slices that cross a street already graded.
      */
-    private static void smooth(int[] height, boolean[] water, int[] target, int lo, int hi) {
+    private static void smooth(int[] height, boolean[] water, boolean[] lock, int[] target, int lo, int hi) {
         int[] closed = height.clone();
         for (int i = lo; i <= hi; i++) {
-            if (water[i]) {
+            if (lock[i]) {
                 continue;
             }
             int left = height[i];
@@ -157,7 +167,7 @@ public final class StreetGrade {
         }
         int[] opened = closed.clone();
         for (int i = lo; i <= hi; i++) {
-            if (water[i]) {
+            if (lock[i]) {
                 continue;
             }
             int left = closed[i];
@@ -175,12 +185,12 @@ public final class StreetGrade {
         int[] t = opened;
         for (int pass = 0; pass < 3; pass++) {
             for (int i = lo + 1; i <= hi; i++) {
-                if (!water[i]) {
+                if (!lock[i]) {
                     t[i] = Math.max(t[i - 1] - 1, Math.min(t[i - 1] + 1, t[i]));
                 }
             }
             for (int i = hi - 1; i >= lo; i--) {
-                if (!water[i]) {
+                if (!lock[i]) {
                     t[i] = Math.max(t[i + 1] - 1, Math.min(t[i + 1] + 1, t[i]));
                 }
             }

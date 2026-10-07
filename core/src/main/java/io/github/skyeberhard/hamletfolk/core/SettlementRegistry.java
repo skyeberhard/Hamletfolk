@@ -269,12 +269,16 @@ public final class SettlementRegistry {
             return;
         }
         resident.setOccupation(Occupation.UNEMPLOYED);
+        // R4.22: the two villages may have clocks that run a different distance ahead of their worlds'; the resident keeps
+        // their age and the entries keep their order in each history.
+        long shift = to.clockAhead() - from.clockAhead();
+        resident.shiftBirth(shift);
         to.addResident(resident);
         residentIndex.put(resident.id(), to.id());
         from.record(day, HistoryEvent.Kind.DEPARTURE, leaving);
-        to.record(day, HistoryEvent.Kind.ARRIVAL, arriving);
+        to.record(day + shift, HistoryEvent.Kind.ARRIVAL, arriving);
         if (pending) {
-            to.conditions().put(Migration.MOVING + resident.id(), day);
+            to.conditions().put(Migration.MOVING + resident.id(), day + shift);
         }
     }
 

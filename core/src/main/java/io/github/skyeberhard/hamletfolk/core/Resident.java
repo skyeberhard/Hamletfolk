@@ -63,7 +63,7 @@ public final class Resident {
     private String familyName;
     private final Gender gender;
     private final Traits traits;
-    private final long bornDay;
+    private long bornDay;
     private final UUID parentA;
     private final UUID parentB;
     private final Needs needs;
@@ -99,6 +99,11 @@ public final class Resident {
     /** R3.5: what this resident has put by, in hundredths of an emerald. */
     public int wealth() {
         return wealth;
+    }
+
+    /** R4.22: moves their birth day when they move to a village whose clock runs a different distance ahead of its world's. */
+    void shiftBirth(long days) {
+        bornDay += days;
     }
 
     /** R4.21: buildings and upgrades this resident has finished as a builder. */

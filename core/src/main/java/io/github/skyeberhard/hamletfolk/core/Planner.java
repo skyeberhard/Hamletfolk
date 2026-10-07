@@ -60,7 +60,8 @@ public final class Planner {
         public String text() {
             String name = target.toLowerCase(Locale.ROOT).replace('_', ' ');
             String text = switch (kind) {
-                case BUILD -> "Build a " + name + ": " + reason;
+                case BUILD -> (BuildingType.fromTarget(target).filter(BuildingType::isWorks).isPresent() ? "Put up the " : "Build a ")
+                    + name + ": " + reason;
                 case OPEN_JOB -> "Take on " + name + "s: " + reason;
                 case IMPORT -> "Bring in " + name + ": " + reason;
                 case WAIT -> "Waiting on " + name + ": " + reason;
@@ -188,10 +189,34 @@ public final class Planner {
                 };
                 List<Directive> out = found.isEmpty() ? List.of(new Directive(tier, Kind.WAIT, tier.label(), "it is at "
                         + Math.round(ratio(settlement, tier, day) * 100) + "% and the village is working back to full")) : found;
-                return withLots(settlement, tier == Tier.FOOD ? out : withSupply(settlement, out));
+                return withLots(settlement, tier == Tier.FOOD ? out : withDefence(settlement, day, withSupply(settlement, out)));
             }
         }
-        return withLots(settlement, withSupply(settlement, growth(settlement, treasuryLimit)));
+        return withLots(settlement, withDefence(settlement, day, withSupply(settlement, growth(settlement, treasuryLimit))));
+    }
+
+    /**
+     * R5.6: once a village has been attacked it wants lights along its streets, and when they stand, a palisade round the
+     * village. Both go first in the list: the lights are cheap, and the sooner they stand the fewer monsters spawn. Not asked
+     * for again once built (or while a project for them is open). A starving village sees food first, as for everything else.
+     */
+    private static List<Directive> withDefence(Settlement settlement, long day, List<Directive> rest) {
+        int attacks = settlement.incidentsSince(0);
+        if (attacks == 0 || settlement.plan() == null) {
+            return rest;
+        }
+        List<Directive> out = new ArrayList<>();
+        if (!Construction.hasWorks(settlement, BuildingType.STREET_LIGHTS)) {
+            out.add(new Directive(Tier.SAFETY, Kind.BUILD, "street_lights",
+                    "the village has been attacked, and monsters spawn where it is dark"));
+        } else if (Construction.worksDone(settlement, BuildingType.STREET_LIGHTS)
+                && !Construction.hasWorks(settlement, BuildingType.PALISADE)) {
+            out.add(new Directive(Tier.SAFETY, Kind.BUILD, "palisade",
+                    "the village has been attacked " + (attacks == 1 ? "once" : attacks + " times")
+                            + ", and a fence keeps monsters from walking in"));
+        }
+        out.addAll(rest);
+        return out;
     }
 
     /**

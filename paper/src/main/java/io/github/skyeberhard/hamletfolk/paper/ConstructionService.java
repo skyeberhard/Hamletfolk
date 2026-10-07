@@ -13,6 +13,7 @@ import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.StreetGrade;
 import io.github.skyeberhard.hamletfolk.core.TemplateCatalog;
 import io.github.skyeberhard.hamletfolk.core.VillagePlan;
+import io.github.skyeberhard.hamletfolk.core.Works;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -66,8 +67,16 @@ final class ConstructionService {
     private final Map<Integer, Integer> signTries = new HashMap<>();
     /** Not saved: how many passes of levelling a project has had, so water or sand flowing back cannot hold it up for ever. */
     private final Map<Integer, Integer> gradingPasses = new HashMap<>();
+    /** Not saved: the spots of a work found standing (so a post in a chunk that has since unloaded still counts), per project. */
+    private final Map<Integer, Set<Long>> standingSpots = new HashMap<>();
+    /** Not saved: the village day on which a work last made progress (placed a post, or waited for wood). */
+    private final Map<Integer, Long> workProgress = new HashMap<>();
+    /** Village days a work may go with nothing placed and nothing awaited before it is finished with gaps where it could not be built. */
+    private static final int WORKS_STALL_DAYS = 6;
     private static final int MAX_GRADING_PASSES = 60;
     private final Map<java.util.UUID, Long> lastLook = new HashMap<>();
+    /** Not saved: the village day on which each village last had its plan loaded to decide with nobody near (R4.22). */
+    private final Map<java.util.UUID, Long> lastHoldDay = new HashMap<>();
     private static final long LOOK_EVERY_MS = 10_000;
 
     /** R4.22: chunks held loaded for one purpose ("p<id>" for an open project, "d<id>" for a village deciding), and since when. */
@@ -126,7 +135,7 @@ final class ConstructionService {
                 world.addPluginChunkTicket(cx, cz, plugin);
             }
             if (!world.isChunkLoaded(cx, cz)) {
-                world.getChunkAtAsync(cx, cz, false); // an ungenerated chunk is left ungenerated
+                world.getChunkAtAsync(cx, cz, false); // ask for it now rather than wait for the ticket to take effect
             }
         }
         return fresh;
@@ -167,6 +176,10 @@ final class ConstructionService {
     private void releaseFinished() {
         java.util.Set<String> active = new HashSet<>();
         for (Settlement settlement : service.registry().settlements()) {
+            World world = Bukkit.getWorld(settlement.world());
+            if (world == null || !service.inScope(world) || settlement.isAbandoned() || settlement.population() == 0) {
+                continue; // tick() does not build here, so nothing is held for it
+            }
             settlement.openProject().filter(p -> p.status() == ConstructionProject.Status.ACTIVE)
                     .ifPresent(p -> active.add("p" + p.id() + "@" + settlement.id()));
         }
@@ -224,9 +237,18 @@ final class ConstructionService {
             return;
         }
         lastLook.put(settlement.id(), now);
-        // R4.22: with nobody near, the chunks of the plan are loaded for the decision, and let go once it is made.
+        // R4.22: with nobody near, the chunks of the plan are loaded for the decision, at most once a village day, and let go
+        // once it is made. A village with a project open or too few people has nothing to decide that needs the ground.
         String holdKey = "d" + settlement.id();
-        if (unattended()) {
+        boolean needsGround = settlement.openProject().isEmpty() && settlement.population() >= Construction.MIN_POPULATION;
+        if (unattended() && needsGround) {
+            long today = settlement.lastSimulatedDay();
+            if (!held.containsKey(holdKey)) {
+                if (lastHoldDay.getOrDefault(settlement.id(), Long.MIN_VALUE) >= today) {
+                    return; // looked today already
+                }
+                lastHoldDay.put(settlement.id(), today);
+            }
             Held loading = hold(world, holdKey, planChunks(settlement));
             if (!allLoaded(world, loading.chunks()) && now - loading.since() < LOAD_WAIT_MS) {
                 return; // look again in a few seconds; after a while it decides with what has loaded
@@ -312,6 +334,10 @@ final class ConstructionService {
         }
         // R4.21: 4 a second, up to 10 for a master; R4.22: times the speed setting.
         int perPass = Math.max(1, (int) Math.round(Construction.blocksPerPass(builder.get().built()) * speed()));
+        if (project.type().isWorks()) {
+            workWorks(settlement, world, project, perPass);
+            return;
+        }
         List<TemplateCatalog.Template> ladder = plugin.templates().catalog().ladder(project.type(), project.biomeSet());
         if (project.tier() > ladder.size()) {
             giveUp(settlement, project, "there is no such design any more", false);
@@ -354,7 +380,8 @@ final class ConstructionService {
         // standing (after a restart, say) must not be graded again over its own walls.
         if (!project.graded() && !project.isUpgrade() && project.blocksLeft() < 0) {
             int passes = gradingPasses.merge(project.id(), 1, Integer::sum);
-            int graded = passes > MAX_GRADING_PASSES ? 0 : prepareGround(world, bp, ox, oy, oz, project.biomeSet(), speed());
+            // (a slow builder does less each pass, so it is given more passes before the ground is left as it is)
+            int graded = passes > (int) (MAX_GRADING_PASSES / Math.min(1.0, speed())) ? 0 : prepareGround(world, bp, ox, oy, oz, project.biomeSet(), speed());
             if (graded < 0) {
                 giveUp(settlement, project, "the ground there cannot be levelled", true);
                 return;
@@ -426,12 +453,109 @@ final class ConstructionService {
         }
     }
 
+    /**
+     * R5.6: puts up street lights (a fence post with a torch on it) or the palisade (a fence post), a few a pass, each paid
+     * for from the ledger as it goes down. What stands is worked out from the world each pass, so a restart or a post a
+     * player took away just shows as work still to do. A spot with something built on it, water or a tree is left as a gap.
+     */
+    private void workWorks(Settlement settlement, World world, ConstructionProject project, int perPass) {
+        VillagePlan plan = settlement.plan();
+        List<Works.Spot> spots = Works.spots(project.type(), plan);
+        if (spots.isEmpty()) {
+            giveUp(settlement, project, "the village has no plan to put it on", false);
+            return;
+        }
+        boolean lights = project.type() == BuildingType.STREET_LIGHTS;
+        boolean unattended = unattended();
+        if (unattended) {
+            Set<Long> chunks = new HashSet<>();
+            spots.forEach(s -> chunks.add(chunkKey(s.x() >> 4, s.z() >> 4)));
+            hold(world, "p" + project.id() + "@" + settlement.id(), chunks);
+        }
+        if (!unattended && !playerNear(new Location(world, plan.centerX(), 64, plan.centerZ()))) {
+            return;
+        }
+        Set<Long> given = skipped.computeIfAbsent(project.id(), k -> new HashSet<>());
+        Set<Long> standing = standingSpots.computeIfAbsent(project.id(), k -> new HashSet<>());
+        long day = settlement.lastSimulatedDay();
+        int placed = 0;
+        int left = 0;
+        boolean dry = false;
+        for (Works.Spot spot : spots) {
+            long key = ((long) spot.x() << 32) ^ (spot.z() & 0xffffffffL);
+            if (given.contains(key) || standing.contains(key)) {
+                continue;
+            }
+            if (!world.isChunkLoaded(spot.x() >> 4, spot.z() >> 4)) {
+                left++; // not loaded yet: it waits for a player to come near, or for the chunks to be held
+                continue;
+            }
+            // A fence blocks movement, so once a post is up it is the surface block itself.
+            Block at = world.getBlockAt(spot.x(), surfaceY(world, spot.x(), spot.z()), spot.z());
+            if (Tag.FENCES.isTagged(at.getType())) {
+                Block torch = at.getRelative(0, 1, 0);
+                if (lights && torch.getType() != Material.TORCH && growthOnly(torch)) {
+                    torch.setType(Material.TORCH, false); // lit again if it was knocked off
+                }
+                standing.add(key);
+                continue;
+            }
+            Block post = at.getRelative(0, 1, 0);
+            Block top = at.getRelative(0, 2, 0);
+            boolean fits = at.getType().isSolid() && !at.isLiquid() && clearable(at, true)
+                    && growthOnly(post) && (!lights || growthOnly(top));
+            if (!fits || exemptNear(post.getLocation())) {
+                given.add(key); // something is in the way (or an exempt villager is near): a gap, not a wait
+                continue;
+            }
+            if (dry || placed >= perPass) {
+                left++;
+                continue;
+            }
+            if (!Construction.charge(settlement, project, "OAK_FENCE", day)) {
+                dry = true; // the stores ran dry: wait for wood
+                left++;
+                continue;
+            }
+            post.setType(Material.OAK_FENCE, true); // with physics, so it joins the posts beside it
+            if (lights) {
+                top.setType(Material.TORCH, false);
+            }
+            standing.add(key);
+            placed++;
+        }
+        project.setBlocksLeft(left);
+        Long progressed = workProgress.get(project.id());
+        if (progressed == null || placed > 0 || dry) {
+            workProgress.put(project.id(), day); // waiting for wood is not a stall
+        }
+        boolean stalled = left > 0 && !dry && placed == 0 && progressed != null && day - progressed >= WORKS_STALL_DAYS;
+        if (left == 0 || stalled) {
+            if (stalled) {
+                settlement.record(day, io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.BUILDING, "The "
+                        + project.type().label().toLowerCase(Locale.ROOT) + " was left with gaps where " + left
+                        + " posts could not be reached.");
+            }
+            Construction.finish(settlement, project, day);
+            forget(project.id());
+            plugin.requestSave();
+        } else if (placed > 0) {
+            plugin.requestSave();
+        }
+    }
+
+    private void forget(int projectId) {
+        attempts.remove(projectId);
+        skipped.remove(projectId);
+        signTries.remove(projectId);
+        gradingPasses.remove(projectId);
+        standingSpots.remove(projectId);
+        workProgress.remove(projectId);
+    }
+
     private void giveUp(Settlement settlement, ConstructionProject project, String reason, boolean abandonLot) {
         Construction.cancel(settlement, project, settlement.lastSimulatedDay(), reason, abandonLot);
-        attempts.remove(project.id());
-        skipped.remove(project.id());
-        signTries.remove(project.id());
-        gradingPasses.remove(project.id());
+        forget(project.id());
         plugin.requestSave();
     }
 
@@ -673,6 +797,9 @@ final class ConstructionService {
         List<Rect> everyStreet = new ArrayList<>(streets);
         if (plan.square() != null) {
             everyStreet.add(plan.square());
+            if (settlement.buildingCount(BuildingType.SQUARE) == 0) { // until its building stands, which has a floor of its own
+                overlap(plan.square(), near).ifPresent(toGrade::add); // the square is levelled like a street (R4.23)
+            }
         }
         java.util.OptionalInt front = bp.front();
         if (front.isPresent()) {
@@ -681,31 +808,24 @@ final class ConstructionService {
             int startX = dx == 0 ? project.x() + bp.width() / 2 : dx > 0 ? project.x() + bp.width() : project.x() - 1;
             int startZ = dz == 0 ? project.z() + bp.depth() / 2 : dz > 0 ? project.z() + bp.depth() : project.z() - 1;
             int steps = 0;
+            boolean meets = false;
             while (steps < WALKWAY_MAX) { // out from the door until it meets a street or the square
                 final int px = startX + dx * steps;
                 final int pz = startZ + dz * steps;
                 if (everyStreet.stream().anyMatch(r -> r.contains(px, pz))) {
+                    meets = true;
                     break;
                 }
                 steps++;
             }
             if (steps > 0) { // one block wide and straight, from the door to the street
-                int minX = dx >= 0 ? startX : startX - (steps - 1);
-                int minZ = dz >= 0 ? startZ : startZ - (steps - 1);
-                toGrade.add(new Rect(minX, minZ, dx == 0 ? 1 : steps, dz == 0 ? 1 : steps));
+                int cells = steps + (meets ? 1 : 0); // the street's first cell is in the slice, so the walkway meets its height
+                int minX = dx >= 0 ? startX : startX - (cells - 1);
+                int minZ = dz >= 0 ? startZ : startZ - (cells - 1);
+                toGrade.add(new Rect(minX, minZ, dx == 0 ? 1 : cells, dz == 0 ? 1 : cells));
             }
         }
         applyGrade(world, StreetGrade.compute(toGrade, streetGround(world)), project.biomeSet());
-        if (plan.square() != null) {
-            Rect square = plan.square();
-            overlap(square, near).ifPresent(r -> {
-                for (int x = r.x(); x <= r.maxX(); x++) {
-                    for (int z = r.z(); z <= r.maxZ(); z++) {
-                        layPath(world, x, z);
-                    }
-                }
-            });
-        }
     }
 
     private static java.util.Optional<Rect> overlap(Rect a, Rect b) {
@@ -722,7 +842,12 @@ final class ConstructionService {
         return new HeightSource() {
             @Override
             public int height(int x, int z) {
-                return world.isChunkLoaded(x >> 4, z >> 4) && columnNatural(world, x, z) ? ground.height(x, z) : UNKNOWN;
+                if (!world.isChunkLoaded(x >> 4, z >> 4) || !columnNatural(world, x, z)) {
+                    return UNKNOWN;
+                }
+                int h = ground.height(x, z);
+                // A torch, a rail, a sign or a tree trunk on the ground is something to go round, not to dig out from under.
+                return h == UNKNOWN || (!ground.water(x, z) && !growthOnly(world.getBlockAt(x, h + 1, z))) ? UNKNOWN : h;
             }
 
             @Override
@@ -747,6 +872,9 @@ final class ConstructionService {
             long column = ((long) change.x() << 32) ^ (change.z() & 0xffffffffL);
             switch (change.role()) {
                 case FILL -> {
+                    if (blocked.contains(column)) {
+                        continue;
+                    }
                     if (clearable(block, true)) {
                         block.setType(soil[1], false);
                     } else {
@@ -756,6 +884,10 @@ final class ConstructionService {
                 case AIR -> {
                     if (!block.getType().isAir() && clearable(block, true)) {
                         block.setType(Material.AIR, false);
+                    }
+                    Block above = block.getRelative(0, 1, 0); // nothing is left hanging over what was cut
+                    if (!above.getType().isAir() && growthOnly(above)) {
+                        above.setType(Material.AIR, false);
                     }
                 }
                 case SURFACE -> {
@@ -778,17 +910,27 @@ final class ConstructionService {
         }
     }
 
+    /** True for air, plants and leaves the game grew: what may stand over a street. Anything else is something built or a trunk. */
+    private static boolean growthOnly(Block block) {
+        Material m = block.getType();
+        if (m.isAir()) {
+            return true;
+        }
+        if (block.isLiquid()) {
+            return false;
+        }
+        return Tag.FLOWERS.isTagged(m) || Tag.SAPLINGS.isTagged(m) || Tag.REPLACEABLE.isTagged(m)
+                || (Tag.LEAVES.isTagged(m) && block.getBlockData() instanceof Leaves l && !l.isPersistent());
+    }
+
     /** Makes the two blocks over a walking surface free of plants and growing leaves; false if something else stands there. */
     private static boolean clearHeadroom(Block surface) {
         for (int up = 1; up <= 2; up++) {
             Block above = surface.getRelative(0, up, 0);
-            Material m = above.getType();
-            if (m.isAir()) {
+            if (above.getType().isAir()) {
                 continue;
             }
-            boolean plant = Tag.FLOWERS.isTagged(m) || Tag.REPLACEABLE.isTagged(m)
-                    || (Tag.LEAVES.isTagged(m) && above.getBlockData() instanceof Leaves l && !l.isPersistent());
-            if (!plant || above.isLiquid()) {
+            if (!growthOnly(above)) {
                 return false;
             }
             above.setType(Material.AIR, false);

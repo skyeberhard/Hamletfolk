@@ -88,10 +88,28 @@ class SuppliersAndDangerTest {
         assertFalse(SettlementSimulator.isResting(s, lumberjack));
         assertTrue(s.flow().produced(ResourceType.WOOD, 3) > 0);
 
+    }
+
+    @Test
+    void aRestingSupplierStillRestsAfterASaveAndALoad() {
+        Settlement s = village(0);
+        Resident lumberjack = person(Occupation.LUMBERJACK);
+        s.addResident(lumberjack);
+        for (int i = 0; i < 3; i++) {
+            s.addResident(person(Occupation.FARMER));
+        }
+        int limit = SettlementSimulator.capacity(s, ResourceType.WOOD);
+        s.ledger().take(ResourceType.WOOD, 10_000);
+        s.ledger().add(ResourceType.WOOD, limit);
+        simulator.simulateDay(s, 1);
+        assertTrue(SettlementSimulator.isResting(s, lumberjack));
+
+        s.ledger().take(ResourceType.WOOD, limit / 20); // 95%: between the limit and nine tenths of it
         Settlement loaded = SettlementCodec.decode(SettlementCodec.encode(s));
-        loaded.ledger().add(ResourceType.WOOD, 10_000);
-        simulator.simulateDay(loaded, 4);
-        assertTrue(loaded.hasCondition(SettlementSimulator.RESTING + "LUMBERJACK"), "the rest survives a save");
+        Resident again = loaded.resident(lumberjack.id()).orElseThrow();
+        simulator.simulateDay(loaded, 2);
+        assertTrue(SettlementSimulator.isResting(loaded, again), "still resting: it only stops resting below nine tenths");
+        assertEquals(limit - limit / 20, loaded.ledger().get(ResourceType.WOOD), "and made nothing");
     }
 
     @Test
@@ -142,5 +160,25 @@ class SuppliersAndDangerTest {
         assertEquals(0, Trading.purchaseIncome(s, "WHEAT", 20, "EMERALD", 100), "a sale to a villager pays nothing in");
         assertEquals(0, Trading.purchaseIncome(s, "EMERALD", 1, "EMERALD_BLOCK", 100), "not an exchange of money");
         assertEquals(23, s.ledger().treasury());
+    }
+
+    @Test
+    void aResidentWhoMovesBetweenVillagesWhoseClocksDifferKeepsTheirAgeAndTheHistoryKeepsItsOrder() {
+        SettlementRegistry own = new SettlementRegistry();
+        Settlement from = own.found("world", 0, 0, 0);
+        Settlement to = own.found("world", 100, 0, 0);
+        Resident mover = person(Occupation.FARMER);
+        from.addResident(mover);
+        for (int i = 0; i < 3; i++) {
+            from.addResident(person(Occupation.FARMER));
+        }
+        from.setClockAhead(0);
+        to.setClockAhead(30);
+        long born = mover.bornDay();
+        own.migrate(mover, from, to, 50);
+        assertEquals(born + 30, mover.bornDay(), "their age on the new clock is what it was on the old");
+        assertEquals(mover.age(50), mover.age(80));
+        assertEquals(80, to.history().get(to.history().size() - 1).day(), "arrival is on the new village's own day");
+        assertEquals(50, from.history().get(from.history().size() - 1).day());
     }
 }

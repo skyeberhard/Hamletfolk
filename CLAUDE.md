@@ -75,6 +75,17 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   `Construction.matches` compare only the block properties a blueprint names. Only projects on record are ever upgraded, so a
   player's building is never replaced; the site check gives up a lot that holds anything not terrain, trees or plants.
   Coded but unplayed (T49, T50). BUILDER is simulation-owned like GUARD.
+- **Works (R5.6):** `BuildingType.STREET_LIGHTS` and `PALISADE` (`isWorks()`) are projects on the plan with no lot, no sign and no
+  template: `core/Works` gives the columns, `ConstructionService.workWorks` places a fence post (and a torch) per column and
+  charges `OAK_FENCE` for each. They are asked for by `Planner.withDefence` after any recorded incident; `BuildingType.fromSign`
+  skips them so a sign cannot register one, `fromTarget` does not. An unaffordable need blocks wants (growth builds, the square,
+  upgrades) in `Construction.propose`.
+- **Village clock and warp (R4.22):** `/settlement admin warp` runs a village ahead and stores `Settlement.clockAhead()`; the
+  simulation then targets `SettlementService.villageDay` (world day plus the lead). Paper code that records a day for a village
+  uses `settlement.effectiveDay(day(world))`, never the raw world day. `construction.unattended` holds chunks with reference
+  counted plugin tickets (`ConstructionService.hold/release`); nothing else in the plugin uses chunk tickets.
+- **Suppliers (R4.24):** a village of four keeps a lumberjack, and a miner once a mine has room; lumberjacks, miners and masons
+  rest at the storage limit (`resting:` conditions). Tests that measure a gatherer's output must spend the stock each day.
 - **Building creates work (R4.20, R4.21):** a material a wanted building could not be paid for counts as short for 10 days
   (`Construction.lacking`, from the `constructionLacks:` conditions), whatever the stock per head, so a test that leaves a village
   unable to afford something can see a jobless resident become a lumberjack. A builder stays BUILDER between projects (released
@@ -97,7 +108,7 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
 
 - Done: M0; M1 items R1.2, R1.3, R1.4, R1.5, R1.6, R1.8, R1.9, R1.10, R1.13, R1.14, R1.16, R1.17,
   R1.18, R1.19, R1.20, R1.21, R1.22, R1.23, R1.28, R1.29, R1.30; M2 items R2.1, R2.2, R2.3, R2.5, R2.6, R2.7; M3 items R3.1, R3.2, R3.3, R3.4, R3.5, R3.6, R3.7, R3.9, R3.10, R3.11, R3.12, R3.13, R3.14; M5 items R5.1, R5.5; M8 items R8.1, R8.2, R8.3, R8.4; M4 items R4.1, R4.2, R4.3, R4.4, R4.5, R4.9, R4.10, R4.14, R4.15, R4.16.
-  Save format is 21 (R4.21 added the buildings a builder has finished; R4.7 and R4.8 added construction projects, their turn and grading and the builder occupation; R8.3 added the village plan; R8.1 added the planner's decision log; R5.5 added the days of recent attacks; R5.1 added the guard occupation; R2.6 kept room for existing treasuries; R4.2 added the departure history kind; R3.5 added resident wealth; R3.4 added per-player reputation; R2.2 added bed counts; R2.1 added buildings; R3.3 added requests; R1.21 added event count/actor, R3.7 added flow, R4.14 added gender, R4.15 added departed ids; 7 dropped the nonbinary gender).
+  Save format is 22 (R5.6 added the works STREET_LIGHTS and PALISADE as project types; R4.21 added the buildings a builder has finished; R4.7 and R4.8 added construction projects, their turn and grading and the builder occupation; R8.3 added the village plan; R8.1 added the planner's decision log; R5.5 added the days of recent attacks; R5.1 added the guard occupation; R2.6 kept room for existing treasuries; R4.2 added the departure history kind; R3.5 added resident wealth; R3.4 added per-player reputation; R2.2 added bed counts; R2.1 added buildings; R3.3 added requests; R1.21 added event count/actor, R3.7 added flow, R4.14 added gender, R4.15 added departed ids; 7 dropped the nonbinary gender).
 - **Next, highest value:** R1.1 (first playtest — the Paper layer has never run; scenarios
   T1–T48 in docs/TESTING.md, of which T17 (admin), T18 (worlds), T19 (backups), T26 (appearance), T27 (requests) and T28 (donation values) and T29 (tool requests) and T30 (trade prices) and T31 (donation room), T32 (building signs) and T33 (housing) T34 (miners), T35 (reputation), T36 (trades) and T37 (trade stock), T38 (wealth) and T39 (migration) and T40 (membership) T41 (shops) and T42 (treasury) T43 (bank counter) T44 (guards) T45 (planner) T46 (survey) and T47 (plan and lots) and T48 (exempt signs) are
   Paper-only). After that R1.24 (needs a decision), R1.7 and R1.12, then M2 buildings.

@@ -154,7 +154,15 @@ class StreetGradeTest {
         Rect across = new Rect(14, -10, 3, 25);
         List<StreetGrade.Change> changes = StreetGrade.compute(List.of(STREET, across), HeightSource.of((x, z) -> 64 + z / 5));
         Map<Long, Integer> surface = surface(changes); // fails if a column got two surfaces
-        assertEquals(64, at(surface, 15, 1));
         assertFalse(changes.isEmpty());
+        for (int z = 0; z < 3; z++) {
+            assertEquals(64, at(surface, 15, z), "the crossing keeps the first street's height");
+        }
+        for (int z = -9; z < 15; z++) {
+            assertTrue(Math.abs(at(surface, 15, z) - at(surface, 15, z - 1)) <= 1, "no step along the second street at z=" + z);
+        }
+        for (int x = 1; x < 30; x++) {
+            assertTrue(Math.abs(at(surface, x, 1) - at(surface, x - 1, 1)) <= 1, "no step along the first street at x=" + x);
+        }
     }
 }

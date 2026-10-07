@@ -118,6 +118,10 @@ final class AdminCommand {
             return;
         }
         int days = args[args.length - 1].length() > 4 ? SettlementService.MAX_WARP_DAYS : Integer.parseInt(args[args.length - 1]);
+        if (days < 1) {
+            sender.sendMessage("Give at least one day: /settlement admin warp [name] <days>   (1 to " + SettlementService.MAX_WARP_DAYS + ")");
+            return;
+        }
         Optional<Settlement> target = args.length >= 4 ? lookup(sender, words(args, 2, args.length - 1)) : here(sender);
         if (target.isEmpty()) {
             return;
@@ -130,7 +134,7 @@ final class AdminCommand {
             return;
         }
         sender.sendMessage(settlement.name() + " ran " + ran + (ran == 1 ? " day" : " days") + " ahead (day " + before + " to day "
-                + settlement.lastSimulatedDay() + "). Its own clock now runs ahead of the world's until the world catches up. "
+                + settlement.lastSimulatedDay() + "). Its own clock now runs that far ahead of the world's, and keeps pace with it. "
                 + settlement.population() + " residents.");
     }
 

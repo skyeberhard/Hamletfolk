@@ -49,6 +49,7 @@ public final class PlanGenerator {
             case SMITHY -> new int[] {13, 13};
             case MINE -> new int[] {13, 13};
             case SQUARE -> new int[] {SQUARE_HALF * 2 + 1, SQUARE_HALF * 2 + 1};
+            case STREET_LIGHTS, PALISADE -> new int[] {1, 1}; // works on the plan, not buildings on a lot
         };
     }
 
@@ -282,7 +283,7 @@ public final class PlanGenerator {
             case FARM -> 41;
             case MINE -> 33;
             case GUARD_POST -> 37;
-            case SQUARE -> 0;
+            case SQUARE, STREET_LIGHTS, PALISADE -> 0;
         };
     }
 

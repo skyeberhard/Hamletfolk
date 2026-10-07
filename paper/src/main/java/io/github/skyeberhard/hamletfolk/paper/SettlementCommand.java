@@ -345,6 +345,7 @@ final class SettlementCommand implements TabExecutor {
             case TREASURY -> org.bukkit.Color.fromRGB(190, 60, 255);
             case GUARD_POST -> org.bukkit.Color.fromRGB(60, 130, 255);
             case SQUARE -> org.bukkit.Color.fromRGB(255, 255, 255);
+            case STREET_LIGHTS, PALISADE -> org.bukkit.Color.fromRGB(255, 255, 255); // never a lot
         };
     }
 
@@ -407,9 +408,11 @@ final class SettlementCommand implements TabExecutor {
                             + r.built() + " built), is building it").orElse("its builder has gone");
             String progress = p.blocksLeft() < 0 ? "not started" : p.blocksLeft() + " blocks to go";
             String waiting = p.waitingFor() == null ? "" : ", waiting for " + p.waitingFor().name().toLowerCase(Locale.ROOT);
-            player.sendMessage(Component.text("Building: " + (p.isUpgrade() ? "an upgrade of the " : "a ")
-                    + p.type().label().toLowerCase(Locale.ROOT) + " (tier " + p.tier() + ") at " + p.x() + ", " + p.z()
-                    + " (" + who + "; " + progress + waiting + ")", NamedTextColor.GOLD));
+            String what = p.type().isWorks() ? "putting up the " + p.type().label().toLowerCase(Locale.ROOT)
+                    : (p.isUpgrade() ? "an upgrade of the " : "a ") + p.type().label().toLowerCase(Locale.ROOT)
+                            + " (tier " + p.tier() + ") at " + p.x() + ", " + p.z();
+            player.sendMessage(Component.text("Building: " + what + " (" + who + "; " + progress.replace("blocks", p.type().isWorks() ? "posts" : "blocks")
+                    + waiting + ")", NamedTextColor.GOLD));
         }
         int shown = 0;
         var all = s.projects();
@@ -649,7 +652,7 @@ final class SettlementCommand implements TabExecutor {
             rest.setAmount(held - amount);
             player.getInventory().setItemInMainHand(rest);
         }
-        long today = SettlementService.day(player.getWorld());
+        long today = s.effectiveDay(SettlementService.day(player.getWorld())); // a warped village's own clock may be ahead
         s.recordDonation(today, player.getName(), amount, itemName);
         s.adjustReputation(player.getUniqueId(), Reputation.donationGain(
                 emeralds > 0 ? ResourceType.GOODS : value.get().type(), credited, emeralds > 0)); // R3.4

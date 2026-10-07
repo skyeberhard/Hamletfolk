@@ -88,6 +88,11 @@ public final class Settlement {
 
     /** A finished project that is the newest on its lot, with its sign still registered: the village's own building. */
     private boolean isStandingRecord(ConstructionProject p) {
+        if (p.status() == ConstructionProject.Status.DONE && p.type().isWorks()) {
+            // R5.6: the lights and the palisade have no sign; the newest finished one of each kind is the record that they stand
+            return projects.stream().noneMatch(q -> q != p && q.type() == p.type() && q.id() > p.id()
+                    && q.status() == ConstructionProject.Status.DONE);
+        }
         return p.status() == ConstructionProject.Status.DONE && p.signY() != ConstructionProject.NO_SIGN
                 && hasBuildingAt(p.signX(), p.signY(), p.signZ())
                 && projects.stream().noneMatch(q -> q != p && q.lotId() == p.lotId() && q.id() > p.id()
@@ -542,6 +547,23 @@ public final class Settlement {
 
     public boolean hasCondition(String key) {
         return conditions.containsKey(key);
+    }
+
+    /** R4.22: the condition holding how many days a warp has put this village's clock ahead of its world's. */
+    static final String CLOCK_AHEAD = "clockAhead";
+
+    /** R4.22: how many days a warp has put this village's clock ahead of its world's (0 if none). */
+    public long clockAhead() {
+        return conditions.getOrDefault(CLOCK_AHEAD, 0L);
+    }
+
+    /** R4.22: sets how far ahead of its world this village's clock runs; the simulation keeps that lead. */
+    public void setClockAhead(long days) {
+        if (days > 0) {
+            conditions.put(CLOCK_AHEAD, days);
+        } else {
+            conditions.remove(CLOCK_AHEAD);
+        }
     }
 
     Map<String, Long> conditions() {
