@@ -83,7 +83,9 @@ public final class Migration {
         List<Resident> candidates = new ArrayList<>(from.residents());
         candidates.sort(Comparator.comparing(Resident::id));
         for (Resident resident : candidates) {
-            if (wantsToLeave(resident, day) && random.nextDouble() < CHANCE) {
+            if (wantsToLeave(resident, day) && !from.isPinned(resident.id()) // R1.31
+                    && !from.hasCondition(Births.AWAITING + resident.id()) // R4.28: no villager to send yet
+                    && random.nextDouble() < CHANCE) {
                 registry.migrate(resident, from, destination.get(), day);
                 return Optional.of(new Move(resident, from, destination.get()));
             }

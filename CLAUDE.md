@@ -86,6 +86,11 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   counted plugin tickets (`ConstructionService.hold/release`); nothing else in the plugin uses chunk tickets.
 - **Suppliers (R4.24):** a village of four keeps a lumberjack, and a miner once a mine has room; lumberjacks, miners and masons
   rest at the storage limit (`resting:` conditions). Tests that measure a gatherer's output must spend the stock each day.
+- **Pins, births, fast-forward (R1.31, R4.28, R4.27):** a pinned resident (`Settlement.isPinned`, `pinned:` conditions) is skipped
+  by every rule that moves people between trades; a new rule that changes someone's occupation must skip pinned residents too.
+  `Births.run` enrolls a sim-born child under a stand-in UUID (`awaitingVillager:` condition) and the Paper layer moves it onto
+  its villager with `SettlementRegistry.bringToLife` inside `world.spawn`'s consumer, before the entity is added. Fast-forward
+  is in memory only (stops on restart) and works through `SettlementService.warp`.
 - **Building creates work (R4.20, R4.21):** a material a wanted building could not be paid for counts as short for 10 days
   (`Construction.lacking`, from the `constructionLacks:` conditions), whatever the stock per head, so a test that leaves a village
   unable to afford something can see a jobless resident become a lumberjack. A builder stays BUILDER between projects (released

@@ -13,7 +13,10 @@ import io.github.skyeberhard.hamletfolk.core.IgnoreZones;
 import io.github.skyeberhard.hamletfolk.core.Membership;
 import io.github.skyeberhard.hamletfolk.core.Migration;
 import io.github.skyeberhard.hamletfolk.core.PlanGenerator;
+import io.github.skyeberhard.hamletfolk.core.Births;
+import io.github.skyeberhard.hamletfolk.core.FastForward;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
+import io.github.skyeberhard.hamletfolk.core.Stuck;
 import io.github.skyeberhard.hamletfolk.core.Trading;
 import io.github.skyeberhard.hamletfolk.core.VillagePlan;
 import io.github.skyeberhard.hamletfolk.core.SettlementRegistry;
@@ -535,17 +538,25 @@ final class SettlementService {
      * Returns the days run, 0 if the village's world is not simulated.
      */
     int warp(Settlement settlement, int days) {
+        return warp(settlement, days, true);
+    }
+
+    /** As {@link #warp(Settlement, int)}; {@code save} false leaves saving to the caller (fast-forward saves now and then). */
+    int warp(Settlement settlement, int days, boolean save) {
         World world = Bukkit.getWorld(settlement.world());
         if (world == null || !inScope(world) || settlement.isAbandoned()) {
             return 0;
         }
         int n = Math.max(1, Math.min(MAX_WARP_DAYS, days));
         int simulated = simulator.simulateTo(settlement, settlement.lastSimulatedDay() + n, n);
+        considerBirth(settlement); // R4.28: one chance a warp, so a long fast-forward still has children
         // From here the village's clock keeps pace with the world's, that far ahead of it: it does not stand still until
         // the world catches up, so its builders, decisions and days carry on as usual.
         settlement.setClockAhead(settlement.lastSimulatedDay() - day(world));
         reapDeparted(settlement);
-        plugin.requestSave();
+        if (save) {
+            plugin.requestSave();
+        }
         return simulated;
     }
 
@@ -574,6 +585,7 @@ final class SettlementService {
                 scanBedsIfDue(settlement, bedWorld);
             }
             considerNewcomer(settlement);
+            considerBirth(settlement); // R4.28
             releaseExemptResidents(settlement); // R1.30
             considerMigration(settlement);
             considerMembership(settlement);
@@ -586,6 +598,7 @@ final class SettlementService {
             if (world != null && inScope(world)) {
                 refreshAppearance(settlement, world);
                 pruneBuildings(settlement, world);
+                freeTheStuck(settlement); // R1.31
             }
         }
     }
@@ -620,6 +633,178 @@ final class SettlementService {
         // counted in the population before the next check can spawn another.
         if (newcomer.isValid()) {
             track(newcomer);
+        }
+    }
+
+    /**
+     * R4.28: a well-fed village has a child of its own (core decides, once a village day at most), and a child born while
+     * nobody was near gets its villager at the village's centre once that is loaded.
+     */
+    private void considerBirth(Settlement settlement) {
+        World world = Bukkit.getWorld(settlement.world());
+        if (world == null || !inScope(world) || settlement.isAbandoned()) {
+            return;
+        }
+        if (Births.run(registry, settlement, settlement.lastSimulatedDay()).isPresent()) {
+            plugin.requestSave();
+        }
+        int x = settlement.centerX();
+        int z = settlement.centerZ();
+        if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+            return;
+        }
+        int y = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES) + 1;
+        if (zonesOf(world).covers(x, y, z)) {
+            return; // R1.30: nobody is spawned into an exempt zone
+        }
+        for (Resident child : Births.awaiting(settlement)) {
+            UUID standIn = child.id();
+            Villager villager = world.spawn(new Location(world, x + 0.5, y, z + 0.5), Villager.class, v -> {
+                if (!child.adult()) {
+                    v.setBaby();
+                }
+            });
+            // Only a villager that is really there takes the resident over (another plugin may cancel the spawn): if it does
+            // not, the child stays awaited and is tried again. Tracking is deferred a tick, so this runs first.
+            if (!villager.isValid()) {
+                continue;
+            }
+            if (registry.bringToLife(standIn, villager.getUniqueId()).isEmpty()) {
+                villager.remove();
+                continue;
+            }
+            track(villager);
+            plugin.requestSave();
+        }
+    }
+
+    // ----- R1.31: stuck villagers -----
+
+    /** Not saved: where each loaded resident's villager last stood still, and since when (milliseconds). */
+    private final Map<UUID, Location> stillAt = new HashMap<>();
+    private final Map<UUID, Long> stillSince = new HashMap<>();
+
+    /** Moves a walled-in villager to the surface at its village's centre. Returns true if it was moved. */
+    boolean free(Villager villager, Settlement settlement) {
+        if (!plugin.getConfig().getBoolean("villagers.free-stuck", true) || villager.isInsideVehicle() || villager.isLeashed()
+                || villager.isTrading() || villager.isSleeping() || isIgnored(villager) || !inPit(villager)) {
+            return false;
+        }
+        World world = villager.getWorld();
+        int x = settlement.centerX();
+        int z = settlement.centerZ();
+        if (!world.getName().equals(settlement.world()) || !world.isChunkLoaded(x >> 4, z >> 4)) {
+            return false;
+        }
+        int y = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES) + 1;
+        Location from = villager.getLocation();
+        if (!villager.teleport(new Location(world, x + 0.5, y, z + 0.5))) {
+            return false;
+        }
+        plugin.getLogger().info("Freed " + registry.resident(villager.getUniqueId()).map(Resident::fullName).orElse("a villager")
+                + " of " + settlement.name() + ", walled in at " + from.getBlockX() + " " + from.getBlockY() + " " + from.getBlockZ() + ".");
+        return true;
+    }
+
+    private static boolean inPit(Villager villager) {
+        org.bukkit.block.Block feet = villager.getLocation().getBlock();
+        boolean openSky = villager.getWorld().getHighestBlockYAt(feet.getX(), feet.getZ(), HeightMap.MOTION_BLOCKING) < feet.getY();
+        return Stuck.inPit((dx, dy, dz) -> feet.getRelative(dx, dy, dz).getType().isSolid(), openSky);
+    }
+
+    /** Frees every loaded resident of a village that is walled in, at once. Returns how many. */
+    int unstick(Settlement settlement) {
+        int freed = 0;
+        for (Resident resident : new ArrayList<>(settlement.residents())) {
+            if (Bukkit.getEntity(resident.id()) instanceof Villager villager && free(villager, settlement)) {
+                freed++;
+            }
+        }
+        return freed;
+    }
+
+    /** Frees a loaded resident that has stood in one place, walled in, for {@link Stuck#MINUTES} minutes. */
+    private void freeTheStuck(Settlement settlement) {
+        long now = System.currentTimeMillis();
+        stillAt.keySet().removeIf(id -> registry.resident(id).isEmpty()); // gone: died, left, or turned
+        stillSince.keySet().retainAll(stillAt.keySet());
+        for (Resident resident : new ArrayList<>(settlement.residents())) {
+            if (!(Bukkit.getEntity(resident.id()) instanceof Villager villager) || !villager.isValid()) {
+                stillAt.remove(resident.id());
+                stillSince.remove(resident.id());
+                continue;
+            }
+            Location here = villager.getLocation();
+            Location was = stillAt.get(resident.id());
+            if (was == null || !was.getWorld().equals(here.getWorld()) || was.distanceSquared(here) > 1.0) {
+                stillAt.put(resident.id(), here);
+                stillSince.put(resident.id(), now);
+                continue;
+            }
+            if (now - stillSince.getOrDefault(resident.id(), now) >= Stuck.MINUTES * 60_000L && free(villager, settlement)) {
+                stillAt.remove(resident.id());
+                stillSince.remove(resident.id());
+            }
+        }
+    }
+
+    // ----- R4.27: fast-forward -----
+
+    /** Not saved: the villages running fast, with their speed, and the fraction of a day each is owed. A restart stops them. */
+    private final Map<UUID, Integer> fastForward = new java.util.LinkedHashMap<>();
+    private final Map<UUID, Double> owed = new HashMap<>();
+    private static final long FAST_FORWARD_PERIOD = 20;
+    /** The most days one village runs in one pass (a second), so a slow server falls behind instead of freezing. */
+    private static final int FAST_FORWARD_MAX_DAYS = 3;
+
+    void startFastForward() {
+        plugin.getServer().getScheduler().runTaskTimer(plugin, this::fastForwardPass, FAST_FORWARD_PERIOD, FAST_FORWARD_PERIOD);
+    }
+
+    /** Sets a village running at {@code speed} times game speed; 1 or less stops it. */
+    void setFastForward(Settlement settlement, int speed) {
+        if (speed <= 1) {
+            fastForward.remove(settlement.id());
+            owed.remove(settlement.id());
+        } else {
+            fastForward.put(settlement.id(), Math.min(FastForward.MAX_SPEED, speed));
+        }
+    }
+
+    /** The speed a village runs at: 1 unless it is fast-forwarding. */
+    int fastForwardSpeed(Settlement settlement) {
+        return fastForward.getOrDefault(settlement.id(), 1);
+    }
+
+    Map<UUID, Integer> fastForwarding() {
+        return java.util.Collections.unmodifiableMap(fastForward);
+    }
+
+    /** Real time between saves while villages fast-forward, so a run of warps does not save every second. */
+    private static final long FAST_FORWARD_SAVE_MS = 30_000;
+    private long fastForwardSaved;
+
+    private void fastForwardPass() {
+        boolean ran = false;
+        for (Map.Entry<UUID, Integer> entry : new ArrayList<>(fastForward.entrySet())) {
+            Settlement settlement = registry.settlements().stream().filter(s -> s.id().equals(entry.getKey())).findFirst().orElse(null);
+            if (settlement == null || settlement.isAbandoned()) {
+                fastForward.remove(entry.getKey());
+                owed.remove(entry.getKey());
+                continue;
+            }
+            FastForward.Step step = FastForward.advance(owed.getOrDefault(entry.getKey(), 0.0), entry.getValue(),
+                    FAST_FORWARD_PERIOD, FAST_FORWARD_MAX_DAYS);
+            owed.put(entry.getKey(), step.carry());
+            if (step.days() > 0) {
+                warp(settlement, step.days(), false);
+                ran = true;
+            }
+        }
+        long now = System.currentTimeMillis();
+        if (ran && now - fastForwardSaved >= FAST_FORWARD_SAVE_MS) {
+            fastForwardSaved = now;
+            plugin.requestSave();
         }
     }
 
@@ -845,7 +1030,10 @@ final class SettlementService {
         }
         completeMove(villager, resident); // R4.2: someone who moved settlement while unloaded arrives now
         // R4.3: the simulation owns the occupation; the vanilla profession only fills in a missing one.
-        resident.seedOccupation(occupationOf(villager));
+        UUID residentId = resident.id();
+        if (registry.settlementOf(residentId).filter(s -> s.isPinned(residentId)).isEmpty()) {
+            resident.seedOccupation(occupationOf(villager)); // R1.31: an admin's choice, even of no work, stands
+        }
         resident.setAdult(villager.isAdult());
         if (config.showNames() && villager.customName() == null) {
             villager.customName(Component.text(resident.fullName()));

@@ -54,6 +54,7 @@ When a village is founded or adopted, its surroundings are surveyed once (the R8
 | Coast, lakes | Fishing | fishermen | fish, kelp |
 | Sheep, cattle, horses nearby | Pastoral | shepherds, herders, horse trainers | wool, leather, horses |
 | Sand, clay | Craft | glassblowers, potters | glass, bricks |
+| Sugar cane, cattle (paper and leather) | Scholarly | cartographers, librarians | maps, books |
 | Several good scores, on a road or river | Trading | merchants | whatever it can buy cheap |
 
 A village can have a strong leaning, a mixed one or none ("all-round"). The leaning is a bias, not a cage: needs still
@@ -169,7 +170,7 @@ straight onto commodities.
 
 ## 6. Defence that grows (proposal; R5.6 is built for its first tier)
 
-### The wall moves out as the village grows
+### The wall moves out as the village grows (built, R5.8)
 
 The ring follows the plan. When the plan grows (the village outgrows its lots and the plan adds a stage), the ring is
 recomputed. The new ring is built first. Then the old sections that are now inside it are taken down, and their posts
@@ -195,27 +196,60 @@ gates would trap villagers inside. A gatehouse with a guard is the honest answer
 
 ## 7. Trades and skill (proposal)
 
-### Every trade has a source
+### Every trade has a source: the triggers
 
-| Trade | Needs (a building, or something in the land) | Notes |
-|---|---|---|
-| Farmer | farm, farmland | built |
-| Lumberjack | forest within reach | built (no building needed) |
-| Miner | mine | built |
-| Fisherman | water within reach, a dock | today only from the vanilla barrel |
-| Shepherd | sheep within reach, pens | wool from real shearing when loaded |
-| Herder / butcher | cattle, pigs, chickens, a smokehouse | |
-| Horse trainer | horses within reach, stables | new; tames and breeds horses, later mounts for guards |
-| Beekeeper | bees nearby | honey and candles |
-| Smith | smithy | smelting, tools, golems |
-| Mason | quarry or kiln | bricks, stone bricks |
-| Glassblower | workshop, sand | glass |
-| Librarian, cleric, cartographer | library, chapel, map room | goods and services; later, learning and healing |
+Every trade should be opened by something real: a feature of the land or animals within reach of the village, a
+building that holds its workstation, and the materials the workstation is made of. "Within reach" is counted when the
+village is surveyed (and again when its chunks are next loaded), within 48 blocks of the plan's edge, with a minimum
+count so that one stray sheep does not make a shepherd. The counts below are starting values to tune in play.
 
-Today, the vanilla professions other than farmer, miner and lumberjack appear only when a villager claims a job-site
-block it happens to find. The simulation never builds one. The proposal: each trade's building includes its vanilla
-workstation (a lectern in the library, a smoker in the smokehouse), paid for from commodities (a lectern needs planks
-and a book). Each sim-only trade (lumberjack, miner, guard, builder) is paired with a block that marks its place (R4.13).
+| Trade | Today | Trigger (within reach) | Workstation, and what it costs | Leaning, signature building |
+|---|---|---|---|---|
+| Farmer | built: a farm | open, flat ground | composter: 7 slabs | Farming: granary, windmill |
+| Lumberjack | built: always (R4.24) | 20+ trees | (none; a chopping block marks the place, R4.13) | Timber: sawmill, log yard |
+| Miner | built: a mine | exposed stone, a hillside | (none; the mine) | Mining: quarry, spoil heaps |
+| Fisherman | only from a vanilla barrel | 40+ water surface (a lake, river or coast) | barrel: 6 planks, 2 slabs | Fishing: harbour, drying racks |
+| Shepherd | only from a vanilla loom | 4+ sheep | loom: 2 string, 2 planks | Pastoral: pens, shearing barn |
+| Butcher | only from a vanilla smoker | 6+ cows, pigs or chickens | smoker: a furnace (8 cobblestone), 4 logs | Pastoral: smokehouse |
+| Leatherworker | only from a vanilla cauldron | 4+ cows (leather) | cauldron: 7 iron | Pastoral: tannery |
+| Cartographer | only from a vanilla table | 16+ sugar cane (paper), and the village is at least a village (8+) | cartography table: 2 paper, 4 planks | Scholarly: map room |
+| Librarian | only from a vanilla lectern | sugar cane and cows (books need paper and leather), a town (20+) | lectern: 4 slabs and a bookshelf (6 planks, 3 books) | Scholarly: library |
+| Fletcher | only from a vanilla table | 16+ exposed gravel (flint) and chickens (feathers) | fletching table: 2 flint, 4 planks | Timber or Martial: bowyer |
+| Mason | only from a vanilla stonecutter | exposed stone and a mine | stonecutter: 1 iron, 3 stone | Mining: masons' yard, kiln |
+| Toolsmith | built: a smithy | a mine, and iron in the stores | smithing table: 2 iron, 4 planks | Mining: forge |
+| Weaponsmith | only from a vanilla grindstone | a smithy, and the village has been attacked | grindstone: 2 sticks, a stone slab, 2 planks | Martial: armoury |
+| Armorer | only from a vanilla blast furnace | a smithy, iron and coal, and the village is martial or a town | blast furnace: 5 iron, a furnace, 3 smooth stone | Martial: armoury |
+| Cleric | only from a vanilla brewing stand | a town (20+) with a chapel; the brewing stand needs a blaze rod, which only comes from the Nether, so a player has to bring it (a request, R3.3) | brewing stand: a blaze rod, 3 cobblestone | any: chapel, then a temple |
+| Beekeeper (new) | none | 2+ bee nests | (a beehive: 6 planks, 3 honeycomb) | Farming: apiary |
+| Horse trainer (new) | none | 3+ horses | (none; a stable) | Pastoral: stables, paddock |
+| Glassblower (new) | none | 30+ sand | (a furnace) | Craft: glassworks |
+| Merchant | built: a shop | a surplus | (none; the shop) | Trading: market, trading post |
+| Guard, builder | built: on need | attacks; a project | (none) | Martial: barracks |
+
+Two things follow from the table:
+
+1. **Trades are unlocked in stages.** Food and basic materials come first (farmer, lumberjack, miner). The land's
+   trades come next (fisherman, shepherd, butcher, beekeeper, horse trainer), once the village is a village. Trades
+   that need processed goods (cartographer, librarian, armorer, cleric) come only when the inputs exist and the village
+   is big enough. A hamlet by a reed bed does not get a cartographer on day one; a village of twelve that has paper
+   to spare does.
+2. **The triggers are the leaning.** The same counts that open a trade also make up the land part of the village's
+   character (section 3.1). A village with sugar cane, cows and a full larder leans scholarly: it builds a map room and
+   then a library, and its librarians and cartographers sell maps and books. A village with sheep and cattle leans
+   pastoral: pens, a shearing barn and a tannery. The signature building of a leaning is the building that holds that
+   trade's workstations.
+
+The vanilla workstation is placed inside the building that holds it and paid for from the finer ledger (section 5),
+so a village cannot make a lectern until it has books.
+
+### Food, bread and children
+
+Births are built (R4.28): a well-fed village with a free bed has a child of its own every few days, whether or not a
+player is near. Today "well fed" means food in the stores, counted as one total. Once the finer ledger exists, food
+splits into grain, bread and the rest. Farmers (or a baker, in a farming town's mill) turn wheat into bread: three wheat
+makes one bread, as at a crafting table. A birth then eats three bread for each parent, which is what the game's
+villagers need to be willing to breed. A village that grows wheat but makes no bread has no children, which is the
+pressure to build a mill.
 
 ### Levels for every trade
 
@@ -238,12 +272,10 @@ Speed and health can be set on a villager with the game's own attributes. Fighti
 
 The game's small houses have one bed each, which is why a village needs so many. Two steps:
 
-1. **Count beds, don't guess.** The planner assumes three to a house. Instead it should count the beds in the design it
-   is about to build (they are in the blueprint), and prefer the design with the most beds for its cost. Upgrades add
-   beds.
-2. **Households** (R6.1): couples and children share a house, and an upgraded house is where a family grows. Births
-   today only happen through vanilla breeding near a player. For villages left alone for years, the simulation needs
-   births of its own, or the population only grows by newcomers.
+1. **Count beds, don't guess** (built, R4.26). The village counts the beds in each design it could build and builds the
+   one with the most beds for its cost; an upgrade only goes to a design with more beds.
+2. **Births** (built, R4.28): a well-fed village with a free bed has children of its own, near a player or not.
+3. **Households** (R6.1): couples and children share a house, and an upgraded house is where a family grows.
 
 ## 9. Time and unattended play (built, R4.22)
 
@@ -252,8 +284,8 @@ The game's small houses have one bed each, which is why a village needs so many.
 - `construction.speed` scales builders. `/settlement admin warp [name] <days>` runs a village up to 60 days ahead, once
   per command, and the village keeps that lead.
 
-Proposed: a **fast-forward** (`/settlement admin fastforward <name|all> <speed>` and `... stop`) that runs villages at 1
-to 100 times game speed until stopped. The simulation is cheap: a village day costs a fraction of a millisecond. The
+Built (R4.27): a **fast-forward** (`/settlement admin fastforward <name|all> <speed>` and `... stop`) that runs villages
+at 2 to 100 times game speed until stopped. The simulation is cheap: a village day costs a fraction of a millisecond. The
 limit is building, so in fast-forward builders work in large batches, and the tick budget per second is capped so the
 server stays responsive. At 100 times, a game day passes in 12 seconds, a game year in about 73 minutes, and a decade
 in about 12 hours.

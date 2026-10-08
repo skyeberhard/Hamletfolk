@@ -73,6 +73,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
         construction.start();
         service.trackLoadedVillagers();
         getServer().getScheduler().runTaskTimer(this, service::simulateAll, SIMULATION_PERIOD_TICKS, SIMULATION_PERIOD_TICKS);
+        service.startFastForward(); // R4.27
 
         long autosaveTicks = Math.max(1, getConfig().getLong("autosave-minutes", 5)) * 60 * 20;
         getServer().getScheduler().runTaskTimer(this, this::saveAsync, autosaveTicks, autosaveTicks);

@@ -98,6 +98,11 @@ membership:
 # their plan (see /settlement plan and /settlement lots). A builder only works while a player is within 128
 # blocks, never builds over anything a player made, and never while an exempt villager is nearby.
 # Turn off to stop villages building (a project in progress waits).
+# R1.31: move a resident's villager that has stood walled in, in a pit open to the sky, for 10 minutes to its village's
+# centre. A roofed cell (a room, a trading hall, a breeder) is never counted as a pit.
+villagers:
+  free-stuck: true
+
 construction:
   enabled: true
   # R4.22: build with nobody near. Off (the default), a village only builds while a player is within 128 blocks.

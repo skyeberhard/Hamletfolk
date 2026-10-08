@@ -191,8 +191,8 @@ public final class Construction {
             settlement.plan().fill(project.lotId());
         }
         String what = switch (project.type()) {
-            case STREET_LIGHTS -> "lighting the streets.";
-            case PALISADE -> "raising the palisade.";
+            case STREET_LIGHTS -> project.isUpgrade() ? "lighting the new streets." : "lighting the streets.";
+            case PALISADE -> project.isUpgrade() ? "moving the palisade out round the grown village." : "raising the palisade.";
             default -> (project.isUpgrade() ? "upgrading the " : "building a ") + project.type().label().toLowerCase(Locale.ROOT)
                     + " (tier " + project.tier() + ").";
         };
@@ -275,13 +275,15 @@ public final class Construction {
                 idle.add(r);
             }
         }
+        List<Resident> pinnedIdle = idle.stream().filter(r -> settlement.isPinned(r.id())).toList(); // R1.31: never let go
         if (idle.isEmpty()) {
             settlement.removeCondition(BUILDER_IDLE);
         } else {
             long since = settlement.conditions().computeIfAbsent(BUILDER_IDLE, k -> day);
             if (famine || day - since >= BUILDER_IDLE_DAYS) {
-                idle.forEach(r -> r.setOccupation(Occupation.UNEMPLOYED));
+                idle.stream().filter(r -> !settlement.isPinned(r.id())).forEach(r -> r.setOccupation(Occupation.UNEMPLOYED));
                 idle.clear();
+                idle.addAll(pinnedIdle);
                 settlement.removeCondition(BUILDER_IDLE);
             }
         }
@@ -291,6 +293,9 @@ public final class Construction {
             return;
         }
         String what = queued.get().type().label().toLowerCase(Locale.ROOT);
+        if (!idle.isEmpty() && famine && queued.get().type() != BuildingType.FARM) {
+            return; // a builder kept on (pinned) still waits out a famine, as everyone else does
+        }
         if (!idle.isEmpty()) {
             queued.get().claim(idle.get(0).id());
             settlement.removeCondition(BUILDER_IDLE);
@@ -305,7 +310,8 @@ public final class Construction {
             return;
         }
         for (Resident r : settlement.residents()) {
-            if (r.adult() && r.stage(day) != LifeStage.ELDER && r.occupation() == Occupation.UNEMPLOYED) {
+            if (r.adult() && r.stage(day) != LifeStage.ELDER && r.occupation() == Occupation.UNEMPLOYED
+                    && !settlement.isPinned(r.id())) {
                 r.setOccupation(Occupation.BUILDER);
                 queued.get().claim(r.id());
                 settlement.record(day, HistoryEvent.Kind.MILESTONE, r.fullName() + " took on the work of building the " + what + ".");
@@ -333,20 +339,34 @@ public final class Construction {
     /** A work is started once the stores hold this share of the storage limit, or its price if that is less, and then paid for as it goes. */
     static final double WORKS_START_SHARE = 0.7;
 
-    /** True if the village has the work, or is putting it up (a finished project, or one in hand). */
+    /** True if the village has the work, or is putting it up (a finished project, or one in hand), for any stage. */
     public static boolean hasWorks(Settlement settlement, BuildingType type) {
-        return settlement.projects().stream().anyMatch(p -> p.type() == type
+        return hasWorks(settlement, type, 1);
+    }
+
+    /**
+     * R5.8: true if the village has the work for this stage of its plan or a later one, or is putting it up. A work's
+     * tier is the plan stage it was laid out for.
+     */
+    public static boolean hasWorks(Settlement settlement, BuildingType type, int stage) {
+        return settlement.projects().stream().anyMatch(p -> p.type() == type && p.tier() >= stage
                 && (p.status() == ConstructionProject.Status.DONE || p.isOpen()));
     }
 
-    /** True if the village has finished the work. */
+    /** True if the village has finished the work, for any stage. */
     public static boolean worksDone(Settlement settlement, BuildingType type) {
-        return settlement.projects().stream().anyMatch(p -> p.type() == type && p.status() == ConstructionProject.Status.DONE);
+        return worksDone(settlement, type, 1);
+    }
+
+    /** R5.8: true if the village has finished the work for this stage of its plan or a later one. */
+    public static boolean worksDone(Settlement settlement, BuildingType type, int stage) {
+        return settlement.projects().stream().anyMatch(p -> p.type() == type && p.tier() >= stage
+                && p.status() == ConstructionProject.Status.DONE);
     }
 
     /** True if there is nothing to start: it stands or is in hand, was given up lately, or the plan has no place for it. */
     private static boolean worksSettled(Settlement settlement, BuildingType type, long day) {
-        return hasWorks(settlement, type) || Works.spots(type, settlement.plan()).isEmpty()
+        return hasWorks(settlement, type, settlement.plan().stage()) || Works.spots(type, settlement.plan()).isEmpty()
                 || settlement.projects().stream().anyMatch(p -> p.type() == type
                         && p.status() == ConstructionProject.Status.CANCELLED && day - p.finishedDay() < WORKS_RETRY_DAYS);
     }
@@ -358,7 +378,9 @@ public final class Construction {
      */
     private static Optional<ConstructionProject> proposeWorks(Settlement settlement, long day, BuildingType type, String reason) {
         VillagePlan plan = settlement.plan();
-        Map<ResourceType, Integer> price = priceOfWorks(settlement, type);
+        int before = settlement.projects().stream().filter(p -> p.type() == type && p.status() == ConstructionProject.Status.DONE)
+                .mapToInt(ConstructionProject::tier).max().orElse(0);
+        Map<ResourceType, Integer> price = Works.price(type, plan, before, plan.stage()); // R5.8: only the new posts
         StringBuilder lacks = new StringBuilder();
         price.forEach((resource, units) -> {
             int needed = Math.min(units, (int) (SettlementSimulator.capacity(settlement, resource) * WORKS_START_SHARE));
@@ -379,17 +401,16 @@ public final class Construction {
             }
             return Optional.empty();
         }
-        ConstructionProject project = new ConstructionProject(settlement.nextProjectId(), type, 1, 0, "plains",
+        // R5.8: a work's tier is the plan stage it is laid out for; the previous tier is the ring it replaces, if any.
+        int previous = settlement.projects().stream().filter(p -> p.type() == type && p.status() == ConstructionProject.Status.DONE)
+                .mapToInt(ConstructionProject::tier).max().orElse(0);
+        ConstructionProject project = new ConstructionProject(settlement.nextProjectId(), type, plan.stage(), previous, "plains",
                 plan.centerX(), 0, plan.centerZ(), -1, day);
         settlement.addProject(project);
         settlement.conditions().put(DECIDED, day);
         settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " set out to "
                 + (type == BuildingType.STREET_LIGHTS ? "light its streets" : "raise a palisade") + ": " + reason + ".");
         return Optional.of(project);
-    }
-
-    private static Map<ResourceType, Integer> priceOfWorks(Settlement settlement, BuildingType type) {
-        return Works.price(type, settlement.plan());
     }
 
     /** R4.21: days a builder waits for something to build before going back to other work. */
@@ -686,8 +707,14 @@ public final class Construction {
         Function<TemplateCatalog.Template, Optional<Oriented>> oriented = t -> read2.computeIfAbsent(t.key(), k ->
                 blueprints.apply(t).flatMap(b -> orient(b, desired, lot, replacing, oldBlueprint.orElse(null))));
         // The plainest design the village can pay for: a village spends on what it lacks, not on the grandest version of it.
-        Optional<TemplateCatalog.Template> best = TemplateCatalog.plainestAffordable(ladder, currentTier,
-                t -> oriented.apply(t).map(o -> priceOf(o.blueprint())).orElse(UNBUILDABLE), stock);
+        // A house is the exception (R4.26): the one with the most beds for its cost, and an upgrade only to more beds.
+        Function<TemplateCatalog.Template, Map<ResourceType, Integer>> costOf =
+                t -> oriented.apply(t).map(o -> priceOf(o.blueprint())).orElse(UNBUILDABLE);
+        Function<TemplateCatalog.Template, Integer> bedsOf = t -> oriented.apply(t).map(o -> o.blueprint().beds()).orElse(0);
+        boolean anyBeds = ladder.stream().anyMatch(t -> bedsOf.apply(t) > 0);
+        Optional<TemplateCatalog.Template> best = type == BuildingType.HOUSE && anyBeds
+                ? TemplateCatalog.mostBedsAffordable(ladder, currentTier, costOf, bedsOf, stock, oldBlueprint.map(Blueprint::beds).orElse(0))
+                : TemplateCatalog.plainestAffordable(ladder, currentTier, costOf, stock); // (a ladder with no beds read: as before)
         if (best.isEmpty()) {
             if (replacing == null && explain) {
                 explainWhyNot(settlement, day, type, ladder, blueprints, lot);

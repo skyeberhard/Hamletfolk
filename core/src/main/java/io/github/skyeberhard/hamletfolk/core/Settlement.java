@@ -206,6 +206,8 @@ public final class Settlement {
     }
 
     Resident removeResident(UUID id) {
+        conditions.remove(PINNED + id); // R1.31
+        conditions.remove(Births.AWAITING + id); // R4.28
         conditions.remove(Migration.MOVING + id); // R4.2: nobody left to bring over
         conditions.keySet().removeIf(key -> key.startsWith(Membership.STRAYING + id + ":")); // R1.8
         conditions.remove(Migration.ARRIVED + id);
@@ -547,6 +549,23 @@ public final class Settlement {
 
     public boolean hasCondition(String key) {
         return conditions.containsKey(key);
+    }
+
+    /** R1.31: prefix of the condition marking a resident whose trade an admin set, which the simulation leaves alone. */
+    static final String PINNED = "pinned:";
+
+    /** R1.31: whether an admin pinned this resident's trade. */
+    public boolean isPinned(UUID resident) {
+        return conditions.containsKey(PINNED + resident);
+    }
+
+    /** R1.31: pins (or with {@code pinned} false, unpins) a resident's trade. */
+    public void setPinned(UUID resident, boolean pinned, long day) {
+        if (pinned) {
+            conditions.put(PINNED + resident, day);
+        } else {
+            conditions.remove(PINNED + resident);
+        }
     }
 
     /** R4.22: the condition holding how many days a warp has put this village's clock ahead of its world's. */

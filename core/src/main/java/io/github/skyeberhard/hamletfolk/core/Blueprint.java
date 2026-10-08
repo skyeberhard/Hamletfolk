@@ -66,6 +66,28 @@ public record Blueprint(String key, int width, int height, int depth, List<Block
     private static final java.util.Set<String> PLANTED = java.util.Set.of("WHEAT", "CARROTS", "POTATOES", "BEETROOTS",
             "MELON_STEM", "PUMPKIN_STEM", "ATTACHED_MELON_STEM", "ATTACHED_PUMPKIN_STEM");
 
+    /**
+     * R4.26: how many beds the blueprint holds. A bed is two blocks; where a block names its part, the heads are counted,
+     * otherwise half the bed blocks.
+     */
+    public int beds() {
+        int heads = 0;
+        int halves = 0;
+        for (Block block : blocks) {
+            String material = block.material();
+            if (!name(material).toUpperCase(Locale.ROOT).endsWith("_BED")) {
+                continue;
+            }
+            String lower = material.toLowerCase(Locale.ROOT);
+            if (lower.contains("part=head")) {
+                heads++;
+            } else if (!lower.contains("part=")) {
+                halves++;
+            }
+        }
+        return heads + halves / 2;
+    }
+
     /** What one block of a material costs, in half-units of a resource. */
     public record Halves(ResourceType type, int halves) {
     }

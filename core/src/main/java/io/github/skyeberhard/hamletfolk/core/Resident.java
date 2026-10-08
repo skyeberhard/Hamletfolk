@@ -232,8 +232,16 @@ public final class Resident {
      */
     Resident withId(UUID newId, long today) {
         // Years spent as a zombie shouldn't mean they die the moment they are cured (R4.15).
-        long rebased = Math.max(bornDay, today - (maxAge() - cureGraceDays()));
-        Resident copy = new Resident(newId, givenName, familyName, gender, traits, occupation, adult, rebased,
+        return copy(newId, Math.max(bornDay, today - (maxAge() - cureGraceDays())));
+    }
+
+    /** R4.28: the same person, the same age, under a new entity id (a child born in the simulation getting its villager). */
+    Resident withId(UUID newId) {
+        return copy(newId, bornDay);
+    }
+
+    private Resident copy(UUID newId, long born) {
+        Resident copy = new Resident(newId, givenName, familyName, gender, traits, occupation, adult, born,
                 parentA, parentB, new Needs(needs.food(), needs.safety(), needs.purpose()));
         copy.lastBlockedDay = lastBlockedDay;
         copy.wealth = wealth; // R3.5: a cured villager keeps what they had put by

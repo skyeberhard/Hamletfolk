@@ -206,13 +206,17 @@ public final class Planner {
             return rest;
         }
         List<Directive> out = new ArrayList<>();
-        if (!Construction.hasWorks(settlement, BuildingType.STREET_LIGHTS)) {
-            out.add(new Directive(Tier.SAFETY, Kind.BUILD, "street_lights",
-                    "the village has been attacked, and monsters spawn where it is dark"));
-        } else if (Construction.worksDone(settlement, BuildingType.STREET_LIGHTS)
-                && !Construction.hasWorks(settlement, BuildingType.PALISADE)) {
-            out.add(new Directive(Tier.SAFETY, Kind.BUILD, "palisade",
-                    "the village has been attacked " + (attacks == 1 ? "once" : attacks + " times")
+        int stage = settlement.plan().stage(); // R5.8: each stage of the plan gets its own lights and ring
+        boolean grown = Construction.worksDone(settlement, BuildingType.PALISADE, 1);
+        if (!Construction.hasWorks(settlement, BuildingType.STREET_LIGHTS, stage)) {
+            out.add(new Directive(Tier.SAFETY, Kind.BUILD, "street_lights", grown
+                    ? "the village has grown, and its new streets are dark"
+                    : "the village has been attacked, and monsters spawn where it is dark"));
+        } else if (Construction.worksDone(settlement, BuildingType.STREET_LIGHTS, stage)
+                && !Construction.hasWorks(settlement, BuildingType.PALISADE, stage)) {
+            out.add(new Directive(Tier.SAFETY, Kind.BUILD, "palisade", grown
+                    ? "the village has grown past its palisade"
+                    : "the village has been attacked " + (attacks == 1 ? "once" : attacks + " times")
                             + ", and a fence keeps monsters from walking in"));
         }
         out.addAll(rest);
@@ -275,9 +279,8 @@ public final class Planner {
 
     private static List<Directive> shelter(Settlement s) {
         int missing = Math.max(1, s.population() - s.housingCapacity());
-        int houses = (missing + 2) / 3; // a house holds about three
         return List.of(new Directive(Tier.SHELTER, Kind.BUILD, "house", s.population() + " residents but only "
-                + s.housingCapacity() + " beds; " + houses + (houses == 1 ? " house" : " houses") + " would house the rest"));
+                + s.housingCapacity() + " beds; " + missing + (missing == 1 ? " more bed" : " more beds") + " would house the rest"));
     }
 
     private static List<Directive> safety(Settlement s, long day) {

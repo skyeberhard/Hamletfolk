@@ -164,6 +164,43 @@ public final class TemplateCatalog {
     }
 
     /**
+     * R4.26: of the rungs above {@code currentTier} the stores can pay for, the one with the most beds for its cost (beds
+     * per unit of everything it costs), the plainest of equals first. Only a rung with more beds than {@code currentBeds}
+     * is considered, so an upgrade always adds room. Empty if none.
+     */
+    public static Optional<Template> mostBedsAffordable(List<Template> ladder, int currentTier,
+            Function<Template, Map<ResourceType, Integer>> costOf, Function<Template, Integer> bedsOf,
+            Map<ResourceType, Integer> stock, int currentBeds) {
+        Template best = null;
+        double bestValue = -1;
+        for (Template rung : ladder) {
+            if (rung.tier() <= currentTier) {
+                continue;
+            }
+            Map<ResourceType, Integer> cost = costOf.apply(rung);
+            boolean affordable = true;
+            long units = 0;
+            for (Map.Entry<ResourceType, Integer> need : cost.entrySet()) {
+                if (stock.getOrDefault(need.getKey(), 0) < need.getValue()) {
+                    affordable = false;
+                    break;
+                }
+                units += need.getValue();
+            }
+            int beds = bedsOf.apply(rung);
+            if (!affordable || beds <= currentBeds) {
+                continue;
+            }
+            double value = (double) beds / Math.max(1, units);
+            if (value > bestValue) {
+                best = rung;
+                bestValue = value;
+            }
+        }
+        return Optional.ofNullable(best);
+    }
+
+    /**
      * The best rung above {@code currentTier} (0 for nothing built) the village can pay for in full now, if any: the
      * highest tier whose cost fits the stock. {@code costOf} says what a rung costs, normally from its blueprint (or
      * from the blocks the Paper layer read for a vanilla piece) minus what is already built.

@@ -271,6 +271,7 @@ public final class SettlementSimulator {
             return; // R1.5: no residents for ABANDONMENT_DAYS straight; nothing left to simulate.
         }
         ageOut(settlement, day);
+        Births.growUp(settlement, day); // R4.28
         releaseMerchant(settlement);
         staffGuards(settlement, day);
         Construction.staffBuilders(settlement, day, settlement.hasCondition("famine")); // R4.8: a famine puts every hand on food
@@ -415,7 +416,7 @@ public final class SettlementSimulator {
     private void assignJob(Settlement settlement, long day) {
         Resident jobless = null;
         for (Resident resident : workOrder(settlement)) {
-            if (resident.adult() && resident.occupation() == Occupation.UNEMPLOYED) {
+            if (resident.adult() && resident.occupation() == Occupation.UNEMPLOYED && !settlement.isPinned(resident.id())) {
                 jobless = resident;
                 break;
             }
@@ -815,7 +816,7 @@ public final class SettlementSimulator {
                     .filter(r -> r.adult() && r.occupation() == Occupation.MERCHANT).count();
             if (merchants > placesFor(settlement, Occupation.MERCHANT)) {
                 for (Resident resident : settlement.residents()) {
-                    if (resident.adult() && resident.occupation() == Occupation.MERCHANT) {
+                    if (resident.adult() && resident.occupation() == Occupation.MERCHANT && !settlement.isPinned(resident.id())) {
                         resident.setOccupation(Occupation.UNEMPLOYED);
                         return;
                     }
@@ -826,7 +827,7 @@ public final class SettlementSimulator {
             return;
         }
         for (Resident resident : settlement.residents()) {
-            if (resident.adult() && resident.occupation() == Occupation.MERCHANT) {
+            if (resident.adult() && resident.occupation() == Occupation.MERCHANT && !settlement.isPinned(resident.id())) {
                 resident.setOccupation(Occupation.UNEMPLOYED);
                 return;
             }
@@ -915,7 +916,7 @@ public final class SettlementSimulator {
         }
         if (guards > 0 && settlement.threat() < THREAT_CALM && settlement.incidentsSince(day - QUIET_DAYS + 1) == 0) {
             for (Resident r : settlement.residents()) {
-                if (r.adult() && r.occupation() == Occupation.GUARD) {
+                if (r.adult() && r.occupation() == Occupation.GUARD && !settlement.isPinned(r.id())) {
                     r.setOccupation(Occupation.UNEMPLOYED);
                     settlement.record(day, HistoryEvent.Kind.MILESTONE, "With the danger passed, " + r.fullName()
                             + " stood down as a guard.");
@@ -931,6 +932,7 @@ public final class SettlementSimulator {
         for (Resident r : settlement.residents()) {
             if (!r.adult() || r.stage(day) == LifeStage.ELDER || r.traits().bravery() < GUARD_MIN_BRAVERY
                     || r.occupation() == Occupation.GUARD || r.occupation() == Occupation.MERCHANT || r.occupation() == Occupation.BUILDER
+                    || settlement.isPinned(r.id()) // R1.31
                     || (r.occupation() != Occupation.UNEMPLOYED && r.occupation().produces() == ResourceType.FOOD)
                     || onlySupplier(settlement, r)) {
                 continue;
@@ -972,7 +974,8 @@ public final class SettlementSimulator {
             boolean idleBuilder = job == Occupation.BUILDER && settlement.projects().stream()
                     .noneMatch(p -> p.status() == ConstructionProject.Status.ACTIVE && r.id().equals(p.builder()));
             if (!r.adult() || r.stage(day) == LifeStage.ELDER || (job == Occupation.BUILDER && !idleBuilder)
-                    || job == Occupation.GUARD || job == Occupation.MERCHANT || onlySupplier(settlement, r)) {
+                    || job == Occupation.GUARD || job == Occupation.MERCHANT || onlySupplier(settlement, r)
+                    || settlement.isPinned(r.id())) { // R1.31
                 continue;
             }
             // Food workers only when the larder is well stocked, and never the last one.
@@ -1002,7 +1005,7 @@ public final class SettlementSimulator {
      */
     private void staffSuppliers(Settlement settlement, long day) {
         if (settlement.hasCondition("famine") || settlement.residents().stream()
-                .anyMatch(r -> r.adult() && r.occupation() == Occupation.UNEMPLOYED)) {
+                .anyMatch(r -> r.adult() && r.occupation() == Occupation.UNEMPLOYED && !settlement.isPinned(r.id()))) {
             return;
         }
         java.util.Set<ResourceType> lacking = Construction.lacking(settlement, day);

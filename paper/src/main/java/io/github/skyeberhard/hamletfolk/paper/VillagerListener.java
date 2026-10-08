@@ -73,8 +73,9 @@ final class VillagerListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onCareerChange(VillagerCareerChangeEvent event) {
         // R4.3: seeds an unemployed resident only; never replaces an occupation the simulation gave.
-        service.registry().resident(event.getEntity().getUniqueId()).ifPresent(resident ->
-                resident.seedOccupation(Occupation.fromVanillaKey(event.getProfession().getKey().getKey())));
+        service.registry().resident(event.getEntity().getUniqueId())
+                .filter(resident -> service.registry().settlementOf(resident.id()).filter(s -> s.isPinned(resident.id())).isEmpty()) // R1.31
+                .ifPresent(resident -> resident.seedOccupation(Occupation.fromVanillaKey(event.getProfession().getKey().getKey())));
     }
 
     /** R3.1: a villager's trade window is opening; set its prices from the settlement's stores. */

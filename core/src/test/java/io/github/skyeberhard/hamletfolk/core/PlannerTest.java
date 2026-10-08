@@ -143,7 +143,7 @@ class PlannerTest {
     }
 
     @Test
-    void shelterCountsHowManyHousesTheRestNeed() {
+    void shelterSaysHowManyBedsTheRestNeed() {
         Settlement s = new Settlement(new UUID(21, 23), "Roofless", "world", 0, 0, 0);
         for (int i = 0; i < 7; i++) {
             s.addResident(person(Occupation.NITWIT));
@@ -152,7 +152,7 @@ class PlannerTest {
         s.housing().setChunk(0, 0, 1);
         List<Planner.Directive> d = needs(run(s, 1));
         assertEquals("house", d.get(0).target());
-        assertTrue(d.get(0).reason().contains("2 houses"), d.get(0).reason()); // six without a bed, three to a house
+        assertTrue(d.get(0).reason().contains("6 more beds"), d.get(0).reason()); // R4.26: beds, not a guess at houses
     }
 
     @Test

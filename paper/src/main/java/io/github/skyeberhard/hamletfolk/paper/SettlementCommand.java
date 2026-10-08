@@ -214,6 +214,7 @@ final class SettlementCommand implements TabExecutor {
                 break;
             }
             String role = r.adult() ? r.occupation().title() + (SettlementSimulator.isResting(s, r) ? " (resting: stores full)" : "")
+                    + (s.isPinned(r.id()) ? " (pinned by an admin)" : "")
                     + ", " + r.age(s.lastSimulatedDay()) + " days"
                     + (r.stage(s.lastSimulatedDay()) == LifeStage.ELDER ? " (elder)" : "")
                     + ", " + Wealth.tier(r.wealth()).name().toLowerCase(Locale.ROOT) // R3.5

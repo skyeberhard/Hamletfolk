@@ -265,21 +265,49 @@ public final class SettlementRegistry {
      */
     void transfer(Resident resident, Settlement from, Settlement to, long day, String leaving, String arriving,
             boolean pending) {
+        // A resident who moves loses their job, as there is none waiting; one an admin pinned keeps it, pin and all, when
+        // their villager settles in another village of its own accord (R1.8), and loses both on a migration (R4.2).
+        boolean keepPin = from.isPinned(resident.id()) && !pending;
         if (from.removeResident(resident.id()) == null) {
             return;
         }
-        resident.setOccupation(Occupation.UNEMPLOYED);
+        if (!keepPin) {
+            resident.setOccupation(Occupation.UNEMPLOYED);
+        }
         // R4.22: the two villages may have clocks that run a different distance ahead of their worlds'; the resident keeps
         // their age and the entries keep their order in each history.
         long shift = to.clockAhead() - from.clockAhead();
         resident.shiftBirth(shift);
         to.addResident(resident);
         residentIndex.put(resident.id(), to.id());
+        if (keepPin) {
+            to.setPinned(resident.id(), true, day + shift);
+        }
         from.record(day, HistoryEvent.Kind.DEPARTURE, leaving);
         to.record(day + shift, HistoryEvent.Kind.ARRIVAL, arriving);
         if (pending) {
             to.conditions().put(Migration.MOVING + resident.id(), day + shift);
         }
+    }
+
+    /**
+     * R4.28: a resident born in the simulation now has a villager: the resident moves onto the villager's id, keeping
+     * everything else, and is no longer awaited. Returns them, or empty if there is no such awaited resident.
+     */
+    public Optional<Resident> bringToLife(UUID standInId, UUID villagerId) {
+        UUID settlementId = residentIndex.get(standInId);
+        Settlement settlement = settlementId == null ? null : settlements.get(settlementId);
+        if (settlement == null || !settlement.hasCondition(Births.AWAITING + standInId) || residentIndex.containsKey(villagerId)) {
+            return Optional.empty();
+        }
+        boolean pinned = settlement.isPinned(standInId);
+        Resident old = settlement.removeResident(standInId);
+        residentIndex.remove(standInId);
+        Resident moved = old.withId(villagerId); // the same age: unlike a cure, no time was lost
+        settlement.addResident(moved);
+        residentIndex.put(villagerId, settlement.id());
+        settlement.setPinned(villagerId, pinned, settlement.lastSimulatedDay());
+        return Optional.of(moved);
     }
 
     /** Removes a resident from wherever they live and returns them. */

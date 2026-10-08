@@ -77,6 +77,9 @@ final class ConstructionService {
     private final Map<java.util.UUID, Long> lastLook = new HashMap<>();
     /** Not saved: the village day on which each village last had its plan loaded to decide with nobody near (R4.22). */
     private final Map<java.util.UUID, Long> lastHoldDay = new HashMap<>();
+    /** Not saved: when (real time) each village last had its plan loaded to decide, so a fast-forward does not churn chunks. */
+    private final Map<java.util.UUID, Long> lastHoldMs = new HashMap<>();
+    private static final long HOLD_EVERY_MS = 60_000;
     private static final long LOOK_EVERY_MS = 10_000;
 
     /** R4.22: chunks held loaded for one purpose ("p<id>" for an open project, "d<id>" for a village deciding), and since when. */
@@ -103,6 +106,14 @@ final class ConstructionService {
     /** R4.22: a multiplier on how fast builders work (1 is 4 blocks a second for a new builder). */
     private double speed() {
         return Math.max(0.25, Math.min(20.0, plugin.getConfig().getDouble("construction.speed", 1.0)));
+    }
+
+    /** R4.27: the most blocks any builder places in a pass, however fast the village runs. */
+    private static final int MAX_BLOCKS_PER_PASS = 200;
+
+    /** How fast a village's builders work: the setting, times its fast-forward speed (R4.27). */
+    private double speed(Settlement settlement) {
+        return speed() * service.fastForwardSpeed(settlement);
     }
 
     private static long chunkKey(int cx, int cz) {
@@ -244,10 +255,12 @@ final class ConstructionService {
         if (unattended() && needsGround) {
             long today = settlement.lastSimulatedDay();
             if (!held.containsKey(holdKey)) {
-                if (lastHoldDay.getOrDefault(settlement.id(), Long.MIN_VALUE) >= today) {
-                    return; // looked today already
+                if (lastHoldDay.getOrDefault(settlement.id(), Long.MIN_VALUE) >= today
+                        || now - lastHoldMs.getOrDefault(settlement.id(), 0L) < HOLD_EVERY_MS) {
+                    return; // looked today already, or a minute ago (a fast-forwarded village's day is short)
                 }
                 lastHoldDay.put(settlement.id(), today);
+                lastHoldMs.put(settlement.id(), now);
             }
             Held loading = hold(world, holdKey, planChunks(settlement));
             if (!allLoaded(world, loading.chunks()) && now - loading.since() < LOAD_WAIT_MS) {
@@ -333,7 +346,8 @@ final class ConstructionService {
             return;
         }
         // R4.21: 4 a second, up to 10 for a master; R4.22: times the speed setting.
-        int perPass = Math.max(1, (int) Math.round(Construction.blocksPerPass(builder.get().built()) * speed()));
+        int perPass = Math.max(1, Math.min(MAX_BLOCKS_PER_PASS,
+                (int) Math.round(Construction.blocksPerPass(builder.get().built()) * speed(settlement))));
         if (project.type().isWorks()) {
             workWorks(settlement, world, project, perPass);
             return;
@@ -381,7 +395,8 @@ final class ConstructionService {
         if (!project.graded() && !project.isUpgrade() && project.blocksLeft() < 0) {
             int passes = gradingPasses.merge(project.id(), 1, Integer::sum);
             // (a slow builder does less each pass, so it is given more passes before the ground is left as it is)
-            int graded = passes > (int) (MAX_GRADING_PASSES / Math.min(1.0, speed())) ? 0 : prepareGround(world, bp, ox, oy, oz, project.biomeSet(), speed());
+            int graded = passes > (int) (MAX_GRADING_PASSES / Math.min(1.0, speed())) ? 0
+                    : prepareGround(world, bp, ox, oy, oz, project.biomeSet(), Math.min(speed(settlement), MAX_BLOCKS_PER_PASS / 48.0));
             if (graded < 0) {
                 giveUp(settlement, project, "the ground there cannot be levelled", true);
                 return;
@@ -460,7 +475,9 @@ final class ConstructionService {
      */
     private void workWorks(Settlement settlement, World world, ConstructionProject project, int perPass) {
         VillagePlan plan = settlement.plan();
-        List<Works.Spot> spots = Works.spots(project.type(), plan);
+        List<Works.Spot> spots = Works.spots(project.type(), plan, project.tier()); // R5.8: the stage it was laid out for
+        List<Works.Spot> oldRing = project.type() == BuildingType.PALISADE && project.isUpgrade()
+                ? Works.oldRing(plan, project.previousTier(), project.tier()) : List.of();
         if (spots.isEmpty()) {
             giveUp(settlement, project, "the village has no plan to put it on", false);
             return;
@@ -470,6 +487,7 @@ final class ConstructionService {
         if (unattended) {
             Set<Long> chunks = new HashSet<>();
             spots.forEach(s -> chunks.add(chunkKey(s.x() >> 4, s.z() >> 4)));
+            oldRing.forEach(s -> chunks.add(chunkKey(s.x() >> 4, s.z() >> 4)));
             hold(world, "p" + project.id() + "@" + settlement.id(), chunks);
         }
         if (!unattended && !playerNear(new Location(world, plan.centerX(), 64, plan.centerZ()))) {
@@ -531,6 +549,9 @@ final class ConstructionService {
         }
         boolean stalled = left > 0 && !dry && placed == 0 && progressed != null && day - progressed >= WORKS_STALL_DAYS;
         if (left == 0 || stalled) {
+            if (!oldRing.isEmpty()) {
+                takeDownOldRing(settlement, world, oldRing, day);
+            }
             if (stalled) {
                 settlement.record(day, io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.BUILDING, "The "
                         + project.type().label().toLowerCase(Locale.ROOT) + " was left with gaps where " + left
@@ -541,6 +562,38 @@ final class ConstructionService {
             plugin.requestSave();
         } else if (placed > 0) {
             plugin.requestSave();
+        }
+    }
+
+    /**
+     * R5.8: the ring has moved out: the posts of the old one that the new one does not use are taken down (only an oak
+     * fence post standing on the old ring's line, which the village put there) and half their wood goes back to the stores.
+     * A post in a chunk that is not loaded is left standing.
+     */
+    private void takeDownOldRing(Settlement settlement, World world, List<Works.Spot> oldRing, long day) {
+        int taken = 0;
+        for (Works.Spot spot : oldRing) {
+            if (!world.isChunkLoaded(spot.x() >> 4, spot.z() >> 4)) {
+                continue;
+            }
+            Block at = world.getBlockAt(spot.x(), surfaceY(world, spot.x(), spot.z()), spot.z());
+            // Only a post of the old line: oak fence with a post of the line beside it, and no torch on it (a light).
+            boolean onLine = false;
+            for (int[] d : new int[][] {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                onLine |= at.getRelative(d[0], 0, d[1]).getType() == Material.OAK_FENCE;
+            }
+            if (at.getType() == Material.OAK_FENCE && onLine && at.getRelative(0, 1, 0).getType() != Material.TORCH) {
+                at.setType(Material.AIR, true);
+                taken++;
+            }
+        }
+        int wood = Works.refund(taken);
+        if (wood > 0) {
+            settlement.ledger().add(io.github.skyeberhard.hamletfolk.core.ResourceType.WOOD, wood);
+        }
+        if (taken > 0) {
+            settlement.record(day, io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.BUILDING, "The old palisade was taken down: "
+                    + taken + " posts, and " + wood + " wood went back to the stores.");
         }
     }
 
