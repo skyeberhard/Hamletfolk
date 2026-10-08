@@ -144,6 +144,20 @@ final class SettlementCommand implements TabExecutor {
             stock.append(s.ledger().get(type)).append(' ').append(type.name().toLowerCase(Locale.ROOT));
         }
         line(player, "Stores", stock.toString());
+        // R3.16: what each kind holds, for the kinds that hold more than one thing
+        for (ResourceType type : ResourceType.values()) {
+            StringBuilder held = new StringBuilder();
+            for (io.github.skyeberhard.hamletfolk.core.Commodity c : io.github.skyeberhard.hamletfolk.core.Commodity.of(type)) {
+                int n = s.ledger().get(c);
+                if (n > 0) {
+                    held.append(held.isEmpty() ? "" : ", ").append(n).append(' ').append(c.label());
+                }
+            }
+            boolean onlyPlain = s.ledger().get(type) == s.ledger().get(io.github.skyeberhard.hamletfolk.core.Commodity.plainOf(type));
+            if (!held.isEmpty() && (held.indexOf(",") >= 0 || !onlyPlain)) {
+                player.sendMessage(Component.text("    " + type.name().toLowerCase(Locale.ROOT) + ": " + held, NamedTextColor.GRAY));
+            }
+        }
         line(player, "Treasury", s.ledger().treasury() + " of " + service.treasuryLimit(s) + " emeralds");
         for (Request request : s.requests()) {
             line(player, "Wanted", request.remaining() + " more " + request.type().name().toLowerCase(Locale.ROOT)
@@ -644,7 +658,8 @@ final class SettlementCommand implements TabExecutor {
         if (emeralds > 0) {
             s.ledger().addTreasury(credited);
         } else {
-            s.ledger().add(value.get().type(), credited);
+            s.ledger().add(ResourceMapper.commodity(material).orElse(io.github.skyeberhard.hamletfolk.core.Commodity.plainOf(
+                    value.get().type())), credited); // R3.16: the stores hold what was given
         }
         if (amount == held) {
             player.getInventory().setItemInMainHand(null);

@@ -806,6 +806,8 @@ public final class Construction {
             case WOOD, FOOD -> true;
             case STONE -> mine || settlement.residents().stream().anyMatch(r -> r.occupation() == Occupation.MASON);
             case METAL -> mine;
+            case FUEL -> mine || (settlement.residents().stream().anyMatch(r -> r.occupation().isSmith())
+                    && settlement.residents().stream().anyMatch(r -> r.occupation() == Occupation.LUMBERJACK)); // coal, or charcoal
             default -> false;
         };
     }

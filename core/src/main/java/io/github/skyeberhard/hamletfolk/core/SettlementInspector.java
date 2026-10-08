@@ -40,6 +40,9 @@ public final class SettlementInspector {
                     .append(type.name().toLowerCase(Locale.ROOT));
         }
         lines.add("Stores: " + stock + "; treasury " + s.ledger().treasury());
+        StringBuilder held = new StringBuilder(); // R3.16
+        s.ledger().stock().forEach((c, n) -> held.append(held.isEmpty() ? "" : ", ").append(n).append(' ').append(c.label()));
+        lines.add("Holding: " + (held.isEmpty() ? "nothing" : held));
 
         StringBuilder flow = new StringBuilder();
         for (ResourceType type : ResourceType.values()) {

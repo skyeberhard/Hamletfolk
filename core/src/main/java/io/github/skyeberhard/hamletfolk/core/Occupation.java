@@ -94,6 +94,32 @@ public enum Occupation {
         return produces;
     }
 
+    /**
+     * R3.16: the commodity this occupation's work adds (a farmer grain, a lumberjack logs, a miner cobblestone), or null if
+     * it makes nothing. A smith's is iron tools; with no iron it makes stone tools (see SettlementSimulator).
+     */
+    public Commodity product() {
+        return switch (this) {
+            case FARMER -> Commodity.GRAIN;
+            case FISHERMAN -> Commodity.FISH;
+            case BUTCHER -> Commodity.MEAT;
+            case UNEMPLOYED -> Commodity.PRODUCE; // foraged berries and roots
+            case SHEPHERD -> Commodity.WOOL;
+            case LEATHERWORKER -> Commodity.LEATHER;
+            case LIBRARIAN -> Commodity.BOOKS;
+            case MASON -> Commodity.STONE_BLOCKS;
+            case LUMBERJACK -> Commodity.LOGS;
+            case MINER -> Commodity.COBBLESTONE;
+            case ARMORER, WEAPONSMITH, TOOLSMITH -> Commodity.IRON_TOOLS;
+            default -> produces == null ? null : Commodity.plainOf(produces);
+        };
+    }
+
+    /** R3.17: the trades that smelt ore and make tools at a smithy. */
+    public boolean isSmith() {
+        return this == ARMORER || this == WEAPONSMITH || this == TOOLSMITH;
+    }
+
     /** Gatherers wear out tools as they work (R3.6). */
     public boolean usesTools() {
         return this == FARMER || this == FISHERMAN || this == LUMBERJACK || this == MASON || this == MINER;

@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 22;
+    public static final int FORMAT_VERSION = 23;
 
     private SettlementCodec() {
     }
@@ -34,7 +34,7 @@ public final class SettlementCodec {
         map.put("threat", s.threat());
 
         Map<String, Object> stock = new LinkedHashMap<>();
-        s.ledger().stock().forEach((type, amount) -> stock.put(type.name(), amount));
+        s.ledger().stock().forEach((commodity, amount) -> stock.put(commodity.name(), amount)); // R3.16: commodities
         map.put("stock", stock);
         map.put("treasury", s.ledger().treasury());
 
@@ -205,7 +205,7 @@ public final class SettlementCodec {
         s.setThreat(num(map, "threat").doubleValue());
 
         for (Map.Entry<?, ?> entry : asMap(map.get("stock")).entrySet()) {
-            s.ledger().add(ResourceType.valueOf(entry.getKey().toString()), ((Number) entry.getValue()).intValue());
+            s.ledger().add(Commodity.fromSave(entry.getKey().toString()), Math.max(0, ((Number) entry.getValue()).intValue()));
         }
         s.ledger().setTreasury(num(map, "treasury").intValue());
 
@@ -426,6 +426,22 @@ public final class SettlementCodec {
             asMap(migrated.get("turned")).forEach((zombie, resident) ->
                     turned.put(zombie.toString(), withTwoGenders(asMap(resident))));
             migrated.put("turned", turned);
+        }
+        if (version < 23) {
+            // v22 -> v23: the stores hold commodities (R3.16). Each old category becomes its plainest commodity, except food,
+            // which becomes bread (what keeps, and what a birth needs), and goods, which were mostly wool.
+            Map<String, Object> stock = new LinkedHashMap<>();
+            asMap(migrated.get("stock")).forEach((type, amount) -> {
+                String category = type.toString();
+                String commodity = switch (category) {
+                    case "FOOD" -> Commodity.BREAD.name();
+                    case "GOODS" -> Commodity.WOOL.name();
+                    case "WOOD", "STONE", "METAL", "FUEL", "TOOLS" -> Commodity.plainOf(ResourceType.valueOf(category)).name();
+                    default -> category; // already a commodity (a hand-edited save)
+                };
+                stock.merge(commodity, amount, (a, b) -> ((Number) a).intValue() + ((Number) b).intValue());
+            });
+            migrated.put("stock", stock);
         }
         if (version < 14) {
             long held = num(raw, "treasury").longValue();

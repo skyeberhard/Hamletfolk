@@ -92,10 +92,20 @@ class MinerTest {
         simulator.simulateTo(s, 1, 100);
         assertTrue(s.hasCondition("shortage:metal"), "no metal yet: the smith sits idle");
 
-        simulator.simulateTo(s, 25, 100);
-        assertFalse(s.hasCondition("shortage:metal"), "miners have supplied metal");
-        // What the smith made, not what is left: gatherers wear tools out too.
-        assertTrue(s.flow().produced(ResourceType.TOOLS, 25) > 0, "the smith made tools from mined metal");
+        int made = 0;
+        int burned = 0;
+        for (int day = 2; day <= 28; day++) {
+            s.ledger().take(Commodity.COBBLESTONE, 10_000); // so the smith cannot fall back on stone tools (R3.17)
+            simulator.simulateTo(s, day, 100);
+            if (day % 7 == 0) { // each flow figure covers the last seven days, so these four do not overlap
+                made += s.flow().produced(ResourceType.TOOLS, day);
+                burned += s.flow().consumed(ResourceType.FUEL, day);
+            }
+        }
+        // With no cobblestone, tools can only have come from mined raw iron, smelted with mined coal. (The smith still
+        // runs dry between batches of ore, so whether it is short on any one day is luck.)
+        assertTrue(burned > 0, "the smith smelted mined ore with mined coal");
+        assertTrue(made > 0, "and made tools from it");
     }
 
     @Test

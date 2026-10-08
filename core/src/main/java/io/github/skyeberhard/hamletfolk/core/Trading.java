@@ -25,7 +25,7 @@ public final class Trading {
      * is seeded: a village with no wood, stone, metal or tools should feel it.
      */
     public static void seedFounder(Settlement settlement) {
-        settlement.ledger().add(ResourceType.FOOD, FOOD_SEED_PER_HEAD);
+        settlement.ledger().add(Commodity.BREAD, FOOD_SEED_PER_HEAD); // R3.16: what founders carry keeps
     }
 
     /**
@@ -90,7 +90,7 @@ public final class Trading {
                         if (units <= 0) {
                             return Optional.empty();
                         }
-                        ledger.add(value.type(), units);
+                        ledger.add(ResourceMapper.commodity(givenMaterial).orElse(Commodity.plainOf(value.type())), units); // R3.16
                         return Optional.of(new Effect(value.type(), units, true));
                     });
         }
@@ -99,7 +99,9 @@ public final class Trading {
                 .flatMap(value -> {
                     // The game has already decided the trade; only what the village can spare comes out of the stores.
                     int spare = Math.max(0, ledger.get(value.type()) - PriceModel.wanted(settlement, value.type()));
-                    int units = ledger.take(value.type(), Math.min(spare, value.unitsFor(receivedAmount)));
+                    // R3.16: what was sold comes out of the stores as that thing, as far as they hold it
+                    int units = ledger.takePreferring(ResourceMapper.commodity(receivedMaterial).orElse(Commodity.plainOf(value.type())),
+                            Math.min(spare, value.unitsFor(receivedAmount)));
                     return units <= 0 ? Optional.empty() : Optional.of(new Effect(value.type(), units, false));
                 });
     }

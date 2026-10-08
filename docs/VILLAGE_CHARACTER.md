@@ -112,7 +112,7 @@ Character the player cannot see does not exist. Every trait has to be visible so
 7. **Its name and its record.** The history book reads as a chronicle, and `/settlement` names the leaning, temperament
    and stage with a line of why.
 
-## 5. Materials: a finer ledger (proposal)
+## 5. Materials: a finer ledger (built: R3.16, R3.17)
 
 ### What is wrong with today's ledger
 
@@ -137,12 +137,15 @@ Keep the six categories as they are (storage limits, needs, the planner and the 
 |---|---|
 | Food | grain, bread, vegetables, meat, fish, cooked meat, hay |
 | Wood | logs, planks, charcoal |
-| Stone | cobblestone, stone, stone bricks, sand, gravel, clay, bricks, glass |
-| Metal | raw iron, iron, raw copper, copper, raw gold, gold, coal, diamond, lapis, redstone |
+| Stone | cobblestone, stone blocks, sand, gravel, clay, bricks |
+| Metal | raw iron, iron, raw copper, copper, raw gold, gold, diamond, lapis, redstone |
+| Fuel | coal, charcoal |
 | Tools | stone tools, iron tools, diamond tools, weapons, armour |
-| Goods | wool, leather, string, paper, books, candles, horses |
+| Goods | wares, wool, string, leather, paper, glass, books |
 
-Coal could equally be its own Fuel category; that is a choice to make when the design is agreed.
+Fuel is its own category (agreed 2026-10-08). Built so far: smelting (one fuel per eight ore), charcoal (when fuel is
+short), stone or iron tools, and bread (two grain a day per farmer). Glass, bricks, smoking and golems are still to come.
+Ore comes from a fixed table until the 1:1 world yields below (R4.25) sample each mine.
 
 **Processes** turn commodities into others, each done by a trade at a building:
 

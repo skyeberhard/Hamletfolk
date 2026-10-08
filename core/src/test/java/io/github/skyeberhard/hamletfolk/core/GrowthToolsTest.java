@@ -176,7 +176,7 @@ class GrowthToolsTest {
         s.addResident(person(Occupation.FARMER, Gender.FEMALE));
         s.addResident(person(Occupation.FARMER, Gender.MALE));
         s.addResident(person(Occupation.LUMBERJACK, Gender.MALE));
-        s.ledger().add(ResourceType.FOOD, food);
+        s.ledger().add(Commodity.BREAD, food); // R3.17: births eat bread
         s.housing().setChunk(0, 0, beds);
         return s;
     }
@@ -207,7 +207,7 @@ class GrowthToolsTest {
         assertTrue(child.isPresent());
         assertEquals(4, s.population());
         assertFalse(child.get().adult());
-        assertEquals(500 - Births.FOOD_COST, s.ledger().get(ResourceType.FOOD));
+        assertEquals(500 - Births.FOOD_COST, s.ledger().get(Commodity.BREAD));
         Resident mother = s.resident(child.get().parentA()).orElseThrow();
         Resident father = s.resident(child.get().parentB()).orElseThrow();
         assertEquals(Gender.FEMALE, mother.gender());

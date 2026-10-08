@@ -19,7 +19,10 @@ public final class ResourceMapper {
             "DRIED_KELP_BLOCK");
     private static final Set<String> STONE = Set.of(
             "COBBLESTONE", "STONE", "DEEPSLATE", "COBBLED_DEEPSLATE", "ANDESITE", "DIORITE", "GRANITE",
-            "BRICKS", "STONE_BRICKS", "SANDSTONE", "TUFF");
+            "BRICKS", "STONE_BRICKS", "SANDSTONE", "TUFF",
+            "SAND", "RED_SAND", "GRAVEL", "CLAY_BALL", "CLAY"); // R3.16
+    /** R3.16: fuel for smelting. */
+    private static final Set<String> FUEL = Set.of("COAL", "CHARCOAL", "COAL_BLOCK");
     private static final Set<String> METAL = Set.of(
             "IRON_INGOT", "COPPER_INGOT", "GOLD_INGOT", "RAW_IRON", "RAW_COPPER", "RAW_GOLD", "IRON_BLOCK",
             "GOLD_BLOCK", "COPPER_BLOCK", "RAW_IRON_BLOCK", "RAW_GOLD_BLOCK", "RAW_COPPER_BLOCK");
@@ -30,7 +33,8 @@ public final class ResourceMapper {
     private static final Map<String, Integer> STORAGE_BLOCKS = Map.ofEntries(
             Map.entry("IRON_BLOCK", 9), Map.entry("GOLD_BLOCK", 9), Map.entry("COPPER_BLOCK", 9),
             Map.entry("RAW_IRON_BLOCK", 9), Map.entry("RAW_GOLD_BLOCK", 9), Map.entry("RAW_COPPER_BLOCK", 9),
-            Map.entry("HAY_BLOCK", 9), Map.entry("MELON", 9), Map.entry("DRIED_KELP_BLOCK", 9));
+            Map.entry("HAY_BLOCK", 9), Map.entry("MELON", 9), Map.entry("DRIED_KELP_BLOCK", 9),
+            Map.entry("COAL_BLOCK", 9), Map.entry("CLAY", 4)); // a clay block is four clay balls
 
     /**
      * How many tool-lifetimes of wear a tool of each material is worth: a rough guide to
@@ -212,6 +216,9 @@ public final class ResourceMapper {
         if (METAL.contains(name)) {
             return Optional.of(ResourceType.METAL);
         }
+        if (FUEL.contains(name)) {
+            return Optional.of(ResourceType.FUEL);
+        }
         if (name.endsWith("_PICKAXE") || name.endsWith("_AXE") || name.endsWith("_SHOVEL")
                 || name.endsWith("_HOE") || name.endsWith("_SWORD")) {
             return Optional.of(ResourceType.TOOLS);
@@ -220,6 +227,54 @@ public final class ResourceMapper {
             return Optional.of(ResourceType.GOODS);
         }
         return Optional.empty();
+    }
+
+    private static final Set<String> BAKED = Set.of("BREAD", "COOKIE", "PUMPKIN_PIE", "CAKE");
+    private static final Set<String> RAW_MEAT = Set.of("BEEF", "PORKCHOP", "CHICKEN", "MUTTON", "RABBIT");
+    private static final Set<String> RAW_FISH = Set.of("COD", "SALMON");
+
+    /**
+     * R3.16: the commodity an item is, if the village can use it: a loaf of bread is bread, raw iron is raw iron, a log is
+     * logs and a plank planks. Its value in units is still {@link #value}.
+     */
+    public static Optional<Commodity> commodity(String material) {
+        String name = normalize(material);
+        Optional<ResourceType> type = classify(name);
+        if (type.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(switch (type.get()) {
+            case FOOD -> name.equals("WHEAT") || name.equals("HAY_BLOCK") ? Commodity.GRAIN
+                    : BAKED.contains(name) ? Commodity.BREAD
+                    : name.startsWith("COOKED_") || name.equals("BAKED_POTATO") ? Commodity.COOKED
+                    : RAW_MEAT.contains(name) ? Commodity.MEAT
+                    : RAW_FISH.contains(name) ? Commodity.FISH
+                    : Commodity.PRODUCE;
+            case WOOD -> name.endsWith("_PLANKS") || name.equals("STICK") || name.equals("BAMBOO") ? Commodity.PLANKS : Commodity.LOGS;
+            case STONE -> name.equals("COBBLESTONE") || name.equals("COBBLED_DEEPSLATE") ? Commodity.COBBLESTONE
+                    : name.equals("SAND") || name.equals("RED_SAND") ? Commodity.SAND
+                    : name.equals("GRAVEL") ? Commodity.GRAVEL
+                    : name.equals("CLAY_BALL") || name.equals("CLAY") ? Commodity.CLAY
+                    : name.equals("BRICKS") ? Commodity.BRICKS
+                    : Commodity.STONE_BLOCKS;
+            case METAL -> name.startsWith("RAW_IRON") ? Commodity.RAW_IRON
+                    : name.startsWith("RAW_COPPER") ? Commodity.RAW_COPPER
+                    : name.startsWith("RAW_GOLD") ? Commodity.RAW_GOLD
+                    : name.startsWith("COPPER") ? Commodity.COPPER
+                    : name.startsWith("GOLD") ? Commodity.GOLD
+                    : Commodity.IRON;
+            case FUEL -> name.equals("CHARCOAL") ? Commodity.CHARCOAL : Commodity.COAL;
+            case TOOLS -> name.startsWith("WOODEN_") || name.startsWith("STONE_") || name.startsWith("GOLDEN_") ? Commodity.STONE_TOOLS
+                    : name.startsWith("DIAMOND_") || name.startsWith("NETHERITE_") ? Commodity.DIAMOND_TOOLS
+                    : Commodity.IRON_TOOLS;
+            case GOODS -> name.endsWith("_WOOL") ? Commodity.WOOL
+                    : name.equals("LEATHER") ? Commodity.LEATHER
+                    : name.equals("STRING") ? Commodity.STRING
+                    : name.equals("PAPER") ? Commodity.PAPER
+                    : name.equals("BOOK") ? Commodity.BOOKS
+                    : name.equals("GLASS") ? Commodity.GLASS
+                    : Commodity.WARES;
+        });
     }
 
     private static String normalize(String material) {

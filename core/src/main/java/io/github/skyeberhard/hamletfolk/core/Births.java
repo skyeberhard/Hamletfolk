@@ -17,7 +17,10 @@ import java.util.UUID;
 public final class Births {
     /** Food in store per head before a village has children: what it keeps back from its merchant (R3.9). */
     static final int FOOD_PER_HEAD = SettlementSimulator.FOOD_KEPT_PER_HEAD;
-    /** What a birth costs the stores: the game's villagers eat 12 food points each, three bread, to breed. */
+    /**
+     * What a birth costs the stores, in bread (R3.17): the game's villagers eat three bread each to breed. A village with
+     * grain but no bread has no children until its farmers bake.
+     */
     static final int FOOD_COST = 6;
     static final int COOLDOWN_DAYS = 3;
     /** Days a child born in the simulation, with no villager yet, takes to grow up (a vanilla baby takes one game day). */
@@ -43,7 +46,7 @@ public final class Births {
         if (registry.resident(childId).isPresent()) {
             return Optional.empty();
         }
-        settlement.ledger().take(ResourceType.FOOD, FOOD_COST);
+        settlement.ledger().take(Commodity.BREAD, FOOD_COST);
         settlement.flow().recordConsumed(ResourceType.FOOD, day, FOOD_COST);
         Resident child = registry.enroll(settlement, childId, Occupation.UNEMPLOYED, false, day, mother.id(), father.id());
         settlement.conditions().put(AWAITING + childId, day);
@@ -58,7 +61,8 @@ public final class Births {
         Long last = settlement.conditions().get(LAST_BIRTH);
         if (settlement.isAbandoned() || settlement.freeBeds() <= 0 || settlement.hasCondition("famine")
                 || SettlementSimulator.inDanger(settlement, day) || (last != null && day - last < COOLDOWN_DAYS)
-                || settlement.ledger().get(ResourceType.FOOD) < FOOD_PER_HEAD * Math.max(1, settlement.population())) {
+                || settlement.ledger().get(ResourceType.FOOD) < FOOD_PER_HEAD * Math.max(1, settlement.population())
+                || settlement.ledger().get(Commodity.BREAD) < FOOD_COST) { // R3.17
             return Optional.empty();
         }
         List<Resident> adults = new ArrayList<>();

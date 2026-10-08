@@ -371,6 +371,10 @@ public final class Planner {
                 if (s.ledger().get(ResourceType.METAL) == 0) {
                     return rootBlocker(s, tier, ResourceType.METAL, why + "; the smithy has no metal to work");
                 }
+                // R3.17: ore that cannot be smelted for want of fuel
+                if (s.ledger().get(Commodity.IRON) == 0 && s.ledger().get(Commodity.RAW_IRON) > 0 && s.ledger().get(ResourceType.FUEL) == 0) {
+                    return new Directive(tier, Kind.IMPORT, "fuel", why + "; the smith has raw iron but no coal or charcoal to smelt it");
+                }
                 return needBuilding(s, tier, BuildingType.SMITHY, Occupation.TOOLSMITH, why);
             }
             case METAL -> {

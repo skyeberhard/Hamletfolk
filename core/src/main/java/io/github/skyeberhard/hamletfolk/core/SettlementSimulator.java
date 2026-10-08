@@ -281,6 +281,7 @@ public final class SettlementSimulator {
         Ledger ledger = settlement.ledger();
 
         Random wearRandom = new Random(settlement.id().getLeastSignificantBits() ^ (day * 0x9E3779B97F4A7C15L) ^ 0x700157L);
+        process(settlement, day); // R3.17: bake, burn charcoal and smelt before the day's work
         java.util.Set<Occupation> resting = updateResting(settlement);
         Map<ResourceType, Integer> idleForLack = new EnumMap<>(ResourceType.class);
         // R3.6: tools are only a real shortage where there is a way to get more: a registered mine for metal.
@@ -605,6 +606,22 @@ public final class SettlementSimulator {
             return;
         }
         ResourceType input = occupation.consumes();
+        Commodity product = occupation.product();
+        if (occupation.isSmith()) {
+            // R3.17: iron makes iron tools; with no iron, cobblestone makes stone tools; with neither, the smith waits.
+            if (ledger.take(Commodity.IRON, 1) == 1) {
+                flow.recordConsumed(ResourceType.METAL, day, 1);
+            } else if (ledger.take(Commodity.COBBLESTONE, 1) == 1) {
+                flow.recordConsumed(ResourceType.STONE, day, 1);
+                product = Commodity.STONE_TOOLS;
+            } else {
+                resident.setLastBlockedDay(day);
+                resident.needs().adjustPurpose(-8);
+                idleForLack.merge(ResourceType.METAL, 1, Integer::sum);
+                return;
+            }
+            input = null;
+        }
         if (input != null && ledger.take(input, 1) == 0) {
             resident.setLastBlockedDay(day);
             resident.needs().adjustPurpose(-8);
@@ -629,17 +646,111 @@ public final class SettlementSimulator {
         double ageFactor = resident.stage(day) == LifeStage.ELDER ? ELDER_OUTPUT : 1.0;
         int output = (int) Math.floor(occupation.baseOutput() * diligence * toolFactor * needsFactor(resident.needs())
                 * ageFactor + random.nextDouble());
-        ledger.add(occupation.produces(), output);
-        flow.recordProduced(occupation.produces(), day, output);
-        resident.addWealth(Wealth.worth(occupation.produces(), output)); // R3.5
+        ledger.add(product, output);
+        flow.recordProduced(product.category(), day, output);
+        resident.addWealth(Wealth.worth(product.category(), output)); // R3.5
         if (occupation.secondaryProduces() != null) {
             int extra = (int) Math.floor(occupation.secondaryBaseOutput() * diligence * toolFactor
                     * needsFactor(resident.needs()) * ageFactor + random.nextDouble());
-            ledger.add(occupation.secondaryProduces(), extra);
-            flow.recordProduced(occupation.secondaryProduces(), day, extra);
-            resident.addWealth(Wealth.worth(occupation.secondaryProduces(), extra)); // R3.5
+            for (int i = 0; i < extra; i++) {
+                // R3.17: a miner's ore is coal, iron, copper, gold and now and then something rarer
+                Commodity found = occupation == Occupation.MINER ? ore(random) : Commodity.plainOf(occupation.secondaryProduces());
+                ledger.add(found, 1);
+                flow.recordProduced(found.category(), day, 1);
+                resident.addWealth(Wealth.worth(found.category(), 1)); // R3.5
+            }
         }
         resident.needs().adjustPurpose(4);
+    }
+
+    // ----- R3.17: processing -----
+
+    /** Grain a farmer bakes into bread a day. */
+    static final int BAKE_PER_FARMER = 2;
+    /** Raw ore a smith smelts a day, and smelts a unit of fuel lasts (a lump of coal smelts eight items in a furnace). */
+    static final int SMELT_PER_SMITH = 8;
+    static final int SMELTS_PER_FUEL = 8;
+    /** Logs a village burns into charcoal a day when fuel is short, and the wood units in a log. */
+    static final int CHARCOAL_LOGS_PER_DAY = 4;
+    static final int UNITS_PER_LOG = 4;
+    /** Smelts already paid for with fuel burned on an earlier day. */
+    static final String SMELT_CREDIT = "smeltCredit";
+
+    /**
+     * R3.17: the day's processing. Farmers bake grain into bread. A village with a smith and a lumberjack whose fuel is
+     * short burns logs into charcoal. Each smith smelts raw ore into metal, one fuel for every eight.
+     */
+    static void process(Settlement settlement, long day) {
+        Ledger ledger = settlement.ledger();
+        long farmers = countAdults(settlement, r -> r.occupation() == Occupation.FARMER);
+        long smiths = countAdults(settlement, r -> r.occupation().isSmith());
+        long lumberjacks = countAdults(settlement, r -> r.occupation() == Occupation.LUMBERJACK);
+
+        int baked = ledger.take(Commodity.GRAIN, (int) Math.min(Integer.MAX_VALUE, BAKE_PER_FARMER * farmers));
+        ledger.add(Commodity.BREAD, baked);
+
+        boolean oreToSmelt = ledger.get(Commodity.RAW_IRON) + ledger.get(Commodity.RAW_COPPER) + ledger.get(Commodity.RAW_GOLD) > 0;
+        if (smiths > 0 && lumberjacks > 0 && oreToSmelt && ledger.get(ResourceType.FUEL) < wantedLevel(settlement, ResourceType.FUEL)) {
+            int logs = Math.min(CHARCOAL_LOGS_PER_DAY, ledger.get(Commodity.LOGS) / UNITS_PER_LOG);
+            if (logs > 0) {
+                ledger.take(Commodity.LOGS, logs * UNITS_PER_LOG);
+                settlement.flow().recordConsumed(ResourceType.WOOD, day, logs * UNITS_PER_LOG);
+                ledger.add(Commodity.CHARCOAL, logs);
+                settlement.flow().recordProduced(ResourceType.FUEL, day, logs);
+            }
+        }
+
+        long capacity = SMELT_PER_SMITH * smiths;
+        long credit = settlement.conditions().getOrDefault(SMELT_CREDIT, 0L);
+        smelting:
+        for (Commodity[] pair : SMELTS) {
+            while (capacity > 0 && ledger.get(pair[0]) > 0) {
+                if (credit == 0) {
+                    if (ledger.take(ResourceType.FUEL, 1) == 0) {
+                        break smelting;
+                    }
+                    settlement.flow().recordConsumed(ResourceType.FUEL, day, 1);
+                    credit = SMELTS_PER_FUEL;
+                }
+                ledger.take(pair[0], 1);
+                ledger.add(pair[1], 1);
+                credit--;
+                capacity--;
+            }
+        }
+        if (credit > 0) {
+            settlement.conditions().put(SMELT_CREDIT, credit);
+        } else {
+            settlement.conditions().remove(SMELT_CREDIT);
+        }
+    }
+
+    /** Raw ore and the metal it smelts into, iron first. */
+    private static final Commodity[][] SMELTS = {
+            {Commodity.RAW_IRON, Commodity.IRON}, {Commodity.RAW_COPPER, Commodity.COPPER}, {Commodity.RAW_GOLD, Commodity.GOLD}};
+
+    private static long countAdults(Settlement settlement, Predicate<Resident> which) {
+        return settlement.residents().stream().filter(r -> r.adult() && which.test(r)).count();
+    }
+
+    /**
+     * R3.17: what a unit of a miner's second output is, out of a hundred: mostly coal and raw iron, some copper, a little
+     * gold, now and then redstone or lapis, and one in a hundred a diamond. A fixed table until the mine's own ore is
+     * sampled from the world (R4.25).
+     */
+    static final Object[][] ORE = {
+            {Commodity.COAL, 40}, {Commodity.RAW_IRON, 30}, {Commodity.RAW_COPPER, 18}, {Commodity.RAW_GOLD, 5},
+            {Commodity.REDSTONE, 3}, {Commodity.LAPIS, 3}, {Commodity.DIAMOND, 1}};
+
+    static Commodity ore(Random random) {
+        int roll = random.nextInt(100);
+        for (Object[] row : ORE) {
+            roll -= (Integer) row[1];
+            if (roll < 0) {
+                return (Commodity) row[0];
+            }
+        }
+        return Commodity.COAL;
     }
 
     /** The stock per resident below which a resource counts as short (the same test R4.3 uses). */
@@ -757,6 +868,7 @@ public final class SettlementSimulator {
             case WOOD -> 6;
             case STONE -> 5;
             case METAL -> 2;
+            case FUEL -> 8; // R3.16: an armorer pays an emerald for fifteen coal; a village values it a little higher
             case GOODS -> 2;
             case TOOLS -> 1;
         };
