@@ -99,7 +99,7 @@ final class ConstructionService {
     }
 
     /** R4.22: whether villages build with no player near, loading just the chunks they need (off unless configured). */
-    private boolean unattended() {
+    boolean unattended() {
         return plugin.getConfig().getBoolean("construction.unattended", false);
     }
 
@@ -167,6 +167,38 @@ final class ConstructionService {
         }
     }
 
+    /** R4.25: holds chunks loaded for another service (the quarry), under its own key; released with {@link #releaseKey}. */
+    void holdKey(World world, String key, Set<Long> chunks) {
+        hold(world, key, chunks);
+    }
+
+    void releaseKey(String key) {
+        release(key);
+    }
+
+    /** R4.25: lets go of the holds whose key a test says to. */
+    void releaseKeysWhere(java.util.function.Predicate<String> which) {
+        for (String key : new ArrayList<>(held.keySet())) {
+            if (which.test(key)) {
+                release(key);
+            }
+        }
+    }
+
+    /** Lets go of what building holds (projects and decisions), not what other services hold under their own keys. */
+    private void releaseOwn() {
+        for (String key : new ArrayList<>(held.keySet())) {
+            if (key.startsWith("p") || key.startsWith("d")) {
+                release(key);
+            }
+        }
+    }
+
+    /** True if a key is held. */
+    boolean holding(String key) {
+        return held.containsKey(key);
+    }
+
     /** Lets every chunk go (the plugin is stopping, or unattended building was switched off). */
     void releaseAll() {
         for (String key : new ArrayList<>(held.keySet())) {
@@ -197,6 +229,12 @@ final class ConstructionService {
         long now = System.currentTimeMillis();
         for (Map.Entry<String, Held> entry : new ArrayList<>(held.entrySet())) {
             String key = entry.getKey();
+            if (!key.startsWith("d") && !key.startsWith("p")) {
+                if (!unattended()) {
+                    release(key); // another service's hold (R4.25): only while unattended building is on
+                }
+                continue;
+            }
             boolean stale = key.startsWith("d") ? now - entry.getValue().since() > STALE_DECISION_MS : !active.contains(key);
             if (stale || !unattended()) {
                 release(key);
@@ -214,7 +252,7 @@ final class ConstructionService {
 
     private void tick() {
         if (!enabled()) {
-            releaseAll();
+            releaseOwn();
             return;
         }
         releaseFinished();

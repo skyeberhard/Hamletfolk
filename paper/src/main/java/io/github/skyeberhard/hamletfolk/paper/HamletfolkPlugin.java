@@ -71,6 +71,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
         getServer().getScheduler().runTask(this, templates::verifyVanilla);
         construction = new ConstructionService(this, service);
         construction.start();
+        new WorldMarksService(this, service, construction).start(); // R4.25
         service.trackLoadedVillagers();
         getServer().getScheduler().runTaskTimer(this, service::simulateAll, SIMULATION_PERIOD_TICKS, SIMULATION_PERIOD_TICKS);
         service.startFastForward(); // R4.27

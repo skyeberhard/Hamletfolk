@@ -103,6 +103,12 @@ membership:
 villagers:
   free-stuck: true
 
+# R4.25: the village's work changes the land where it is loaded. Lumberjacks fell whole trees near the village (outside its
+# plan) and plant saplings; miners dig a fenced quarry beside the [Mine], keeping the ore it turns up. Only trees the game
+# grew and natural ground are taken. Off leaves the land as it is (the stores are the same either way).
+world-marks:
+  enabled: true
+
 construction:
   enabled: true
   # R4.22: build with nobody near. Off (the default), a village only builds while a player is within 128 blocks.

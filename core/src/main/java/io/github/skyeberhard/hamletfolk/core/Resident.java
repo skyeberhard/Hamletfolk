@@ -76,6 +76,9 @@ public final class Resident {
     private int wealth;
     /** R4.21: buildings and upgrades this resident has finished as a builder. */
     private int built;
+    /** R4.29: days worked in the trade named by {@link #xpTrade}. */
+    private int xp;
+    private Occupation xpTrade;
 
     public Resident(UUID id, String givenName, String familyName, Gender gender, Traits traits,
                     Occupation occupation, boolean adult, long bornDay, UUID parentA, UUID parentB, Needs needs) {
@@ -157,13 +160,55 @@ public final class Resident {
     }
 
     public void setOccupation(Occupation occupation) {
-        this.occupation = occupation;
+        this.occupation = occupation; // (experience stays with the trade it was earned in, see addXp)
+    }
+
+    /**
+     * R4.29: days worked in their current trade: nothing for a trade they have not worked at since they last learned
+     * another. A spell as a builder or a guard, or out of work, does not lose what a master farmer knows; the farmer who
+     * goes back to the fields has it still. Working at a different trade starts again from nothing.
+     */
+    public int xp() {
+        return xpTrade == occupation ? xp : 0;
+    }
+
+    /** The trade the experience is in, or null if none has been earned. */
+    Occupation xpTrade() {
+        return xpTrade;
+    }
+
+    /** The raw experience, in {@link #xpTrade()}, whether or not that is their trade now (for saving). */
+    int xpRaw() {
+        return xp;
+    }
+
+    void addXp(int days) {
+        if (xpTrade != occupation) {
+            xpTrade = occupation;
+            xp = 0; // a new trade is learned from the start
+        }
+        xp = (int) Math.max(0, Math.min(Integer.MAX_VALUE, (long) xp + days));
+    }
+
+    void setXp(int xp) {
+        this.xpTrade = occupation;
+        this.xp = Math.max(0, xp);
+    }
+
+    void restoreXp(Occupation trade, int xp) {
+        this.xpTrade = trade;
+        this.xp = Math.max(0, xp);
+    }
+
+    /** R4.29: their level in their trade, 1 to 5. */
+    public int level() {
+        return TradeLevel.of(xp());
     }
 
     /** R4.3: a vanilla profession fills in a missing occupation but never replaces one the resident has. */
     public void seedOccupation(Occupation seed) {
         if (occupation == Occupation.UNEMPLOYED) {
-            occupation = seed;
+            setOccupation(seed);
         }
     }
 
@@ -246,6 +291,8 @@ public final class Resident {
         copy.lastBlockedDay = lastBlockedDay;
         copy.wealth = wealth; // R3.5: a cured villager keeps what they had put by
         copy.built = built; // R4.21: and their skill
+        copy.xp = xp; // R4.29
+        copy.xpTrade = xpTrade;
         copy.familiarity.putAll(familiarity);
         return copy;
     }

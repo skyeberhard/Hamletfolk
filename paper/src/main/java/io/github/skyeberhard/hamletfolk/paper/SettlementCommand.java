@@ -168,6 +168,15 @@ final class SettlementCommand implements TabExecutor {
             line(player, "Last " + s.flowDays() + " days", flow);
         }
         line(player, "Danger", threatLabel(s.threat()));
+        int golems = io.github.skyeberhard.hamletfolk.core.Golems.owned(s);
+        int wantedGolems = io.github.skyeberhard.hamletfolk.core.Golems.wanted(s);
+        if (golems > 0 || wantedGolems > 0) { // R5.9
+            line(player, "Iron golems", golems + " of " + wantedGolems + " wanted"
+                    + (io.github.skyeberhard.hamletfolk.core.Golems.awaiting(s) > 0 ? ", " + io.github.skyeberhard.hamletfolk.core.Golems.awaiting(s)
+                            + " forged and on the way" : "")
+                    + (golems + io.github.skyeberhard.hamletfolk.core.Golems.awaiting(s) < wantedGolems
+                            ? " (a smith forges one from " + io.github.skyeberhard.hamletfolk.core.Golems.IRON + " iron and a pumpkin)" : ""));
+        }
         SettlementSimulator.Alert alert = SettlementSimulator.alertLevel(s, today); // R5.5
         if (alert != SettlementSimulator.Alert.CALM) {
             line(player, "Alert", alert.label() + " (" + SettlementSimulator.recentIncidents(s, today) + " attacks this week)");
@@ -227,7 +236,13 @@ final class SettlementCommand implements TabExecutor {
                 player.sendMessage(Component.text("...and " + (s.population() - 20) + " more.", NamedTextColor.GRAY));
                 break;
             }
-            String role = r.adult() ? r.occupation().title() + (SettlementSimulator.isResting(s, r) ? " (resting: stores full)" : "")
+            String rank = r.occupation() == io.github.skyeberhard.hamletfolk.core.Occupation.BUILDER
+                    ? io.github.skyeberhard.hamletfolk.core.Construction.builderTitle(r.built()) + " "
+                    : r.occupation() == io.github.skyeberhard.hamletfolk.core.Occupation.UNEMPLOYED
+                            || r.occupation() == io.github.skyeberhard.hamletfolk.core.Occupation.NITWIT ? ""
+                            : io.github.skyeberhard.hamletfolk.core.TradeLevel.name(r.level()) + " "; // R4.29
+            String role = r.adult() ? (r.occupation() == io.github.skyeberhard.hamletfolk.core.Occupation.BUILDER ? rank
+                    : rank + r.occupation().title()) + (SettlementSimulator.isResting(s, r) ? " (resting: stores full)" : "")
                     + (s.isPinned(r.id()) ? " (pinned by an admin)" : "")
                     + ", " + r.age(s.lastSimulatedDay()) + " days"
                     + (r.stage(s.lastSimulatedDay()) == LifeStage.ELDER ? " (elder)" : "")

@@ -282,6 +282,7 @@ public final class SettlementSimulator {
 
         Random wearRandom = new Random(settlement.id().getLeastSignificantBits() ^ (day * 0x9E3779B97F4A7C15L) ^ 0x700157L);
         process(settlement, day); // R3.17: bake, burn charcoal and smelt before the day's work
+        Golems.forge(settlement, day); // R5.9: a village that has been attacked keeps iron golems
         java.util.Set<Occupation> resting = updateResting(settlement);
         Map<ResourceType, Integer> idleForLack = new EnumMap<>(ResourceType.class);
         // R3.6: tools are only a real shortage where there is a way to get more: a registered mine for metal.
@@ -290,7 +291,8 @@ public final class SettlementSimulator {
         for (Resident resident : workOrder(settlement)) {
             if (resident.adult() && resident.occupation() == Occupation.GUARD) {
                 if (guard(resident, settlement.flow(), ledger, day, wearRandom)) {
-                    guarding++;
+                    guarding += TradeLevel.guardWeight(resident.level()); // R4.29
+                    TradeLevel.worked(settlement, resident, day);
                 }
                 continue;
             }
@@ -304,7 +306,7 @@ public final class SettlementSimulator {
             if (resident.adult() && resting.contains(resident.occupation())) {
                 continue; // R4.24: the stores are full of what they make
             }
-            work(resident, settlement.flow(), ledger, day, random, wearRandom, idleForLack, penalty);
+            work(settlement, resident, settlement.flow(), ledger, day, random, wearRandom, idleForLack, penalty);
         }
 
         int demand = 0;
@@ -598,7 +600,7 @@ public final class SettlementSimulator {
         return order;
     }
 
-    private void work(Resident resident, ResourceFlow flow, Ledger ledger, long day, Random random,
+    private void work(Settlement settlement, Resident resident, ResourceFlow flow, Ledger ledger, long day, Random random,
                              Random wearRandom,
                              Map<ResourceType, Integer> idleForLack, boolean toollessPenalty) {
         Occupation occupation = resident.occupation();
@@ -644,14 +646,18 @@ public final class SettlementSimulator {
         }
         double diligence = 0.5 + resident.traits().workEthic() / 100.0;
         double ageFactor = resident.stage(day) == LifeStage.ELDER ? ELDER_OUTPUT : 1.0;
+        double skill = TradeLevel.outputFactor(resident.level()); // R4.29
         int output = (int) Math.floor(occupation.baseOutput() * diligence * toolFactor * needsFactor(resident.needs())
-                * ageFactor + random.nextDouble());
+                * ageFactor * skill + random.nextDouble());
         ledger.add(product, output);
         flow.recordProduced(product.category(), day, output);
+        if (occupation == Occupation.LUMBERJACK || occupation == Occupation.MINER) {
+            WorldMarks.owe(settlement, product.category(), output); // R4.25: owed to the world as it is counted
+        }
         resident.addWealth(Wealth.worth(product.category(), output)); // R3.5
         if (occupation.secondaryProduces() != null) {
             int extra = (int) Math.floor(occupation.secondaryBaseOutput() * diligence * toolFactor
-                    * needsFactor(resident.needs()) * ageFactor + random.nextDouble());
+                    * needsFactor(resident.needs()) * ageFactor * skill + random.nextDouble());
             for (int i = 0; i < extra; i++) {
                 // R3.17: a miner's ore is coal, iron, copper, gold and now and then something rarer
                 Commodity found = occupation == Occupation.MINER ? ore(random) : Commodity.plainOf(occupation.secondaryProduces());
@@ -661,6 +667,7 @@ public final class SettlementSimulator {
             }
         }
         resident.needs().adjustPurpose(4);
+        TradeLevel.worked(settlement, resident, day); // R4.29
     }
 
     // ----- R3.17: processing -----
@@ -700,7 +707,8 @@ public final class SettlementSimulator {
             }
         }
 
-        long capacity = SMELT_PER_SMITH * smiths;
+        long capacity = settlement.residents().stream().filter(r -> r.adult() && r.occupation().isSmith())
+                .mapToLong(r -> TradeLevel.smelts(r.level())).sum(); // R4.29: each smith by their level
         long credit = settlement.conditions().getOrDefault(SMELT_CREDIT, 0L);
         smelting:
         for (Commodity[] pair : SMELTS) {
@@ -1168,7 +1176,7 @@ public final class SettlementSimulator {
     private static void sell(Settlement settlement, Resident merchant, long day, int room) {
         Ledger ledger = settlement.ledger();
         double pace = (merchant.stage(day) == LifeStage.ELDER ? ELDER_OUTPUT : 1.0) * needsFactor(merchant.needs());
-        int batches = (int) Math.round(MERCHANT_BATCHES_PER_DAY * pace);
+        int batches = (int) Math.round(MERCHANT_BATCHES_PER_DAY * pace) + TradeLevel.extraBatches(merchant.level()); // R4.29
         int sold = 0;
         for (int batch = 0; batch < batches; batch++) {
             ResourceType best = null;
@@ -1192,6 +1200,7 @@ public final class SettlementSimulator {
         }
         if (sold > 0) {
             merchant.needs().adjustPurpose(4);
+            TradeLevel.worked(settlement, merchant, day); // R4.29
         }
     }
 

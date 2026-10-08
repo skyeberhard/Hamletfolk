@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 23;
+    public static final int FORMAT_VERSION = 24;
 
     private SettlementCodec() {
     }
@@ -181,6 +181,10 @@ public final class SettlementCodec {
         }
         if (r.built() != 0) {
             map.put("built", r.built());
+        }
+        if (r.xpRaw() != 0 && r.xpTrade() != null) {
+            map.put("xp", r.xpRaw()); // R4.29: days worked in xpTrade
+            map.put("xpTrade", r.xpTrade().name());
         }
         Traits t = r.traits();
         map.put("traits", List.of(t.workEthic(), t.sociability(), t.ambition(), t.bravery()));
@@ -389,6 +393,7 @@ public final class SettlementCodec {
         // an older build must refuse a save that may contain it.
         // v17 -> v18: "plan" (R8.3, the streets and lots) is optional, so an old save has none until the ground is surveyed.
         // v16 -> v17: "decisions" (R8.1, the planner's log) is optional, so an old save has none; the planner fills it in.
+        // v23 -> v24: "xp" (R4.29, days worked in a trade) is optional on residents, so an old save's residents are novices.
         // v21 -> v22: construction projects may be the works STREET_LIGHTS and PALISADE (R5.6, no lot, no sign); an older build
         // would fail on the unknown type, so it must refuse the save.
         // v20 -> v21: "built" (R4.21, the buildings a resident has finished) is optional, so an old save's builders start at 0.
@@ -550,6 +555,10 @@ public final class SettlementCodec {
         // v11 -> v12: "wealth" (R3.5) is optional, so an old save's residents start with nothing put by.
         r.addWealth(Math.max(0, num(map, "wealth").intValue()));
         r.setBuilt(num(map, "built").intValue()); // v20 -> v21: optional, 0 if missing
+        // v23 -> v24: optional, so an old save's residents start at novice
+        if (map.get("xpTrade") != null && num(map, "xp").intValue() > 0) {
+            r.restoreXp(Occupation.valueOf(map.get("xpTrade").toString()), num(map, "xp").intValue());
+        }
         for (Map.Entry<?, ?> entry : asMap(map.get("familiarity")).entrySet()) {
             r.familiarity().put(UUID.fromString(entry.getKey().toString()), ((Number) entry.getValue()).intValue());
         }

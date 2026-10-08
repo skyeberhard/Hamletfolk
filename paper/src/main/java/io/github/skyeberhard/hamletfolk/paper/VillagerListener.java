@@ -153,12 +153,23 @@ final class VillagerListener implements Listener {
         resident.recordConversation(player.getUniqueId());
     }
 
+    /** R5.9: a village's golem that goes for any reason but being unloaded (killed, despawned, removed) is lost. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onGolemRemoved(org.bukkit.event.entity.EntityRemoveEvent event) {
+        if (event.getEntity() instanceof org.bukkit.entity.IronGolem golem
+                && event.getCause() != org.bukkit.event.entity.EntityRemoveEvent.Cause.UNLOAD
+                && event.getCause() != org.bukkit.event.entity.EntityRemoveEvent.Cause.PLAYER_QUIT) {
+            service.golemLost(golem);
+        }
+    }
+
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onDeath(EntityDeathEvent event) {
         if (event.getEntity() instanceof ZombieVillager zombie) {
             onZombieDeath(zombie);
             return;
         }
+
         if (!(event.getEntity() instanceof Villager villager) || !service.inScope(villager.getWorld())) {
             return;
         }

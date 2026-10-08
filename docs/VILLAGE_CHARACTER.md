@@ -254,7 +254,7 @@ makes one bread, as at a crafting table. A birth then eats three bread for each 
 villagers need to be willing to breed. A village that grows wheat but makes no bread has no children, which is the
 pressure to build a mill.
 
-### Levels for every trade
+### Levels for every trade (built: R4.29)
 
 The builder's count (R4.21) generalises: every resident has experience in their trade, and levels 1 to 5 (matching
 vanilla's novice to master, so their vanilla trades unlock as they rise).

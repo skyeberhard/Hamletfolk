@@ -15,8 +15,10 @@ import io.github.skyeberhard.hamletfolk.core.Migration;
 import io.github.skyeberhard.hamletfolk.core.PlanGenerator;
 import io.github.skyeberhard.hamletfolk.core.Births;
 import io.github.skyeberhard.hamletfolk.core.FastForward;
+import io.github.skyeberhard.hamletfolk.core.Golems;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.Stuck;
+import io.github.skyeberhard.hamletfolk.core.TradeLevel;
 import io.github.skyeberhard.hamletfolk.core.Trading;
 import io.github.skyeberhard.hamletfolk.core.VillagePlan;
 import io.github.skyeberhard.hamletfolk.core.SettlementRegistry;
@@ -586,6 +588,7 @@ final class SettlementService {
             }
             considerNewcomer(settlement);
             considerBirth(settlement); // R4.28
+            placeGolems(settlement); // R5.9
             releaseExemptResidents(settlement); // R1.30
             considerMigration(settlement);
             considerMembership(settlement);
@@ -675,6 +678,59 @@ final class SettlementService {
             }
             track(villager);
             plugin.requestSave();
+        }
+    }
+
+    // ----- R5.9: golems -----
+
+    /**
+     * Puts the golems the village's smiths have forged into the world, at its guard post if it has one and otherwise at its
+     * centre, once that spot is loaded. Each is the village's own (not a player's), so it defends villagers as the game's
+     * village golems do, and it never wanders off or despawns.
+     */
+    private void placeGolems(Settlement settlement) {
+        World world = Bukkit.getWorld(settlement.world());
+        if (world == null || !inScope(world) || settlement.isAbandoned() || Golems.awaiting(settlement) == 0) {
+            return;
+        }
+        int x = settlement.centerX();
+        int z = settlement.centerZ();
+        for (io.github.skyeberhard.hamletfolk.core.Building building : settlement.buildings()) {
+            if (building.type() == BuildingType.GUARD_POST) {
+                x = building.x();
+                z = building.z();
+                break;
+            }
+        }
+        if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+            return;
+        }
+        int y = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES) + 1;
+        if (zonesOf(world).covers(x, y, z)) {
+            return; // R1.30
+        }
+        while (Golems.awaiting(settlement) > 0) {
+            org.bukkit.entity.IronGolem golem = world.spawn(new Location(world, x + 0.5, y, z + 0.5), org.bukkit.entity.IronGolem.class, g -> {
+                g.setPlayerCreated(false);
+                g.setRemoveWhenFarAway(false);
+                g.setPersistent(true);
+            });
+            if (!golem.isValid()) {
+                return; // refused (another plugin, a mob limit): it is tried again later
+            }
+            Golems.arrived(settlement, golem.getUniqueId(), settlement.lastSimulatedDay());
+            plugin.requestSave();
+        }
+    }
+
+    /** A golem died: if it was a village's, the village forgets it (and forges another when it can). */
+    void golemLost(org.bukkit.entity.IronGolem golem) {
+        for (Settlement settlement : registry.settlements()) {
+            if (Golems.owns(settlement, golem.getUniqueId())) {
+                Golems.lost(settlement, golem.getUniqueId(), settlement.effectiveDay(day(golem.getWorld())));
+                plugin.requestSave();
+                return;
+            }
         }
     }
 
@@ -1094,7 +1150,34 @@ final class SettlementService {
             if (Bukkit.getEntity(resident.id()) instanceof Villager villager) {
                 resident.setAdult(villager.isAdult()); // a child may have grown up since last tracked
                 applyAppearance(villager, resident, day);
+                applyLevel(villager, resident); // R4.29
             }
+        }
+    }
+
+    /**
+     * R4.29: what a resident's level shows on their villager: a little faster on their feet with each level, more health
+     * for a guard, and the vanilla level of a vanilla trade raised to match (never lowered), so its trades unlock.
+     */
+    private static void applyLevel(Villager villager, Resident resident) {
+        int level = resident.adult() ? resident.level() : 1;
+        org.bukkit.attribute.AttributeInstance speed = villager.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED);
+        if (speed != null) {
+            speed.setBaseValue(speed.getDefaultValue() * TradeLevel.speedFactor(level));
+        }
+        org.bukkit.attribute.AttributeInstance health = villager.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        if (health != null) {
+            double wanted = resident.occupation() == Occupation.GUARD ? TradeLevel.guardHealth(level) : health.getDefaultValue();
+            if (health.getBaseValue() != wanted) {
+                health.setBaseValue(wanted);
+                if (villager.getHealth() > wanted) {
+                    villager.setHealth(wanted);
+                }
+            }
+        }
+        if (!resident.occupation().simOwned() && villager.getProfession() != Villager.Profession.NONE
+                && villager.getProfession() != Villager.Profession.NITWIT && villager.getVillagerLevel() < level) {
+            villager.increaseLevel(level - villager.getVillagerLevel());
         }
     }
 
