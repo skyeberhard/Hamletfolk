@@ -24,7 +24,8 @@ public final class BuildingGenerator {
     /** True for the building types that are generated (the rest come from vanilla village pieces). */
     public static boolean generates(BuildingType type) {
         return switch (type) {
-            case MINE, GUARD_POST, SHOP, TREASURY, SAWMILL, FORGE, GRANARY -> true;
+            case MINE, GUARD_POST, SHOP, TREASURY, SAWMILL, FORGE, GRANARY, HARBOUR, PENS, SMOKEHOUSE, TANNERY, STABLE, APIARY,
+                    MAP_ROOM, LIBRARY, GLASSWORKS, TRADING_POST -> true;
             case FARM, SMITHY, HOUSE, SQUARE, STREET_LIGHTS, PALISADE, RAMPART, GATEHOUSE, TOWER -> false;
         };
     }
@@ -50,6 +51,19 @@ public final class BuildingGenerator {
             case SAWMILL -> plan.sawmill(tier);
             case FORGE -> plan.forge(tier);
             case GRANARY -> plan.granary(tier);
+            case HARBOUR -> plan.furnish(tier, "BARREL", "OAK_FENCE", "CHEST");
+            case PENS -> plan.furnish(tier, "LOOM[facing=south]", "HAY_BLOCK", "OAK_FENCE");
+            case SMOKEHOUSE -> plan.furnish(tier, "SMOKER[facing=south]", "OAK_FENCE", "CHEST");
+            case TANNERY -> plan.furnish(tier, "CAULDRON", "OAK_FENCE", "CHEST");
+            case STABLE -> plan.furnish(tier, "HAY_BLOCK", "OAK_FENCE", "CHEST");
+            case APIARY -> plan.furnish(tier, "BEEHIVE[facing=south]", "BEEHIVE[facing=south]", "CHEST");
+            case MAP_ROOM -> plan.furnish(tier, "CARTOGRAPHY_TABLE", "BOOKSHELF", "CHEST");
+            case LIBRARY -> plan.furnish(tier, "LECTERN[facing=south]", "BOOKSHELF", "BOOKSHELF");
+            case GLASSWORKS -> plan.furnish(tier, "FURNACE[facing=south]", "COBBLESTONE", "CHEST");
+            case TRADING_POST -> {
+                plan.shop();
+                plan.furnish(tier, "CHEST", "CHEST", "CHEST");
+            }
             default -> throw new IllegalStateException();
         }
         plan.sign();
@@ -183,6 +197,24 @@ public final class BuildingGenerator {
             if (tier == 2) {
                 put(3, 1, 1, "FURNACE[facing=south]");
                 put(1, 1, 2, "CHEST");
+                put(width - 2, 1, 2, "CHEST");
+            }
+        }
+
+        /**
+         * R8.13: a trade building's fittings: its workstation (or main fitting) by the west wall, a second and third fitting
+         * beside it, and a chest and lantern; a second tier adds another of each of the second and third and a spare chest.
+         */
+        void furnish(int tier, String station, String second, String third) {
+            put(1, 1, 1, station);
+            put(2, 1, 1, second);
+            put(1, 1, 2, third);
+            put(width - 2, 1, 1, "CHEST");
+            put(width - 2, 2, 1, "LANTERN"); // on the chest, as in the other designs
+            if (tier == 2) {
+                put(3, 1, 1, second);
+                put(1, 2, 1, second.startsWith("BOOKSHELF") || second.startsWith("HAY") ? second : "AIR");
+                put(2, 1, 2, third);
                 put(width - 2, 1, 2, "CHEST");
             }
         }

@@ -86,6 +86,13 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   counted plugin tickets (`ConstructionService.hold/release`); nothing else in the plugin uses chunk tickets.
 - **Suppliers (R4.24):** a village of four keeps a lumberjack, and a miner once a mine has room; lumberjacks, miners and masons
   rest at the storage limit (`resting:` conditions). Tests that measure a gatherer's output must spend the stock each day.
+- **Land trades (R8.13):** `LandCounts` (conditions `landCount:*`, only ever raised) is filled by `SettlementService.surveyLand` every 10
+  village days from loaded chunks; `Trades` holds the rules (`opens`, `wanted`, `buildingFor`, `noteOpened`). A land trade is only a
+  job candidate while `Trades.opens` (`SettlementSimulator.candidates`; FISHERMAN is also in `JOB_CANDIDATES` and so is not gated by the
+  land), and needs a registered trade building (`BuildingType.job()`, four places) like a farmer needs a farm. `Planner.growth` asks
+  for the first wanted trade building. The trade buildings are generated (`BuildingGenerator.furnish`) with their trade's workstation;
+  `Blueprint.WORKSTATIONS` prices those blocks. Keep goods out of any trade building's price (a shepherd's pens must not wait for wool).
+  A test that wants a trade open sets counts with `LandCounts.record(settlement, Map.of(feature, n), day)`.
 - **Rampart parts (R5.11):** `BuildingType.GATEHOUSE` and `TOWER` (`isPart()`) are captured templates only: no ladder, never a project,
   never read from a sign (`fromSign` skips them; `fromCapture` accepts them). `TemplateCatalog.part(type, style, rampartTier)` is the
   exact-tier lookup. `RampartParts` (core) gives the placements: a gatehouse is captured with its passage north-south and its outside

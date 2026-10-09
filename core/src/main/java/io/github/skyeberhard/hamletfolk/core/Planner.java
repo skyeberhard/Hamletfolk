@@ -355,13 +355,28 @@ public final class Planner {
         // R8.12: what the land calls for, once the village is big enough to afford the room: one of its signature building.
         BuildingType signature = s.leaning().signature();
         // (still asked for while one is queued or being built: the planner dropping the ask would cancel the queued project)
-        if (signature != null && s.population() >= VillageCharacter.Stage.VILLAGE.from() && s.buildingCount(signature) == 0) {
+        if (signature != null && !Trades.isTradeBuilding(signature) // (a trade building is asked for below, once its trade is open)
+                && s.population() >= VillageCharacter.Stage.VILLAGE.from() && s.buildingCount(signature) == 0) {
             out.add(new Directive(Tier.GROWTH, Kind.BUILD, signature.name().toLowerCase(Locale.ROOT),
                     "it is a " + s.leaning().label() + " village, and " + switch (signature) {
                         case SAWMILL -> "a sawmill makes its lumberjacks' wood go a quarter further";
                         case FORGE -> "a forge lets each smith smelt four more ore a day";
+                        case HARBOUR -> "a harbour is where its fishermen work, and they land a quarter more";
+                        case PENS -> "pens are where its shepherds work, and they shear a quarter more";
                         default -> "a granary halves how fast its food spoils";
                     }));
+        }
+        // R8.13: what the land offers: the first trade that is open and has no building to work in. (Still asked for while one is
+        // queued or being built, as above.)
+        // All of them, in a stable order: one the village cannot pay for does not hide the others.
+        List<BuildingType> trades = Trades.wanted(s);
+        for (BuildingType building : trades) {
+            out.add(new Directive(Tier.GROWTH, Kind.BUILD, building.name().toLowerCase(Locale.ROOT), Trades.reasonFor(building)));
+        }
+        if (trades.isEmpty() && (s.buildingCount(BuildingType.TRADING_POST) == 0 && s.buildingCount(BuildingType.SHOP) > 0 && s.population() >= 12
+                && s.residents().stream().anyMatch(r -> r.adult() && r.occupation() == Occupation.MERCHANT))) {
+            out.add(new Directive(Tier.GROWTH, Kind.BUILD, "trading_post",
+                    "it has merchants and a shop, and a trading post gives each merchant one more sale a day"));
         }
         return out;
     }

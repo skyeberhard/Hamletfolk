@@ -119,6 +119,10 @@ public record Blueprint(String key, int width, int height, int depth, List<Block
         if (direct.isPresent()) {
             return direct;
         }
+        ResourceMapper.Value station = WORKSTATIONS.get(name);
+        if (station != null) {
+            return Optional.of(station); // R8.13: a villager's workstation is worth what it is made of
+        }
         for (String suffix : new String[] {"_SLAB", "_STAIRS", "_WALL", "_FENCE_GATE", "_FENCE"}) {
             if (name.endsWith(suffix)) {
                 String base = name.substring(0, name.length() - suffix.length());
@@ -132,6 +136,17 @@ public record Blueprint(String key, int width, int height, int depth, List<Block
         }
         return Optional.empty();
     }
+
+    /** R8.13: what the workstations and furnishings of the trade buildings cost, in planks (or the unit of their material). */
+    private static final java.util.Map<String, ResourceMapper.Value> WORKSTATIONS = java.util.Map.of(
+            "BARREL", new ResourceMapper.Value(ResourceType.WOOD, 8),
+            "LOOM", new ResourceMapper.Value(ResourceType.WOOD, 6),
+            "LECTERN", new ResourceMapper.Value(ResourceType.WOOD, 10),
+            "BOOKSHELF", new ResourceMapper.Value(ResourceType.WOOD, 6),
+            "CARTOGRAPHY_TABLE", new ResourceMapper.Value(ResourceType.WOOD, 6),
+            "BEEHIVE", new ResourceMapper.Value(ResourceType.WOOD, 6),
+            "SMOKER", new ResourceMapper.Value(ResourceType.STONE, 8),
+            "CAULDRON", new ResourceMapper.Value(ResourceType.METAL, 7));
 
     /** A material without its block state: "LADDER[facing=south]" is "LADDER". */
     static String name(String material) {

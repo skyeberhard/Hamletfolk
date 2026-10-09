@@ -31,6 +31,10 @@ public enum Occupation {
     CARTOGRAPHER("cartographer", "cartographer", ResourceType.GOODS, 1, null),
     CLERIC("cleric", "cleric", ResourceType.GOODS, 1, null),
     LIBRARIAN("librarian", "librarian", ResourceType.GOODS, 1, null),
+    // R8.13: no vanilla profession backs these; the land opens them (see Trades) and a building holds the work.
+    BEEKEEPER("beekeeper", "beekeeper", ResourceType.FOOD, 2, null),
+    HORSE_TRAINER("horse_trainer", "horse trainer", ResourceType.GOODS, 1, null),
+    GLASSBLOWER("glassblower", "glassblower", ResourceType.GOODS, 1, null),
     // R5.1, R5.5: makes nothing; eats an extra ration when there is one, wears out tools while on watch and is only
     // armed (and only calms the village) while the stores hold tools (see SettlementSimulator.guard). Called up when
     // the village is attacked; no vanilla profession backs it.
@@ -82,7 +86,8 @@ public enum Occupation {
 
     /** True for occupations no vanilla profession backs, so the simulation alone hands them out (R4.3). */
     public boolean simOwned() {
-        return this == LUMBERJACK || this == MERCHANT || this == MINER || this == GUARD || this == BUILDER;
+        return this == LUMBERJACK || this == MERCHANT || this == MINER || this == GUARD || this == BUILDER
+                || this == BEEKEEPER || this == HORSE_TRAINER || this == GLASSBLOWER;
     }
 
     public String title() {

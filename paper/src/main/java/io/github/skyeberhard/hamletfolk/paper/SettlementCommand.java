@@ -379,6 +379,8 @@ final class SettlementCommand implements TabExecutor {
             case SAWMILL -> org.bukkit.Color.fromRGB(139, 90, 43);
             case FORGE -> org.bukkit.Color.fromRGB(200, 80, 80);
             case GRANARY -> org.bukkit.Color.fromRGB(220, 200, 90);
+            case HARBOUR, PENS, SMOKEHOUSE, TANNERY, STABLE, APIARY, MAP_ROOM, LIBRARY, GLASSWORKS, TRADING_POST ->
+                    org.bukkit.Color.fromRGB(120, 200, 200); // R8.13: the trade buildings
             case STREET_LIGHTS, PALISADE, RAMPART, GATEHOUSE, TOWER -> org.bukkit.Color.fromRGB(255, 255, 255); // never a lot
         };
     }
@@ -483,6 +485,13 @@ final class SettlementCommand implements TabExecutor {
                     + layout.square().centerX() + ", " + layout.square().centerZ() + ", " + layout.reservedCount()
                     + " lots reserved and " + layout.filledCount() + " built on (" + layout.dropped()
                     + " dropped as too steep or wet). /settlement lots shows them.", NamedTextColor.GRAY));
+        }
+        String land = io.github.skyeberhard.hamletfolk.core.LandCounts.describe(s);
+        if (!land.isEmpty()) {
+            java.util.List<String> open = io.github.skyeberhard.hamletfolk.core.Trades.landTrades().stream()
+                    .filter(t -> io.github.skyeberhard.hamletfolk.core.Trades.opens(s, t)).map(t -> t.title()).toList();
+            player.sendMessage(Component.text("Within reach: " + land + (open.isEmpty() ? "." : ". The land opens: "
+                    + String.join(", ", open) + "."), NamedTextColor.GRAY));
         }
         io.github.skyeberhard.hamletfolk.core.Leaning leaning = s.leaning();
         io.github.skyeberhard.hamletfolk.core.VillageCharacter.Temperament temper =

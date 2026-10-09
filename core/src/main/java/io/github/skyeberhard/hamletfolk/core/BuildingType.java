@@ -32,7 +32,27 @@ public enum BuildingType {
     /** R5.11: a gatehouse of the rampart: only ever an admin's captured template, never registered or a project of its own. */
     GATEHOUSE("Gatehouse"),
     /** R5.11: a watch tower of the rampart: likewise only a captured template. */
-    TOWER("Tower");
+    TOWER("Tower"),
+    /** R8.13: where a fisherman works (a barrel), by the water; a fishing village's. */
+    HARBOUR("Harbour"),
+    /** R8.13: pens for sheep, with the loom a shepherd works at. */
+    PENS("Pens"),
+    /** R8.13: the butcher's smoker. */
+    SMOKEHOUSE("Smokehouse"),
+    /** R8.13: the leatherworker's cauldron and racks. */
+    TANNERY("Tannery"),
+    /** R8.13: stalls for horses, where a horse trainer works. */
+    STABLE("Stable"),
+    /** R8.13: hives, where a beekeeper works. */
+    APIARY("Apiary"),
+    /** R8.13: the cartographer's table. */
+    MAP_ROOM("Map Room"),
+    /** R8.13: shelves and a lectern, where a librarian works; a town's. */
+    LIBRARY("Library"),
+    /** R8.13: furnaces and glass, where a glassblower works. */
+    GLASSWORKS("Glassworks"),
+    /** R8.13: a market stall house: each of its merchants makes one more sale a day. */
+    TRADING_POST("Trading Post");
 
     /** R2.3: how many residents one building gives work to. */
     public static final int WORKERS_PER_BUILDING = 4;
@@ -63,8 +83,17 @@ public enum BuildingType {
             case MINE -> Optional.of(Occupation.MINER);
             case SMITHY -> Optional.of(Occupation.TOOLSMITH);
             case SHOP -> Optional.of(Occupation.MERCHANT);
-            case HOUSE, GUARD_POST, TREASURY, SQUARE, STREET_LIGHTS, PALISADE, RAMPART, SAWMILL, FORGE, GRANARY, GATEHOUSE, TOWER ->
-                    Optional.empty();
+            case HARBOUR -> Optional.of(Occupation.FISHERMAN);
+            case PENS -> Optional.of(Occupation.SHEPHERD);
+            case SMOKEHOUSE -> Optional.of(Occupation.BUTCHER);
+            case TANNERY -> Optional.of(Occupation.LEATHERWORKER);
+            case STABLE -> Optional.of(Occupation.HORSE_TRAINER);
+            case APIARY -> Optional.of(Occupation.BEEKEEPER);
+            case MAP_ROOM -> Optional.of(Occupation.CARTOGRAPHER);
+            case LIBRARY -> Optional.of(Occupation.LIBRARIAN);
+            case GLASSWORKS -> Optional.of(Occupation.GLASSBLOWER);
+            case HOUSE, GUARD_POST, TREASURY, SQUARE, STREET_LIGHTS, PALISADE, RAMPART, SAWMILL, FORGE, GRANARY, GATEHOUSE, TOWER,
+                    TRADING_POST -> Optional.empty();
         };
     }
 

@@ -601,8 +601,8 @@ public final class Construction {
         MINING("mining", BuildingType.MINE, BuildingType.SMITHY, BuildingType.FORGE),
         CRAFT("craft", BuildingType.SMITHY, BuildingType.SHOP),
         TRADE("trading", BuildingType.SHOP, BuildingType.TREASURY),
-        FISHING("fishing", BuildingType.HOUSE, BuildingType.SHOP),
-        PASTORAL("pastoral", BuildingType.FARM, BuildingType.HOUSE, BuildingType.GRANARY),
+        FISHING("fishing", BuildingType.HOUSE, BuildingType.SHOP, BuildingType.HARBOUR),
+        PASTORAL("pastoral", BuildingType.FARM, BuildingType.HOUSE, BuildingType.GRANARY, BuildingType.PENS),
         UNDECIDED("all-round");
 
         private final String label;

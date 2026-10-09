@@ -47,8 +47,10 @@ public enum Leaning {
         return switch (this) {
             case TIMBER -> BuildingType.SAWMILL;
             case MINING -> BuildingType.FORGE;
-            case FARMING, PASTORAL -> BuildingType.GRANARY;
-            case FISHING, ALL_ROUND -> null;
+            case FARMING -> BuildingType.GRANARY;
+            case PASTORAL -> BuildingType.PENS; // R8.13
+            case FISHING -> BuildingType.HARBOUR; // R8.13
+            case ALL_ROUND -> null;
         };
     }
 

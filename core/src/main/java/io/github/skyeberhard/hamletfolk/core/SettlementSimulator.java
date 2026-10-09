@@ -62,6 +62,20 @@ public final class SettlementSimulator {
     static final List<Occupation> JOB_CANDIDATES = List.of(
             Occupation.FARMER, Occupation.LUMBERJACK, Occupation.MASON, Occupation.FISHERMAN, Occupation.MINER,
             Occupation.TOOLSMITH);
+    /** R8.13: a land trade's output when its building stands, and the merchant's extra sale a day from a trading post. */
+    static final double WORKSHOP_OUTPUT = 1.25;
+
+    /** R4.3 and R8.13: the trades an unemployed resident can be given: the usual ones, and any land trade that is open. */
+    static List<Occupation> candidates(Settlement settlement) {
+        List<Occupation> out = new ArrayList<>(JOB_CANDIDATES);
+        for (Occupation trade : Trades.landTrades()) {
+            if (!out.contains(trade) && Trades.opens(settlement, trade)) {
+                out.add(trade);
+            }
+        }
+        return out;
+    }
+
     /** R4.3: stock per resident below which a resource counts as short. */
     static final int FOOD_WANTED_PER_HEAD = 10;
     static final int STOCK_WANTED_PER_HEAD = 3;
@@ -441,7 +455,8 @@ public final class SettlementSimulator {
         boolean famine = settlement.hasCondition("famine") || settlement.ledger().get(ResourceType.FOOD) <= dailyFoodDemand(settlement);
         Occupation best = null;
         double bestCover = Double.MAX_VALUE;
-        for (Occupation candidate : JOB_CANDIDATES) {
+        List<Occupation> candidates = candidates(settlement); // R8.13
+        for (Occupation candidate : candidates) {
             if (!workstationFree.test(settlement, candidate) || !(foodShort && candidate.produces() == ResourceType.FOOD)) {
                 continue;
             }
@@ -452,7 +467,7 @@ public final class SettlementSimulator {
             }
         }
         if (best == null && !famine) {
-            for (Occupation candidate : JOB_CANDIDATES) {
+            for (Occupation candidate : candidates) {
                 if (!workstationFree.test(settlement, candidate)) {
                     continue;
                 }
@@ -466,7 +481,7 @@ public final class SettlementSimulator {
             // quarter of what is wanted, so what the land gives is worked before it runs short. A real shortage has
             // always been staffed first, above.
             if (best == null) {
-                for (Occupation candidate : JOB_CANDIDATES) {
+                for (Occupation candidate : candidates) {
                     if (!workstationFree.test(settlement, candidate) || leaningBias(settlement, candidate) == 1.0) {
                         continue;
                     }
@@ -616,7 +631,7 @@ public final class SettlementSimulator {
         for (UUID parent : new UUID[] {child.parentA(), child.parentB()}) {
             Occupation trade = parent == null ? null
                     : settlement.resident(parent).map(Resident::occupation).orElse(null);
-            if (trade != null && (JOB_CANDIDATES.contains(trade) || trade == Occupation.MERCHANT)) {
+            if (trade != null && (JOB_CANDIDATES.contains(trade) || Trades.landTrades().contains(trade) || trade == Occupation.MERCHANT)) {
                 return trade;
             }
         }
@@ -683,6 +698,9 @@ public final class SettlementSimulator {
         double skill = TradeLevel.outputFactor(resident.level()); // R4.29
         if (occupation == Occupation.LUMBERJACK && settlement.buildingCount(BuildingType.SAWMILL) > 0) {
             skill *= SAWMILL_OUTPUT; // R8.12
+        }
+        if (Trades.worked(settlement, occupation)) {
+            skill *= WORKSHOP_OUTPUT; // R8.13: a trade works a quarter better in its own building
         }
         int output = (int) Math.floor(occupation.baseOutput() * diligence * toolFactor * needsFactor(resident.needs())
                 * ageFactor * skill + random.nextDouble());
@@ -952,7 +970,7 @@ public final class SettlementSimulator {
         if (cover(settlement, Occupation.FARMER) < 1.0) {
             return true; // food is always something to work on: an unemployed resident forages
         }
-        for (Occupation candidate : JOB_CANDIDATES) {
+        for (Occupation candidate : candidates(settlement)) {
             // Only a shortage someone could work on: a missing mine does not count, or a village
             // without one would always look short of metal and never keep a merchant.
             if (workstationFree.test(settlement, candidate) && cover(settlement, candidate) < 1.0) {
@@ -1205,6 +1223,13 @@ public final class SettlementSimulator {
         }
     }
 
+    /** How many batches a merchant sells today: their pace, their level (R4.29) and a trading post's one more (R8.13). */
+    static int batchesFor(Settlement settlement, Resident merchant, long day) {
+        double pace = (merchant.stage(day) == LifeStage.ELDER ? ELDER_OUTPUT : 1.0) * needsFactor(merchant.needs());
+        return (int) Math.round(MERCHANT_BATCHES_PER_DAY * pace) + TradeLevel.extraBatches(merchant.level())
+                + (settlement.buildingCount(BuildingType.TRADING_POST) > 0 ? 1 : 0);
+    }
+
     /**
      * R3.9: a merchant sells surplus for emeralds into the treasury. Each batch is a fixed number
      * of units of whichever resource has the most surplus worth, so what is most plentiful goes first.
@@ -1212,8 +1237,7 @@ public final class SettlementSimulator {
      * {@code room} is how many emeralds the treasury can still take (R2.6): a merchant stops when it is full. */
     private static void sell(Settlement settlement, Resident merchant, long day, int room) {
         Ledger ledger = settlement.ledger();
-        double pace = (merchant.stage(day) == LifeStage.ELDER ? ELDER_OUTPUT : 1.0) * needsFactor(merchant.needs());
-        int batches = (int) Math.round(MERCHANT_BATCHES_PER_DAY * pace) + TradeLevel.extraBatches(merchant.level()); // R4.29
+        int batches = batchesFor(settlement, merchant, day);
         int sold = 0;
         for (int batch = 0; batch < batches; batch++) {
             ResourceType best = null;

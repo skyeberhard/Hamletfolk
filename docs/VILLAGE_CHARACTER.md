@@ -229,6 +229,11 @@ count so that one stray sheep does not make a shepherd. The counts below are sta
 | Merchant | built: a shop | a surplus | (none; the shop) | Trading: market, trading post |
 | Guard, builder | built: on need | attacks; a project | (none) | Martial: barracks |
 
+*Built so far (R8.13, coded, not yet played: T70):* the survey (animals, cane, sand, water, every ten days from loaded chunks), the
+triggers for fisherman, shepherd, butcher, leatherworker, horse trainer, beekeeper, cartographer, librarian and glassblower with the
+counts above (a bee count stands in for nests), the nine trade buildings, and the trading post. Not yet: the fletcher, mason,
+weaponsmith, armorer and cleric triggers, the new scholarly, craft and trading leanings, and the trades' effects beyond a quarter more output.
+
 Two things follow from the table:
 
 1. **Trades are unlocked in stages.** Food and basic materials come first (farmer, lumberjack, miner). The land's

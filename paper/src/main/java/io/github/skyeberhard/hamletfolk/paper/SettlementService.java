@@ -591,6 +591,11 @@ final class SettlementService {
             considerNewcomer(settlement);
             considerBirth(settlement); // R4.28
             readTheLand(settlement); // R8.11
+            try {
+                surveyLand(settlement); // R8.13
+            } catch (RuntimeException e) {
+                plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not survey the land round " + settlement.name(), e);
+            }
             placeGolems(settlement); // R5.9
             releaseExemptResidents(settlement); // R1.30
             considerMigration(settlement);
@@ -715,6 +720,78 @@ final class SettlementService {
                     leaning == Leaning.ALL_ROUND ? settlement.name() + " sits on land with nothing that stands out: it will be an all-round place."
                             : settlement.name() + " has " + leaning.reason() + ": it is a " + leaning.label() + " village.");
         }
+        plugin.requestSave();
+    }
+
+    // ----- R8.13: what the land offers -----
+
+    /** Days between counts of the animals, cane, sand and water round a village. */
+    private static final int SURVEY_EVERY_DAYS = 10;
+    /** How far from the village's centre the survey counts. */
+    private static final int SURVEY_RADIUS = 64;
+
+    /**
+     * R8.13: counts what is within reach of the village (sheep, cattle, pigs, chickens, horses, bees; sugar cane, sand and
+     * water at the surface) in the chunks that are loaded, and keeps the highest counts ever found (see
+     * {@link io.github.skyeberhard.hamletfolk.core.LandCounts}). Not more than once in ten village days, and never loading a chunk.
+     */
+    void surveyLand(Settlement settlement) {
+        World world = Bukkit.getWorld(settlement.world());
+        if (world == null || !inScope(world) || settlement.isAbandoned() || !settlement.hasLeaning()) {
+            return;
+        }
+        long day = settlement.lastSimulatedDay();
+        if (io.github.skyeberhard.hamletfolk.core.LandCounts.surveyed(settlement)
+                && day - io.github.skyeberhard.hamletfolk.core.LandCounts.surveyedDay(settlement) < SURVEY_EVERY_DAYS) {
+            return;
+        }
+        int cx = settlement.centerX();
+        int cz = settlement.centerZ();
+        if (!world.isChunkLoaded(cx >> 4, cz >> 4)) {
+            return;
+        }
+        var found = new java.util.EnumMap<io.github.skyeberhard.hamletfolk.core.LandCounts.Feature, Integer>(
+                io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.class);
+        var box = org.bukkit.util.BoundingBox.of(new Location(world, cx - SURVEY_RADIUS, world.getMinHeight(), cz - SURVEY_RADIUS),
+                new Location(world, cx + SURVEY_RADIUS, world.getMaxHeight(), cz + SURVEY_RADIUS));
+        for (org.bukkit.entity.Entity entity : world.getNearbyEntities(box)) {
+            if (entity instanceof org.bukkit.entity.Ageable young && !young.isAdult()) {
+                continue; // (the young are not a herd)
+            }
+            io.github.skyeberhard.hamletfolk.core.LandCounts.Feature feature = switch (entity) {
+                case org.bukkit.entity.MushroomCow ignored -> null; // (not leather)
+                case org.bukkit.entity.Sheep ignored -> io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.SHEEP;
+                case org.bukkit.entity.Cow ignored -> io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.CATTLE;
+                case org.bukkit.entity.Pig ignored -> io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.PIGS;
+                case org.bukkit.entity.Chicken ignored -> io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.CHICKENS;
+                case org.bukkit.entity.Horse ignored -> io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.HORSES;
+                case org.bukkit.entity.Bee ignored -> io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.BEES;
+                default -> null;
+            };
+            if (feature != null) {
+                found.merge(feature, 1, Integer::sum);
+            }
+        }
+        for (int x = cx - SURVEY_RADIUS; x <= cx + SURVEY_RADIUS; x++) {
+            for (int z = cz - SURVEY_RADIUS; z <= cz + SURVEY_RADIUS; z++) {
+                if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+                    continue;
+                }
+                int y = world.getHighestBlockYAt(x, z, HeightMap.WORLD_SURFACE);
+                Material top = world.getBlockAt(x, y, z).getType();
+                io.github.skyeberhard.hamletfolk.core.LandCounts.Feature feature = switch (top) {
+                    case SUGAR_CANE -> io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.SUGAR_CANE;
+                    case SAND, RED_SAND -> io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.SAND;
+                    case WATER -> io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.WATER;
+                    default -> null;
+                };
+                if (feature != null) {
+                    found.merge(feature, 1, Integer::sum);
+                }
+            }
+        }
+        io.github.skyeberhard.hamletfolk.core.LandCounts.record(settlement, found, day);
+        io.github.skyeberhard.hamletfolk.core.Trades.noteOpened(settlement, day);
         plugin.requestSave();
     }
 

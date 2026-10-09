@@ -23,7 +23,7 @@ class SignatureBuildingTest {
     }
 
     private static final String[][] LANDS = {{"forest", "SAWMILL"}, {"windswept_hills", "FORGE"}, {"plains", "GRANARY"},
-            {"savanna", "GRANARY"}};
+            {"savanna", "PENS"}};
 
     /** A settled village of {@code people} on the given land: fed, housed, with a mine so only wants remain. */
     private Settlement settled(String biome, int people) {
@@ -33,6 +33,10 @@ class SignatureBuildingTest {
         }
         s.setLand(SiteSurvey.score(SiteSurvey.grid(96, 24, (dx, dz) -> biome)));
         s.setPlan(PlanGenerator.generate(0, 0, 7L, "plains", HeightSource.flat(64)));
+        if (biome.equals("savanna")) {
+            // R8.13: a pastoral village's pens are a trade building, asked for once there are sheep to shear
+            LandCounts.record(s, java.util.Map.of(LandCounts.Feature.SHEEP, 8), 1);
+        }
         s.ledger().add(Commodity.BREAD, 5000);
         s.ledger().add(Commodity.PLANKS, 500);
         s.ledger().add(Commodity.COBBLESTONE, 500);
@@ -48,8 +52,8 @@ class SignatureBuildingTest {
         assertEquals(BuildingType.SAWMILL, Leaning.TIMBER.signature());
         assertEquals(BuildingType.FORGE, Leaning.MINING.signature());
         assertEquals(BuildingType.GRANARY, Leaning.FARMING.signature());
-        assertEquals(BuildingType.GRANARY, Leaning.PASTORAL.signature());
-        assertNull(Leaning.FISHING.signature(), "a harbour comes with R8.13");
+        assertEquals(BuildingType.PENS, Leaning.PASTORAL.signature(), "R8.13: pens for a pastoral village");
+        assertEquals(BuildingType.HARBOUR, Leaning.FISHING.signature(), "R8.13: a harbour for a fishing one");
         assertNull(Leaning.ALL_ROUND.signature());
         assertTrue(Construction.Direction.FORESTRY.serves(BuildingType.SAWMILL));
         assertTrue(Construction.Direction.MINING.serves(BuildingType.FORGE));
