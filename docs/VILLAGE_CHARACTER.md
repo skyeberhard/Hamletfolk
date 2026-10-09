@@ -293,7 +293,8 @@ common; the habit of speech is a prefix or suffix on about 45% of lines; 23 situ
 plenty, thin stores, blocked trade, worn tools, a death, danger, a request, children, elders, three kinds of memory, a
 neighbour, the village's latest plan). R4.31 (T73) added: every other remark wrapped in the speaker's tone, trade talk in the
 trade's words from `vocab_trade.txt` (and more of it from an expert), remarks on the weather and the time of day, and goodbyes when the player
-walks away. The land, mood, size, wealth and parent remarks are still one fact each, with a tone around it rather than lines of their own.
+walks away. R4.32 (T75) gave the land, mood, size, wealth and parent remarks lines of their own, with their facts in vocabulary files; the idle,
+builder and guard remarks are still one sentence with a tone around it.
 Admins edit `plugins/Hamletfolk/dialogue/<situation>.txt` and run `/settlement admin dialogue`.
 
 Villages already say the right things about themselves (hunger, danger, their land and history), but every villager says

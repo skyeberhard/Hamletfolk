@@ -23,6 +23,9 @@ import java.util.regex.Pattern;
 public final class Lines {
     private static final Pattern SLOT = Pattern.compile("\\{[A-Za-z]+}");
 
+    /** The vocabulary files: vocab_trade.txt, vocab_land.txt, vocab_mood.txt, vocab_size.txt and vocab_wealth.txt. */
+    static final List<String> VOCAB_GROUPS = List.of("trade", "land", "mood", "size", "wealth");
+
     private final Map<Situation, Map<Tone, List<String>>> lines = new EnumMap<>(Situation.class);
     private final List<String> problems = new ArrayList<>();
     /** R4.31: vocabulary by group (e.g. "trade") and then key (e.g. "farmer"): the slots that key fills in. */
@@ -47,11 +50,13 @@ public final class Lines {
                 out.parse(situation, text, "built-in " + situation.fileName(), false);
             }
         }
-        String trades = readResource("/dialogue/vocab_trade.txt");
-        if (trades == null) {
-            out.problems.add("built-in vocab_trade.txt is missing");
-        } else {
-            out.parseVocab("trade", trades, "built-in vocab_trade.txt");
+        for (String group : VOCAB_GROUPS) {
+            String text = readResource("/dialogue/vocab_" + group + ".txt");
+            if (text == null) {
+                out.problems.add("built-in vocab_" + group + ".txt is missing");
+            } else {
+                out.parseVocab(group, text, "built-in vocab_" + group + ".txt");
+            }
         }
         return out;
     }
@@ -72,12 +77,14 @@ public final class Lines {
                 }
             }
         }
-        Path vocabFile = directory.resolve("vocab_trade.txt");
-        if (Files.isRegularFile(vocabFile)) {
-            try {
-                out.parseVocab("trade", Files.readString(vocabFile, StandardCharsets.UTF_8), vocabFile.getFileName().toString());
-            } catch (IOException | RuntimeException e) {
-                out.problems.add(vocabFile.getFileName() + " could not be read and was skipped: " + e.getMessage());
+        for (String group : VOCAB_GROUPS) {
+            Path vocabFile = directory.resolve("vocab_" + group + ".txt");
+            if (Files.isRegularFile(vocabFile)) {
+                try {
+                    out.parseVocab(group, Files.readString(vocabFile, StandardCharsets.UTF_8), vocabFile.getFileName().toString());
+                } catch (IOException | RuntimeException e) {
+                    out.problems.add(vocabFile.getFileName() + " could not be read and was skipped: " + e.getMessage());
+                }
             }
         }
         return out;

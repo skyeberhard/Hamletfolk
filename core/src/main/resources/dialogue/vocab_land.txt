@@ -1,0 +1,11 @@
+# What the land round a village is, for the LAND lines (by leaning). One entry per line:
+#   key: slot=value; slot=value
+# Values may not contain ';'. A server file of this name in plugins/Hamletfolk/dialogue/ replaces the entry of each key it mentions.
+timber: place=the forest; living=timber; sight=trees to the horizon
+mining: place=the hills; living=stone and ore; sight=quarries and spoil heaps
+farming: place=the open farmland; living=the harvest; sight=fields to the horizon
+fishing: place=the water; living=fish; sight=nets drying on every post
+pastoral: place=the pasture; living=wool and meat; sight=flocks on every hill
+scholarly: place=the reed beds; living=paper and books; sight=cane by the water
+craft: place=the sand flats; living=glass; sight=furnaces glowing in the dusk
+trading: place=the crossroads; living=trade; sight=carts coming in from every road

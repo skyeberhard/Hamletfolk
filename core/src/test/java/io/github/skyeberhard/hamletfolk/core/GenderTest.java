@@ -1,6 +1,7 @@
 package io.github.skyeberhard.hamletfolk.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -146,13 +147,14 @@ class GenderTest {
             String line = null;
             for (long seed = 0; seed < 500 && line == null; seed++) {
                 String said = Dialogue.smallTalk(child, s, 10, new java.util.Random(seed));
-                if (said.contains("My " + row[1] + ", " + parent.givenName())) { // (R4.31: said in the speaker's tone, the fact inside)
+                if (said.contains(row[1]) && said.contains(parent.givenName())) { // (R4.32: lines of its own, the fact inside)
                     line = said;
                 }
             }
             assertNotNull(line, "a child with a parent should sometimes mention them");
-            assertTrue(line.contains("My " + row[1] + ", " + parent.givenName()), line);
-            assertTrue(line.contains("from " + row[2]), line);
+            assertTrue(line.contains(row[1]) && line.contains(parent.givenName()), line);
+            String wrong = row[1].equals("mother") ? " him" : " her";
+            assertFalse(line.contains(wrong + ".") || line.contains(wrong + "!") || line.contains(wrong + ","), "the right pronoun: " + line);
         }
     }
 

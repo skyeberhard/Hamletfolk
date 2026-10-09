@@ -207,7 +207,10 @@ class VoiceTest {
                 Map.entry("input", "metal"), Map.entry("text", "Something happened."), Map.entry("item", "wood"), Map.entry("pay", "9"),
                 Map.entry("left", "30"), Map.entry("trade", "farmer"), Map.entry("days", "88"), Map.entry("day", "12"),
                 Map.entry("neighbour", "Mira Oakes"), Map.entry("statement", "The land is good."), Map.entry("craft", "farming"),
-                Map.entry("work", "sowing"), Map.entry("product", "wheat"), Map.entry("sky", "a clear sky"), Map.entry("time", "morning"));
+                Map.entry("work", "sowing"), Map.entry("product", "wheat"), Map.entry("sky", "a clear sky"), Map.entry("time", "morning"),
+                Map.entry("place", "the hills"), Map.entry("living", "ore"), Map.entry("sight", "quarries"), Map.entry("sense", "we hold the line"),
+                Map.entry("size", "town"), Map.entry("count", "31"), Map.entry("feel", "we know every face"), Map.entry("standing", "I get by"),
+                Map.entry("kin", "mother"), Map.entry("parent", "Wren"), Map.entry("obj", "her"), Map.entry("poss", "her"));
         Lines lines = Lines.builtIn();
         for (Situation situation : Situation.values()) {
             for (Tone tone : Tone.values()) {

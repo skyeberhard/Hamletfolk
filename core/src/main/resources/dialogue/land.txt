@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; {Name} is the slot with a capital letter. A line whose slot is
+# missing is skipped. In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {place} {living} {sight} {village} (from vocab_land.txt, by the village's leaning)
+warm: We love {place} round {village}, friend. It gives us {living}!
+warm: {Place} all round, and {living} for everyone: {village} is lucky.
+warm: Have you seen it? {Sight}. Isn't it lovely?
+gruff: {Place}. {Living}. That's {village}.
+gruff: It's {place} out there. Don't get lost.
+gruff: We live off {living}. It's honest.
+anxious: What if we lose {living}? Everything here depends on it.
+anxious: I try not to think about what we would do if {living} ran out...
+anxious: I hope {living} lasts. It's all {village} has.
+proud: {village} is built on {living}, and there is no finer place than {place}.
+proud: Other villages envy {place} round us.
+proud: {Living} made {village} what it is.
+dry: Yes, {place}. Very scenic. {Sight}, in case you missed it.
+dry: {village}: where there is {place} and little else.
+dry: Say what you like, {living} pays the bills.
+gentle: I love the look of {place} near {village}.
+gentle: It is beautiful out here in the morning: {sight}.
+gentle: We're grateful for what the land gives: {living}.

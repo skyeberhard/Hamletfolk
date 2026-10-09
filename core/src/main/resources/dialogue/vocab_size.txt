@@ -1,0 +1,6 @@
+# How big a village is, for the SIZE lines (by size; a plain village has no entry). One entry per line:
+#   key: slot=value; slot=value
+# Values may not contain ';'. A server file of this name in plugins/Hamletfolk/dialogue/ replaces the entry of each key it mentions.
+hamlet: size=hamlet; feel=we know every face
+town: size=town; feel=there are too many of us to know by name
+city: size=city; feel=I still get lost in the lanes

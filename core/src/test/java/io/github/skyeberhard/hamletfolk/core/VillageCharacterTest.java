@@ -353,7 +353,8 @@ class VillageCharacterTest {
         // and it reaches what a resident can say
         boolean said = false;
         for (int seed = 0; seed < 200 && !said; seed++) {
-            said = Dialogue.smallTalk(s.residents().iterator().next(), s, 10, new Random(seed)).contains("mining place");
+            String line = Dialogue.smallTalk(s.residents().iterator().next(), s, 10, new Random(seed));
+            said = line.contains("the hills") || line.contains("stone and ore") || line.contains("quarries and spoil heaps"); // (R4.32)
         }
         assertTrue(said, "a resident sometimes says it");
     }

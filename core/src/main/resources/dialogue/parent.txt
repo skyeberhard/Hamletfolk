@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; {Name} is the slot with a capital letter. A line whose slot is
+# missing is skipped. In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {kin} {parent} {obj} {poss} (a parent still in the village: mother or father; her/him; her/his)
+warm: My {kin}, {parent}, raised me here. Everyone says I got my laugh from {obj}!
+warm: I take after my {kin}, {parent}. Do you know {obj}?
+warm: My {kin} {parent} is the best. Say hello to {obj} for me!
+gruff: My {kin} is {parent}. Raised me. Don't make a fuss.
+gruff: {parent}. My {kin}. Tougher than me, and that's saying something.
+gruff: I got my stubbornness from {obj}: {parent}, my {kin}.
+anxious: My {kin}, {parent}... I worry about {obj} all the time.
+anxious: Please look out for my {kin}, {parent}.
+anxious: If anything happened to {parent}, my {kin}, I don't know what I'd do.
+proud: My {kin}, {parent}, raised me well, and {poss} name is respected in this village.
+proud: Everything I know I learned from {parent}, my {kin}.
+proud: I carry {poss} name with pride: {parent}, my {kin}.
+dry: My {kin} is {parent}. Everyone says I got my laugh from {obj}. I'm not sure it's a compliment.
+dry: {parent}, my {kin}, taught me everything, mostly what not to do.
+dry: Yes, {parent} is my {kin}. We've discussed it.
+gentle: My {kin}, {parent}, raised me here. I got my laugh from {obj}.
+gentle: I think of {parent}, my {kin}, often. {Poss} kindness stays with me.
+gentle: {parent} is my {kin}, and I am grateful for {obj}.

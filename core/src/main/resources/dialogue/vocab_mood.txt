@@ -1,0 +1,8 @@
+# How a village feels, for the MOOD lines (by temperament; a steady village has no entry). One entry per line:
+#   key: slot=value; slot=value
+# Values may not contain ';'. A server file of this name in plugins/Hamletfolk/dialogue/ replaces the entry of each key it mentions.
+martial: sense=we've come through enough raids to know how to hold the line
+hard_pressed: sense=these are lean years and nobody plans far ahead
+wary: sense=we watch every stranger on the road
+prosperous: sense=the stores are full and the treasury is heavy
+welcoming: sense=folk keep arriving, and there is always room for one more

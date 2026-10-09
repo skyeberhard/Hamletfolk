@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; {Name} is the slot with a capital letter. A line whose slot is
+# missing is skipped. In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {sense} {village} (from vocab_mood.txt, by the village's temperament)
+warm: Here in {village}, {sense}, and we keep each other's spirits up.
+warm: Between you and me, friend: {sense}.
+warm: {Sense}, and I wouldn't live anywhere else.
+gruff: {Sense}. That's how it is.
+gruff: Not much to say. {Sense}.
+gruff: {Sense}. Deal with it.
+anxious: {Sense}... I can't stop thinking about it.
+anxious: I think about it a lot: {sense}.
+anxious: {Sense}... and I do wonder what comes next for {village}.
+proud: {village} is a place where {sense}. That says something about us.
+proud: {Sense}, and {village} bears it well.
+proud: Mark this: {sense}, and we endure.
+dry: Oh, {sense}. As if you couldn't tell.
+dry: {Sense}. Lovely, isn't it.
+dry: In {village}, {sense}. Welcome.
+gentle: In {village}, {sense}, and we take it as it comes.
+gentle: {Sense}. That is the way of it, here.
+gentle: I think about it often: {sense}.

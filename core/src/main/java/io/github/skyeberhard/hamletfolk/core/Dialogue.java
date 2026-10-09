@@ -161,6 +161,14 @@ public final class Dialogue {
 
     /** R8.11: what residents say about the kind of place the village is: its land, its history and its size. */
     static List<String> characterLines(Settlement settlement) {
+        List<String> lines = new ArrayList<>();
+        landLine(settlement).ifPresent(lines::add);
+        moodLine(settlement).ifPresent(lines::add);
+        sizeLine(settlement).ifPresent(lines::add);
+        return lines;
+    }
+
+    private static Optional<String> landLine(Settlement settlement) {
         String name = settlement.name();
         List<String> lines = new ArrayList<>();
         switch (settlement.leaning()) {
@@ -175,6 +183,12 @@ public final class Dialogue {
             default -> {
             }
         }
+        return lines.stream().findFirst();
+    }
+
+    private static Optional<String> moodLine(Settlement settlement) {
+        String name = settlement.name();
+        List<String> lines = new ArrayList<>();
         switch (VillageCharacter.temperament(settlement)) {
             case MARTIAL -> lines.add("We've come through enough raids in " + name + " to know how to hold the line.");
             case HARD_PRESSED -> lines.add("These are lean years. Nobody in " + name + " plans far ahead any more.");
@@ -184,6 +198,12 @@ public final class Dialogue {
             case STEADY -> {
             }
         }
+        return lines.stream().findFirst();
+    }
+
+    private static Optional<String> sizeLine(Settlement settlement) {
+        String name = settlement.name();
+        List<String> lines = new ArrayList<>();
         switch (VillageCharacter.Stage.of(settlement.population())) {
             case HAMLET -> lines.add(name + " is a small place, but we know every face in it.");
             case TOWN -> lines.add("There are too many of us to know by name now. " + name + " is a town.");
@@ -191,7 +211,70 @@ public final class Dialogue {
             case VILLAGE -> {
             }
         }
-        return lines;
+        return lines.stream().findFirst();
+    }
+
+    // ----- R4.32: remarks with lines of their own, the fact from a vocabulary file -----
+
+    private static Optional<Option> landOption(Settlement settlement) {
+        Leaning leaning = settlement.leaning();
+        return vocabOption(Situation.LAND, "land", leaning.name(), landLine(settlement), Map.of());
+    }
+
+    private static Optional<Option> moodOption(Settlement settlement) {
+        return vocabOption(Situation.MOOD, "mood", VillageCharacter.temperament(settlement).name(), moodLine(settlement), Map.of());
+    }
+
+    private static Optional<Option> sizeOption(Settlement settlement) {
+        if (settlement.population() < 2) {
+            return Optional.empty(); // "one of us" is not a size
+        }
+        return vocabOption(Situation.SIZE, "size", VillageCharacter.Stage.of(settlement.population()).name(), sizeLine(settlement),
+                Map.of("count", String.valueOf(settlement.population())));
+    }
+
+    /** An option whose slots are a vocabulary entry (plus {@code extra}); none if there is no such entry or no plain fallback. */
+    private static Optional<Option> vocabOption(Situation situation, String group, String key, Optional<String> plain,
+            Map<String, String> extra) {
+        if (plain.isEmpty()) {
+            return Optional.empty(); // nothing to say about this one (an all-round land, a steady mood, a plain village)
+        }
+        Map<String, String> words = library.vocab(group, key);
+        if (words.isEmpty()) {
+            return Optional.of(Option.plain(plain.get())); // no entry for it: the plain sentence, in the speaker's tone
+        }
+        Map<String, String> slots = new HashMap<>(words);
+        slots.putAll(extra);
+        return Optional.of(new Option(situation, slots, plain.get()));
+    }
+
+    private static Optional<Option> wealthOption(Resident resident, Occupation occupation) {
+        Wealth.Tier tier = Wealth.tier(resident.wealth());
+        String key = tier == Wealth.Tier.BROKE && occupation == Occupation.UNEMPLOYED ? "idle_broke" : tier.name();
+        Map<String, String> words = library.vocab("wealth", key);
+        Optional<String> plain = wealthLine(resident, occupation);
+        if (plain.isEmpty()) {
+            return Optional.empty();
+        }
+        if (words.isEmpty()) {
+            return Optional.of(Option.plain(plain.get()));
+        }
+        Map<String, String> slots = new HashMap<>(words);
+        slots.replaceAll((k, v) -> v.replace("{amount}", String.valueOf(resident.wealth() / Wealth.PER_EMERALD)));
+        return Optional.of(new Option(Situation.WEALTH, slots, plain.get()));
+    }
+
+    private static Optional<Option> parentOption(Resident resident, Settlement settlement) {
+        for (UUID id : new UUID[] {resident.parentA(), resident.parentB()}) {
+            Optional<Resident> parent = id == null ? Optional.empty() : settlement.resident(id);
+            if (parent.isPresent()) {
+                Gender gender = parent.get().gender();
+                return Optional.of(new Option(Situation.PARENT, Map.of("kin", gender == Gender.FEMALE ? "mother" : "father",
+                        "parent", parent.get().givenName(), "obj", gender.object(), "poss", gender.possessive()),
+                        parentLine(resident, settlement).orElse("")));
+            }
+        }
+        return Optional.empty();
     }
 
     static String smallTalk(Resident resident, Settlement settlement, long day, Random random) {
@@ -244,7 +327,7 @@ public final class Dialogue {
             }
         }
 
-        parentLine(resident, settlement).ifPresent(l -> options.add(Option.plain(l)));
+        parentOption(resident, settlement).ifPresent(options::add); // R4.32
         if (resident.adult()) {
             workOption(resident, settlement).ifPresent(options::add); // R4.31
         }
@@ -253,7 +336,9 @@ public final class Dialogue {
                     "sky", ambient.sky(), "time", ambient.time()));
         }
         if (resident.adult()) {
-            characterLines(settlement).forEach(l -> options.add(Option.plain(l))); // R8.11
+            landOption(settlement).ifPresent(options::add); // R8.11, R4.32
+            moodOption(settlement).ifPresent(options::add);
+            sizeOption(settlement).ifPresent(options::add);
             neighbour(resident, settlement, random).ifPresent(options::add); // R4.30
         }
         if (resident.adult() && !settlement.decisions().isEmpty()) {
@@ -263,7 +348,7 @@ public final class Dialogue {
             }
         }
         if (resident.adult() && occupation != Occupation.NITWIT) {
-            wealthLine(resident, occupation).ifPresent(l -> options.add(Option.plain(l)));
+            wealthOption(resident, occupation).ifPresent(options::add); // R3.5, R4.32
         }
 
         settlement.requests().stream().findFirst().ifPresent(request -> options.add(Option.of(Situation.REQUEST,

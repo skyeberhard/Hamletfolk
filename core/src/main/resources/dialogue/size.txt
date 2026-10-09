@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; {Name} is the slot with a capital letter. A line whose slot is
+# missing is skipped. In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {size} {count} {feel} {village} (from vocab_size.txt, by the village's size)
+warm: There are {count} of us in {village}, a {size}, and I'm glad to be one.
+warm: A {size}, {village}, and growing! {Feel}.
+warm: {count} of us now, friend. {Feel}.
+gruff: {count} of us. {Feel}. That's all.
+gruff: {village}'s a {size}. Don't make it more.
+gruff: {Feel}. Next question.
+anxious: {count} of us... {Feel}, and it worries me.
+anxious: A {size} like this attracts trouble.
+anxious: Do you think a {size} like {village} is safe?
+proud: {village} is a {size} now, and every one of the {count} of us helped build it.
+proud: From nothing to a {size}: {feel}.
+proud: {count} of us, and every one counts. Few places can say as much.
+dry: {count} of us and a {size}'s worth of opinions.
+dry: {village}: a {size}. {Feel}, naturally.
+dry: I'd say it's a {size}, though the neighbours may disagree.
+gentle: It's a gentle sort of {size}, {village}. {Feel}.
+gentle: {count} of us, and {feel}.
+gentle: I like living in a {size} where {feel}.

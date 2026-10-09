@@ -37,18 +37,29 @@ public final class StreetGrade {
     public record Change(int x, int y, int z, Role role) {
     }
 
-    /** The changes that grade these streets, in the order given; each column's changes run from the bottom up. */
+    /**
+     * R4.33: a piece of street and the way it runs. A piece clipped to a small window of the ground (round a building) can be
+     * wider than it is long whichever way its street goes, so the direction is carried, not guessed from the shape.
+     */
+    public record Street(Rect rect, boolean alongX) {
+    }
+
+    /** As {@link #computeStreets}, guessing each street's direction from its shape (its longer side): for whole streets only. */
     public static List<Change> compute(List<Rect> streets, HeightSource terrain) {
+        return computeStreets(streets.stream().map(r -> new Street(r, r.width() >= r.depth())).toList(), terrain);
+    }
+
+    /** The changes that grade these streets, in the order given; each column's changes run from the bottom up. */
+    public static List<Change> computeStreets(List<Street> streets, HeightSource terrain) {
         List<Change> out = new ArrayList<>();
         Map<Long, Integer> done = new HashMap<>();
-        for (Rect street : streets) {
-            grade(street, terrain, done, out);
+        for (Street street : streets) {
+            grade(street.rect(), street.alongX(), terrain, done, out);
         }
         return out;
     }
 
-    private static void grade(Rect street, HeightSource terrain, Map<Long, Integer> done, List<Change> out) {
-        boolean alongX = street.width() >= street.depth();
+    private static void grade(Rect street, boolean alongX, HeightSource terrain, Map<Long, Integer> done, List<Change> out) {
         int length = alongX ? street.width() : street.depth();
         int across = alongX ? street.depth() : street.width();
         int[] height = new int[length];

@@ -1190,15 +1190,16 @@ final class ConstructionService {
         List<Rect> streets = new ArrayList<>();
         plan.roads().forEach(r -> streets.add(r.rect()));
         Rect near = new Rect(project.x(), project.z(), bp.width(), bp.depth()).inflated(PAVE_RANGE);
-        List<Rect> toGrade = new ArrayList<>();
-        for (Rect street : streets) {
-            overlap(street, near).ifPresent(toGrade::add);
+        List<StreetGrade.Street> toGrade = new ArrayList<>();
+        for (VillagePlan.Road road : plan.roads()) {
+            // R4.33: the piece near the building runs the way its street runs, whatever shape the clipping leaves it
+            overlap(road.rect(), near).ifPresent(piece -> toGrade.add(new StreetGrade.Street(piece, plan.runsAlongX(road))));
         }
         List<Rect> everyStreet = new ArrayList<>(streets);
         if (plan.square() != null) {
             everyStreet.add(plan.square());
             if (settlement.buildingCount(BuildingType.SQUARE) == 0) { // until its building stands, which has a floor of its own
-                overlap(plan.square(), near).ifPresent(toGrade::add); // the square is levelled like a street (R4.23)
+                overlap(plan.square(), near).ifPresent(piece -> toGrade.add(new StreetGrade.Street(piece, true))); // levelled like a street (R4.23)
             }
         }
         java.util.OptionalInt front = bp.front();
@@ -1222,10 +1223,10 @@ final class ConstructionService {
                 int cells = steps + (meets ? 1 : 0); // the street's first cell is in the slice, so the walkway meets its height
                 int minX = dx >= 0 ? startX : startX - (cells - 1);
                 int minZ = dz >= 0 ? startZ : startZ - (cells - 1);
-                toGrade.add(new Rect(minX, minZ, dx == 0 ? 1 : cells, dz == 0 ? 1 : cells));
+                toGrade.add(new StreetGrade.Street(new Rect(minX, minZ, dx == 0 ? 1 : cells, dz == 0 ? 1 : cells), dz == 0));
             }
         }
-        applyGrade(world, StreetGrade.compute(toGrade, streetGround(world)), project.biomeSet());
+        applyGrade(world, StreetGrade.computeStreets(toGrade, streetGround(world)), project.biomeSet());
     }
 
     private static java.util.Optional<Rect> overlap(Rect a, Rect b) {

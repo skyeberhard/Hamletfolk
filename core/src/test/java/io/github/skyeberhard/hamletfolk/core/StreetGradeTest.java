@@ -2,6 +2,7 @@ package io.github.skyeberhard.hamletfolk.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -29,6 +30,29 @@ class StreetGradeTest {
 
     private static Integer at(Map<Long, Integer> surface, int x, int z) {
         return surface.get(TerrainPad.key(x, z));
+    }
+
+    @Test
+    void aPieceOfStreetIsGradedTheWayItsStreetRunsNotTheWayItsShapeLooks() {
+        // Three wide and two long: a north-south street clipped to a small window looks like it runs east-west.
+        Rect window = new Rect(0, 0, 3, 2);
+        IntBinaryOperator rises = (x, z) -> 64 + x; // the ground climbs a block for each step east
+        HeightSource ground = HeightSource.of(rises);
+
+        Map<Long, Integer> northSouth = surface(StreetGrade.computeStreets(List.of(new StreetGrade.Street(window, false)), ground));
+        // each slice runs across the street's width (the three columns of a row), so a row is one height: the middle one
+        for (int z = 0; z < 2; z++) {
+            for (int x = 0; x < 3; x++) {
+                assertEquals(65, at(northSouth, x, z), "row " + z + " is levelled across at " + x);
+            }
+        }
+        Map<Long, Integer> guessed = surface(StreetGrade.compute(List.of(window), ground));
+        assertEquals(64, at(guessed, 0, 0), "the shape guess grades it the other way, following the slope");
+        assertEquals(66, at(guessed, 2, 0));
+        assertNotEquals(northSouth, guessed);
+
+        Map<Long, Integer> eastWest = surface(StreetGrade.computeStreets(List.of(new StreetGrade.Street(window, true)), ground));
+        assertEquals(guessed, eastWest, "and the guess is exactly an east-west street");
     }
 
     private static List<StreetGrade.Change> grade(IntBinaryOperator ground) {

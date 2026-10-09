@@ -1,0 +1,8 @@
+# How much someone has put by, for the WEALTH lines (by tier; {amount} is filled in with their emeralds). One entry per line:
+#   key: slot=value; slot=value
+# Values may not contain ';'. A server file of this name in plugins/Hamletfolk/dialogue/ replaces the entry of each key it mentions.
+broke: standing=every emerald I earn goes on food, and there's nothing put by
+idle_broke: standing=I haven't a coin to my name, and work would fix that
+modest: standing=I get by, with a few emeralds put away for a bad winter
+comfortable: standing=I've done all right, with about {amount} emeralds put by
+wealthy: standing=business has been good, and I could buy half this street if anyone were selling

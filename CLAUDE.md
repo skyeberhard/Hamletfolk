@@ -90,6 +90,8 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   never insert before them) and are never stored: `Settlement.leaning()` returns them only when the stored biome reading is ALL_ROUND,
   from `LandCounts` (`Leaning.fromCounts`). A leaning's signature that is also a trade building (`Trades.isTradeBuilding`: harbour, pens,
   map room, glassworks) is asked for by the trade rule once its trade opens, not by the signature rule; the trading post is not a trade building.
+- **Street grading (R4.33):** `StreetGrade.computeStreets` takes `Street(rect, alongX)`; a piece of street clipped to a window can be wider than long,
+  so use `VillagePlan.runsAlongX(road)` for its direction, never the piece's shape. `compute(List<Rect>)` guesses from the shape and is for whole streets only.
 - **Plan stages and districts (R8.14):** `VillagePlan.stage()` runs 1 to `PlanGenerator.MAX_STAGE` (4); `PlanGenerator.stageFor(population)` says which
   stage a village is big enough for (25, 50, 100) and `extend` adds one stage at a time (the main street is one `SPINE` road piece per stage:
   never assume there is one, and `VillagePlan.fromMap` accepts any number of them). `Districts` (core) derives the districts from the plan,
@@ -124,7 +126,9 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   built-ins; a test that changes it must restore it). The tone weights in `Voice.BIAS` were solved so that ordinary traits give about
   one villager in six per tone: change a weight and re-run `VoiceTest`. Tests must not assert one exact wording of a voiced line
   (it depends on the villager's random traits): assert on its facts (the slot values) or on membership in the tone's lines.
-  `Resident.lastLine` (not saved) stops a repeat. R4.31: an `Option` with no situation (every other remark) is wrapped by the REMARK lines
+  `Resident.lastLine` (not saved) stops a repeat. R4.32: the land, mood, size, wealth and parent remarks have lines of their own (LAND, MOOD,
+  SIZE, WEALTH, PARENT) whose facts come from `vocab_land/mood/size/wealth.txt` (`Lines.VOCAB_GROUPS`); the plain sentences in `landLine`,
+  `moodLine`, `sizeLine`, `wealthLine` and `parentLine` are the fallback (and what `characterLines` returns). R4.31: an `Option` with no situation (every other remark) is wrapped by the REMARK lines
   (`{statement}` is the sentence), so a test that looks for a remark's words can still find them; talk about a trade is WORK or WORK_EXPERT
   with the slots of the trade's entry in `vocab_trade.txt` (`Lines.vocab`); `Dialogue.Ambient` (sky, time of day) comes from the Paper layer and
   is null elsewhere; `{Name}` in a line is the slot `name` with a capital letter. `VillagerListener.sayGoodbyeWhenTheyWalkAway` calls `Dialogue.farewell`.
