@@ -52,6 +52,14 @@ public final class TemplateCatalog {
         captured.put(id(type, biomeSet, tier), blueprint);
     }
 
+    /**
+     * R5.11: an admin's gatehouse or tower for this style and rampart tier (2 or 3), if they captured one. Only that exact
+     * tier: a tier with none is built from the generated pillars and towers.
+     */
+    public Optional<Blueprint> part(BuildingType type, String biomeSet, int tier) {
+        return type.isPart() ? Optional.ofNullable(captured.get(id(type, biomeSet, tier))) : Optional.empty();
+    }
+
     /** Forget a captured template, so the generated or vanilla one is used again. */
     public boolean uncapture(BuildingType type, String biomeSet, int tier) {
         return captured.remove(id(type, biomeSet, tier)) != null;
@@ -88,8 +96,8 @@ public final class TemplateCatalog {
                     rungs.add(new Template(type, biome, i + 1, vanilla(biome, "town_centers", pieces[i]), Source.VANILLA));
                 }
             }
-            case STREET_LIGHTS, PALISADE, RAMPART -> {
-                // works on the plan: no template, so no rungs
+            case STREET_LIGHTS, PALISADE, RAMPART, GATEHOUSE, TOWER -> {
+                // works on the plan: no template, so no rungs (a gatehouse or tower is only ever captured: see part())
             }
             case SMITHY -> rungs.add(new Template(type, biome, 1, vanilla(biome, "houses", biome + "_tool_smith_1"),
                     Source.VANILLA));

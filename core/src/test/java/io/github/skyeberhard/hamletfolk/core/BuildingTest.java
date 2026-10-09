@@ -38,7 +38,7 @@ class BuildingTest {
         assertEquals(Optional.empty(), BuildingType.fromSign(null));
         assertEquals(Optional.empty(), BuildingType.fromSign("[Farm] and more"));
         for (BuildingType type : BuildingType.values()) {
-            if (type.isWorks()) {
+            if (type.isWorks() || type.isPart()) { // (R5.11: a gatehouse or tower is only ever a captured template)
                 // R5.6: a work on the plan is built by the village and cannot be registered by a sign
                 assertEquals(Optional.empty(), BuildingType.fromSign(type.signText()), type + " has no sign");
                 assertEquals(Optional.of(type), BuildingType.fromTarget(type.name().toLowerCase()), type + " is a planner target");

@@ -3,6 +3,7 @@ package io.github.skyeberhard.hamletfolk.paper;
 import io.github.skyeberhard.hamletfolk.core.BiomeSet;
 import io.github.skyeberhard.hamletfolk.core.Blueprint;
 import io.github.skyeberhard.hamletfolk.core.BuildingType;
+import io.github.skyeberhard.hamletfolk.core.Rampart;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.TemplateCatalog;
 import java.io.IOException;
@@ -26,8 +27,8 @@ import org.bukkit.entity.Player;
  * look at what the generator makes before R4.8 builds with it). Both are for admins and need a player.
  */
 final class TemplateCommand {
-    static final String CAPTURE_USAGE = "Usage: /settlement admin capture pos1|pos2 | <type> [tier] [style] | remove <type> <tier> [style] | list";
-    static final String BUILD_USAGE = "Usage: /settlement admin build <type> [tier] [style]  (type: house, farm, smithy, mine, guard_post, shop, treasury)";
+    static final String CAPTURE_USAGE = "Usage: /settlement admin capture pos1|pos2 | <type> [tier] [style] | remove <type> <tier> [style] | list  (type: a building, or gatehouse | tower for the rampart, tier 2 planks or 3 stone)";
+    static final String BUILD_USAGE = "Usage: /settlement admin build <type> [tier] [style]  (type: house, farm, smithy, mine, guard_post, shop, treasury, gatehouse, tower)";
 
     private final SettlementService service;
     private final Map<UUID, Location[]> corners = new HashMap<>();
@@ -62,7 +63,7 @@ final class TemplateCommand {
     }
 
     private void save(Player player, String[] args) {
-        Optional<BuildingType> type = BuildingType.fromSign("[" + args[2] + "]");
+        Optional<BuildingType> type = BuildingType.fromCapture(args[2]);
         if (type.isEmpty()) {
             player.sendMessage(CAPTURE_USAGE);
             return;
@@ -73,14 +74,16 @@ final class TemplateCommand {
                     + "/settlement admin capture pos1, then at the opposite corner and run pos2.");
             return;
         }
-        int tier = args.length > 3 ? parseTier(args[3]) : 1;
-        if (tier < 1) {
-            player.sendMessage("The tier is a number from 1 up.");
+        boolean part = type.get().isPart(); // R5.11: a gatehouse or tower is for a rampart tier, 2 (planks) or 3 (stone)
+        int tier = args.length > 3 ? parseTier(args[3]) : part ? Rampart.FIRST_TIER : 1;
+        if (tier < 1 || (part && (tier < Rampart.FIRST_TIER || tier > Rampart.LAST_TIER))) {
+            player.sendMessage(part ? "A gatehouse or tower is for rampart tier " + Rampart.FIRST_TIER + " (planks) or "
+                    + Rampart.LAST_TIER + " (stone)." : "The tier is a number from 1 up.");
             return;
         }
         String style = args.length > 4 ? BiomeSet.normalize(args[4]) : styleAt(player.getLocation());
         int top = library().catalog().ladder(type.get(), style).size() + 1;
-        if (tier > top) {
+        if (!part && tier > top) {
             player.sendMessage("The next tier to capture for that is " + top + " (tiers go in order).");
             return;
         }
@@ -111,7 +114,13 @@ final class TemplateCommand {
         player.sendMessage("Saved a " + type.get().label().toLowerCase(Locale.ROOT) + " for " + style + ", tier " + tier + ": "
                 + blueprint.blocks().size() + " blocks, " + blueprint.width() + " by " + blueprint.depth() + ", costing "
                 + describe(blueprint.cost()) + ".");
-        if (blueprint.sign().isEmpty()) {
+        if (part) {
+            player.sendMessage(type.get() == BuildingType.GATEHOUSE
+                    ? "Build a gatehouse with its passage running north to south and its outside to the south: the village turns it "
+                            + "to face outward at each gate and centres it on the gate."
+                    : "Build a tower as the north-west one, its outer corner at the corner you marked nearest north-west: the village "
+                            + "turns it for the other three corners and puts its outer corner on the ring's corner.");
+        } else if (blueprint.sign().isEmpty()) {
             player.sendMessage("It has no wall sign, so a building of this kind will need a sign placed by hand.");
         }
         player.sendMessage("It is placed as built (north is not rotated). /settlement admin build " + args[2] + " " + tier + " " + style
@@ -119,7 +128,7 @@ final class TemplateCommand {
     }
 
     private void remove(CommandSender sender, String[] args) {
-        Optional<BuildingType> type = args.length > 3 ? BuildingType.fromSign("[" + args[3] + "]") : Optional.empty();
+        Optional<BuildingType> type = args.length > 3 ? BuildingType.fromCapture(args[3]) : Optional.empty();
         int tier = args.length > 4 ? parseTier(args[4]) : -1;
         if (type.isEmpty() || tier < 1) {
             sender.sendMessage(CAPTURE_USAGE);
@@ -146,6 +155,12 @@ final class TemplateCommand {
                         found++;
                     }
                 }
+                for (int tier = Rampart.FIRST_TIER; type.isPart() && tier <= Rampart.LAST_TIER; tier++) {
+                    if (library().catalog().part(type, style, tier).isPresent()) {
+                        sender.sendMessage("  " + type.label() + " · " + style + " · rampart tier " + tier);
+                        found++;
+                    }
+                }
             }
         }
         sender.sendMessage(found == 0 ? "No captured templates: every building uses the generated or vanilla one."
@@ -157,13 +172,26 @@ final class TemplateCommand {
             sender.sendMessage("Building needs a player in game.");
             return;
         }
-        Optional<BuildingType> type = args.length > 2 ? BuildingType.fromSign("[" + args[2] + "]") : Optional.empty();
+        Optional<BuildingType> type = args.length > 2 ? BuildingType.fromCapture(args[2]) : Optional.empty();
         if (type.isEmpty()) {
             sender.sendMessage(BUILD_USAGE);
             return;
         }
-        int tier = args.length > 3 ? parseTier(args[3]) : 1;
+        int tier = args.length > 3 ? parseTier(args[3]) : type.get().isPart() ? Rampart.FIRST_TIER : 1;
         String style = args.length > 4 ? BiomeSet.normalize(args[4]) : styleAt(player.getLocation());
+        if (type.get().isPart()) { // R5.11: the captured gatehouse or tower as built, to look at
+            Optional<Blueprint> captured = library().catalog().part(type.get(), style, tier);
+            if (captured.isEmpty()) {
+                sender.sendMessage("No " + type.get().label().toLowerCase(Locale.ROOT) + " is captured for " + style + ", rampart tier "
+                        + tier + ": the village builds the generated one.");
+                return;
+            }
+            Blueprint b = captured.get();
+            Location origin = player.getLocation().getBlock().getLocation().add(-b.width() / 2, -1, 2);
+            sender.sendMessage("Placed " + TemplateLibrary.place(origin, b) + " blocks of the captured " + type.get().label().toLowerCase(Locale.ROOT)
+                    + " (" + style + ", tier " + tier + "), costing " + describe(b.cost()) + ".");
+            return;
+        }
         List<TemplateCatalog.Template> ladder = library().catalog().ladder(type.get(), style);
         if (tier < 1 || tier > ladder.size()) {
             sender.sendMessage("A " + type.get().label().toLowerCase(Locale.ROOT) + " has " + ladder.size() + " tier"

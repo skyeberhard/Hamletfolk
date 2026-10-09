@@ -401,13 +401,16 @@ public final class Construction {
      * that. Otherwise notes what is lacking (so the trade that makes it is taken on, R4.20) and says so in the history now and
      * then.
      */
-    private static Optional<ConstructionProject> proposeWorks(Settlement settlement, long day, BuildingType type, String reason) {
+    private static Optional<ConstructionProject> proposeWorks(Settlement settlement, long day, BuildingType type, String reason,
+            TemplateCatalog catalog, String biome) {
         VillagePlan plan = settlement.plan();
         int before = settlement.projects().stream().filter(p -> p.type() == type && p.status() == ConstructionProject.Status.DONE)
                 .mapToInt(ConstructionProject::tier).max().orElse(0);
         // R5.10: a rampart is the next tier up from the wall there is now, over the whole ring
         int nextTier = Math.min(Rampart.LAST_TIER, Math.max(Rampart.FIRST_TIER, wallTier(settlement, plan.stage()) + 1));
-        Map<ResourceType, Integer> price = type == BuildingType.RAMPART ? Rampart.price(plan, plan.stage(), nextTier)
+        Map<ResourceType, Integer> price = type == BuildingType.RAMPART
+                ? Rampart.price(plan, plan.stage(), nextTier, catalog.part(BuildingType.GATEHOUSE, biome, nextTier).orElse(null),
+                        catalog.part(BuildingType.TOWER, biome, nextTier).orElse(null)) // R5.11: an admin's own parts, if captured
                 : Works.price(type, plan, before, plan.stage()); // R5.8: only the new posts
         StringBuilder lacks = new StringBuilder();
         price.forEach((resource, units) -> {
@@ -434,9 +437,9 @@ public final class Construction {
         int previous = settlement.projects().stream().filter(p -> p.type() == type && p.status() == ConstructionProject.Status.DONE)
                 .mapToInt(ConstructionProject::tier).max().orElse(0);
         ConstructionProject project = type == BuildingType.RAMPART
-                ? new ConstructionProject(settlement.nextProjectId(), type, nextTier, nextTier - 1, "plains", plan.centerX(), 0,
+                ? new ConstructionProject(settlement.nextProjectId(), type, nextTier, nextTier - 1, biome, plan.centerX(), 0,
                         plan.centerZ(), -1, day)
-                : new ConstructionProject(settlement.nextProjectId(), type, plan.stage(), previous, "plains",
+                : new ConstructionProject(settlement.nextProjectId(), type, plan.stage(), previous, biome,
                         plan.centerX(), 0, plan.centerZ(), -1, day);
         project.setStage(plan.stage());
         settlement.addProject(project);
@@ -491,7 +494,7 @@ public final class Construction {
             if (type.get().isWorks()) {
                 // R5.6: lights and a palisade are laid out on the plan, not on a lot. One the village cannot yet pay for is saved up for.
                 if (!worksSettled(settlement, type.get(), day)) {
-                    Optional<ConstructionProject> works = proposeWorks(settlement, day, type.get(), directive.reason());
+                    Optional<ConstructionProject> works = proposeWorks(settlement, day, type.get(), directive.reason(), catalog, biome);
                     if (works.isPresent()) {
                         return works;
                     }

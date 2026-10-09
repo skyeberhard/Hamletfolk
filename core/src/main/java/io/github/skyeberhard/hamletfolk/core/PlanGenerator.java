@@ -51,7 +51,7 @@ public final class PlanGenerator {
             case SQUARE -> new int[] {SQUARE_HALF * 2 + 1, SQUARE_HALF * 2 + 1};
             case SAWMILL, GRANARY -> new int[] {11, 9};
             case FORGE -> new int[] {11, 11};
-            case STREET_LIGHTS, PALISADE, RAMPART -> new int[] {1, 1}; // works on the plan, not buildings on a lot
+            case STREET_LIGHTS, PALISADE, RAMPART, GATEHOUSE, TOWER -> new int[] {1, 1}; // works on the plan, not buildings on a lot
         };
     }
 
@@ -288,7 +288,7 @@ public final class PlanGenerator {
             case SAWMILL -> 31;
             case FORGE -> 28;
             case GRANARY -> 36;
-            case SQUARE, STREET_LIGHTS, PALISADE, RAMPART -> 0;
+            case SQUARE, STREET_LIGHTS, PALISADE, RAMPART, GATEHOUSE, TOWER -> 0;
         };
     }
 

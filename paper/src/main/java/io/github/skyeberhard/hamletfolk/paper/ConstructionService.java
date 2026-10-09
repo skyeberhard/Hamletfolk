@@ -622,6 +622,33 @@ final class ConstructionService {
         return Material.matchMaterial(bracket < 0 ? block : block.substring(0, bracket));
     }
 
+    /** What the generated rampart is made of: an admin's part may replace these, but only in columns the rampart stood on. */
+    private static final Set<Material> RAMPART_MATERIALS = java.util.EnumSet.of(Material.OAK_FENCE, Material.OAK_PLANKS,
+            Material.OAK_LOG, Material.STONE_BRICKS, Material.STONE_BRICK_WALL, Material.TORCH, Material.LADDER, Material.COBBLESTONE);
+
+    /**
+     * The ground level under a captured part's anchor column: the first solid block that is not the rampart's own work, looking
+     * down from the surface through the rampart's materials and through the air under a gate's lintel. Unknown over water.
+     */
+    private static int partGround(World world, int x, int z) {
+        int y = surfaceY(world, x, z);
+        if (y == Construction.UNKNOWN_GROUND || world.getBlockAt(x, y, z).isLiquid()) {
+            return Construction.UNKNOWN_GROUND;
+        }
+        while (y > world.getMinHeight()) {
+            Material type = world.getBlockAt(x, y, z).getType();
+            if (RAMPART_MATERIALS.contains(type) || !type.isSolid() && !world.getBlockAt(x, y, z).isLiquid()) {
+                y--;
+            } else {
+                break;
+            }
+        }
+        return y;
+    }
+
+    /** Mixed into a captured part's key so it cannot collide with a wall piece's. */
+    private static final long PART_KEY = 0x5bd1e9955bd1e995L;
+
     /** How long (village days) a rampart may wait for materials with nothing placed before it steps aside. */
     private static final int RAMPART_PATIENCE_DAYS = 20;
     /** Not saved: the village day a rampart began waiting for materials, per project. */
@@ -637,8 +664,14 @@ final class ConstructionService {
      */
     private void workRampart(Settlement settlement, World world, ConstructionProject project, int perPass) {
         VillagePlan plan = settlement.plan();
-        List<Rampart.Piece> pieces = Rampart.pieces(plan, project.stage(), project.tier());
-        if (pieces.isEmpty()) {
+        // R5.11: an admin's own gatehouse and tower for this tier stand in for the generated ones
+        io.github.skyeberhard.hamletfolk.core.Blueprint gatehouse = plugin.templates().catalog()
+                .part(BuildingType.GATEHOUSE, project.biomeSet(), project.tier()).orElse(null);
+        io.github.skyeberhard.hamletfolk.core.Blueprint tower = plugin.templates().catalog()
+                .part(BuildingType.TOWER, project.biomeSet(), project.tier()).orElse(null);
+        List<Rampart.Piece> pieces = Rampart.pieces(plan, project.stage(), project.tier(), gatehouse, tower);
+        List<io.github.skyeberhard.hamletfolk.core.RampartParts.Placement> parts = Rampart.parts(plan, project.stage(), gatehouse, tower);
+        if (pieces.isEmpty() && parts.isEmpty()) {
             giveUp(settlement, project, "the village has no ring to build the wall on", false);
             return;
         }
@@ -648,6 +681,13 @@ final class ConstructionService {
             for (Rampart.Piece piece : pieces) {
                 chunks.add(chunkKey((piece.x() - 2) >> 4, (piece.z() - 2) >> 4));
                 chunks.add(chunkKey((piece.x() + 2) >> 4, (piece.z() + 2) >> 4));
+            }
+            for (io.github.skyeberhard.hamletfolk.core.RampartParts.Placement part : parts) {
+                for (int cx = (part.originX() - 1) >> 4; cx <= (part.originX() + part.blueprint().width()) >> 4; cx++) {
+                    for (int cz = (part.originZ() - 1) >> 4; cz <= (part.originZ() + part.blueprint().depth()) >> 4; cz++) {
+                        chunks.add(chunkKey(cx, cz));
+                    }
+                }
             }
             hold(world, "p" + project.id() + "@" + settlement.id(), chunks);
         }
@@ -756,6 +796,76 @@ final class ConstructionService {
                 left++;
             } else {
                 standing.add(key);
+            }
+        }
+        // R5.11: the admin's gatehouses and towers. A block goes only where there is air or growth, or where the rampart's own
+        // earlier work stood (a fence post, the tier below); anything else a player built is left, so the part has a gap there.
+        Set<Long> ourColumns = new HashSet<>();
+        replaceable.keySet().forEach(pos -> ourColumns.add(io.github.skyeberhard.hamletfolk.core.RampartParts.cell(pos.x(), pos.z())));
+        for (io.github.skyeberhard.hamletfolk.core.RampartParts.Placement part : parts) {
+            long key = PART_KEY ^ part.key();
+            if (given.contains(key) || standing.contains(key)) {
+                continue;
+            }
+            if (!loaded(world, part.originX() - 1, part.originZ() - 1, Math.max(part.blueprint().width(), part.blueprint().depth()) + 2)) {
+                left++;
+                continue;
+            }
+            int ground = partGround(world, part.anchorX(), part.anchorZ());
+            Block base = ground == Construction.UNKNOWN_GROUND ? null : world.getBlockAt(part.anchorX(), ground, part.anchorZ());
+            if (base == null || !base.getType().isSolid() || base.isLiquid() || exemptNear(base.getLocation())) {
+                given.add(key); // water, or an exempt villager near: this one is left out
+                continue;
+            }
+            boolean finished = true;
+            for (io.github.skyeberhard.hamletfolk.core.Blueprint.Block b : part.blueprint().blocks()) {
+                Material want = materialOf(b.material());
+                if (want == null) {
+                    continue;
+                }
+                int x = part.originX() + b.x();
+                int z = part.originZ() + b.z();
+                Block at = world.getBlockAt(x, ground + b.y(), z);
+                if (at.getType() == want) {
+                    continue;
+                }
+                boolean free = at.getType().isAir() || growthOnly(at)
+                        || (ourColumns.contains(io.github.skyeberhard.hamletfolk.core.RampartParts.cell(x, z)) && RAMPART_MATERIALS.contains(at.getType()))
+                        || (b.y() == 0 && clearable(at, true)); // (the floor row is the ground level: it replaces natural terrain)
+                if (!free) {
+                    continue; // in the way: left out
+                }
+                if (dry || placed >= perPass) {
+                    finished = false;
+                    continue;
+                }
+                BlockData data;
+                try {
+                    data = TemplateLibrary.dataOf(b.material());
+                } catch (IllegalArgumentException ex) {
+                    continue;
+                }
+                if (!Construction.charge(settlement, project, b.material(), day)) {
+                    dry = true;
+                    finished = false;
+                    continue;
+                }
+                at.setBlockData(data, false);
+                placed++;
+                if (b.y() == 0) { // a footing where the ground falls away (free, like the generated towers')
+                    for (int below = 1; below <= 6; below++) {
+                        Block under = world.getBlockAt(x, ground - below, z);
+                        if (!under.getType().isAir() && !growthOnly(under)) {
+                            break;
+                        }
+                        under.setType(Material.COBBLESTONE, false);
+                    }
+                }
+            }
+            if (finished) {
+                standing.add(key);
+            } else {
+                left++;
             }
         }
         project.setBlocksLeft(left);

@@ -86,6 +86,12 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   counted plugin tickets (`ConstructionService.hold/release`); nothing else in the plugin uses chunk tickets.
 - **Suppliers (R4.24):** a village of four keeps a lumberjack, and a miner once a mine has room; lumberjacks, miners and masons
   rest at the storage limit (`resting:` conditions). Tests that measure a gatherer's output must spend the stock each day.
+- **Rampart parts (R5.11):** `BuildingType.GATEHOUSE` and `TOWER` (`isPart()`) are captured templates only: no ladder, never a project,
+  never read from a sign (`fromSign` skips them; `fromCapture` accepts them). `TemplateCatalog.part(type, style, rampartTier)` is the
+  exact-tier lookup. `RampartParts` (core) gives the placements: a gatehouse is captured with its passage north-south and its outside
+  to the south, a tower as the north-west one; both are turned with `Blueprint.rotated`. `Rampart.pieces/price` take the two optional
+  blueprints, `Rampart.parts` lists the placements, and `ConstructionService.workRampart` builds them after the wall pieces.
+  A rampart project now stores the village's biome (it was "plains") so the Paper layer finds the right captures.
 - **Rampart (R5.10):** `Rampart.pieces(plan, stage, tier)` (core) describes wall columns, gate pillars/lintels and corner towers as
   blocks relative to each anchor column's ground; `ConstructionService.workRampart` finds that ground by looking down through the
   rampart's own materials and re-evaluates every piece from the world each pass. A RAMPART project's `tier` is the wall tier (2 or 3)

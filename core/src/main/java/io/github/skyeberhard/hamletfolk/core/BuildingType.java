@@ -28,7 +28,11 @@ public enum BuildingType {
     /** R5.6: a fence ring round the village, also a work on the plan rather than a building. */
     PALISADE("Palisade"),
     /** R5.10: the palisade strengthened, tier by tier, into a wall with gates and towers; also a work on the plan. */
-    RAMPART("Rampart");
+    RAMPART("Rampart"),
+    /** R5.11: a gatehouse of the rampart: only ever an admin's captured template, never registered or a project of its own. */
+    GATEHOUSE("Gatehouse"),
+    /** R5.11: a watch tower of the rampart: likewise only a captured template. */
+    TOWER("Tower");
 
     /** R2.3: how many residents one building gives work to. */
     public static final int WORKERS_PER_BUILDING = 4;
@@ -59,13 +63,34 @@ public enum BuildingType {
             case MINE -> Optional.of(Occupation.MINER);
             case SMITHY -> Optional.of(Occupation.TOOLSMITH);
             case SHOP -> Optional.of(Occupation.MERCHANT);
-            case HOUSE, GUARD_POST, TREASURY, SQUARE, STREET_LIGHTS, PALISADE, RAMPART, SAWMILL, FORGE, GRANARY -> Optional.empty();
+            case HOUSE, GUARD_POST, TREASURY, SQUARE, STREET_LIGHTS, PALISADE, RAMPART, SAWMILL, FORGE, GRANARY, GATEHOUSE, TOWER ->
+                    Optional.empty();
         };
     }
 
     /** R5.6: true for a work on the plan (street lights, a palisade): built by the village, never registered with a sign. */
     public boolean isWorks() {
         return this == STREET_LIGHTS || this == PALISADE || this == RAMPART;
+    }
+
+    /** R5.11: true for a part of the rampart that exists only as a captured template (its tier is the rampart's, 2 or 3). */
+    public boolean isPart() {
+        return this == GATEHOUSE || this == TOWER;
+    }
+
+    /** The type an admin's {@code capture} or {@code build} names: a building with a sign, or a part of the rampart. */
+    public static Optional<BuildingType> fromCapture(String name) {
+        Optional<BuildingType> building = fromSign("[" + name + "]");
+        if (building.isPresent()) {
+            return building;
+        }
+        String wanted = squash(name);
+        for (BuildingType type : values()) {
+            if (type.isPart() && squash(type.label).equals(wanted)) {
+                return Optional.of(type);
+            }
+        }
+        return Optional.empty();
     }
 
     /** e.g. "Guard Post". */
@@ -93,7 +118,7 @@ public enum BuildingType {
         }
         String wanted = squash(line.substring(1, line.length() - 1));
         for (BuildingType type : values()) {
-            if (!type.isWorks() && squash(type.label).equals(wanted)) {
+            if (!type.isWorks() && !type.isPart() && squash(type.label).equals(wanted)) {
                 return Optional.of(type);
             }
         }

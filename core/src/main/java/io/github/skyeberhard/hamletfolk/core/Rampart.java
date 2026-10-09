@@ -5,6 +5,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * R5.10: the rampart that strengthens a village's palisade, tier by tier, as a list of pieces on the palisade's ring: a
@@ -48,6 +49,31 @@ public final class Rampart {
 
     /** The pieces of the rampart of a tier round the ring of a stage: walls, then gates, then towers. Empty without a ring. */
     public static List<Piece> pieces(VillagePlan plan, int stage, int tier) {
+        return generate(plan, stage, tier, false, false);
+    }
+
+    /**
+     * R5.11: as {@link #pieces(VillagePlan, int, int)} but with an admin's gatehouse and/or tower (null for none) standing in
+     * for the generated pillars and lintels, or towers. A wall column the part's footprint covers is left out too: the part is
+     * built there instead (see {@link #parts}).
+     */
+    public static List<Piece> pieces(VillagePlan plan, int stage, int tier, Blueprint gatehouse, Blueprint tower) {
+        List<Piece> generated = generate(plan, stage, tier, gatehouse != null, tower != null);
+        if (gatehouse == null && tower == null) {
+            return generated;
+        }
+        Set<Long> covered = RampartParts.covered(parts(plan, stage, gatehouse, tower));
+        return generated.stream().filter(p -> !covered.contains(RampartParts.cell(p.x(), p.z()))).toList();
+    }
+
+    /** R5.11: where the admin's gatehouse and tower go: a gatehouse at every gate, a tower at every corner that is not a gate. */
+    public static List<RampartParts.Placement> parts(VillagePlan plan, int stage, Blueprint gatehouse, Blueprint tower) {
+        List<RampartParts.Placement> out = new ArrayList<>(RampartParts.gates(plan, stage, gatehouse));
+        out.addAll(RampartParts.towers(plan, stage, tower));
+        return out;
+    }
+
+    private static List<Piece> generate(VillagePlan plan, int stage, int tier, boolean ownGates, boolean ownTowers) {
         Optional<Works.Ring> found = plan == null ? Optional.empty() : Works.ring(plan, stage);
         if (found.isEmpty() || tier < FIRST_TIER) {
             return List.of();
@@ -70,10 +96,10 @@ public final class Rampart {
             }
             int before = (i - 1 + n) % n;
             int after = (end + 1) % n;
-            if (!ring.gap()[before] && !ring.corner(before)) {
+            if (!ownGates && !ring.gap()[before] && !ring.corner(before)) {
                 pillar[before] = true;
             }
-            if (!ring.gap()[after] && !ring.corner(after)) {
+            if (!ownGates && !ring.gap()[after] && !ring.corner(after)) {
                 pillar[after] = true;
             }
             int carrier = pillar[before] ? before : pillar[after] ? after : -1;
@@ -106,7 +132,7 @@ public final class Rampart {
             }
         }
         for (int i = 0; i < n; i++) {
-            if (ring.corner(i) && !ring.gap()[i]) {
+            if (!ownTowers && ring.corner(i) && !ring.gap()[i]) {
                 out.add(tower(cells.get(i), ring.rect(), tier));
             }
         }
@@ -201,10 +227,22 @@ public final class Rampart {
 
     /** What the rampart of a tier costs at the going rate: every block that is paid for, by what it is made of. */
     public static Map<ResourceType, Integer> price(VillagePlan plan, int stage, int tier) {
+        return price(plan, stage, tier, null, null);
+    }
+
+    /** R5.11: the same with an admin's gatehouse and tower (null for none): their blocks are paid for like the rest. */
+    public static Map<ResourceType, Integer> price(VillagePlan plan, int stage, int tier, Blueprint gatehouse, Blueprint tower) {
         Map<ResourceType, Integer> halves = new EnumMap<>(ResourceType.class);
-        for (Piece piece : pieces(plan, stage, tier)) {
+        for (Piece piece : pieces(plan, stage, tier, gatehouse, tower)) {
             for (Block block : piece.blocks()) {
                 if (!block.ifEmpty()) {
+                    Blueprint.halvesOf(block.material()).ifPresent(h -> halves.merge(h.type(), h.halves(), Integer::sum));
+                }
+            }
+        }
+        if (tier >= FIRST_TIER) {
+            for (RampartParts.Placement part : parts(plan, stage, gatehouse, tower)) {
+                for (Blueprint.Block block : part.blueprint().blocks()) {
                     Blueprint.halvesOf(block.material()).ifPresent(h -> halves.merge(h.type(), h.halves(), Integer::sum));
                 }
             }
