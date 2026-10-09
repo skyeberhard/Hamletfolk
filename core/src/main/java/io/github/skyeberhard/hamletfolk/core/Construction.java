@@ -506,7 +506,7 @@ public final class Construction {
         // Every need is met. What the village wants now follows what it is good at: the buildings that serve its direction
         // are improved first, then any other, at most one a week and never a building just finished.
         Long lastUpgrade = settlement.conditions().get(UPGRADED);
-        if (lastUpgrade != null && day - lastUpgrade < UPGRADE_EVERY_DAYS) {
+        if (lastUpgrade != null && day - lastUpgrade < VillageCharacter.temperament(settlement).upgradeEveryDays()) {
             return Optional.empty();
         }
         Direction direction = direction(settlement, day);
@@ -560,6 +560,8 @@ public final class Construction {
         MINING("mining", BuildingType.MINE, BuildingType.SMITHY),
         CRAFT("craft", BuildingType.SMITHY, BuildingType.SHOP),
         TRADE("trading", BuildingType.SHOP, BuildingType.TREASURY),
+        FISHING("fishing", BuildingType.HOUSE, BuildingType.SHOP),
+        PASTORAL("pastoral", BuildingType.FARM, BuildingType.HOUSE),
         UNDECIDED("all-round");
 
         private final String label;
@@ -589,6 +591,27 @@ public final class Construction {
         boolean merchants = settlement.residents().stream().anyMatch(r -> r.occupation() == Occupation.MERCHANT);
         if (merchants && SettlementSimulator.banked(settlement) >= TRADE_TREASURY) {
             return Direction.TRADE;
+        }
+        // R8.11: what the land makes the village comes before what it happened to make last week.
+        switch (settlement.leaning()) {
+            case TIMBER -> {
+                return Direction.FORESTRY;
+            }
+            case MINING -> {
+                return Direction.MINING;
+            }
+            case FARMING -> {
+                return Direction.FARMING;
+            }
+            case FISHING -> {
+                return Direction.FISHING;
+            }
+            case PASTORAL -> {
+                return Direction.PASTORAL;
+            }
+            default -> {
+                // all-round: it goes by what it makes
+            }
         }
         double food = flow.produced(ResourceType.FOOD, day) / 4.0;
         double wood = flow.produced(ResourceType.WOOD, day);

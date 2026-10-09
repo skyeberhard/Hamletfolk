@@ -1049,4 +1049,32 @@ class ConstructionTest {
         }
         assertTrue(Construction.worksDone(s, BuildingType.STREET_LIGHTS), "not pruned, so the village does not ask for lights again");
     }
+
+    @Test
+    void aProsperousVillageImprovesWhatItHasSoonerThanASteadyOne() {
+        for (boolean rich : new boolean[] {false, true}) {
+            Settlement s = village();
+            s.ledger().take(ResourceType.WOOD, 170);
+            s.ledger().take(ResourceType.STONE, 200);
+            ConstructionProject farm = propose(s, 5).orElseThrow();
+            farm.setSign(farm.x(), 65, farm.z() - 1);
+            s.registerBuilding(new Building(BuildingType.FARM, farm.x(), 65, farm.z() - 1, 5, "village"));
+            Construction.finish(s, farm, 6);
+            for (BuildingType type : BuildingType.values()) {
+                if (s.buildingCount(type) == 0) {
+                    s.registerBuilding(new Building(type, 1000 + type.ordinal(), 64, 1000, 0, "a player"));
+                }
+            }
+            s.ledger().add(ResourceType.FOOD, 1000);
+            s.ledger().add(ResourceType.STONE, 100);
+            s.housing().setChunk(0, 0, 20);
+            if (rich) {
+                s.ledger().addTreasury(150);
+            }
+            s.setLastSimulatedDay(15);
+            s.conditions().put(Construction.UPGRADED, 10L); // an upgrade five days ago
+            Optional<ConstructionProject> next = propose(s, 15);
+            assertEquals(rich, next.isPresent() && next.get().isUpgrade(), rich ? "prosperous: every four days" : "steady: every seven");
+        }
+    }
 }

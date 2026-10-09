@@ -28,7 +28,7 @@ public final class Golems {
         if (settlement.incidentsSince(0) == 0 || settlement.population() == 0) {
             return 0;
         }
-        return Math.max(1, settlement.population() / RESIDENTS_PER_GOLEM);
+        return Math.max(1, settlement.population() / RESIDENTS_PER_GOLEM) + VillageCharacter.temperament(settlement).extraGolems();
     }
 
     /** Golems the village has in the world. */

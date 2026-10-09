@@ -86,6 +86,10 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   counted plugin tickets (`ConstructionService.hold/release`); nothing else in the plugin uses chunk tickets.
 - **Suppliers (R4.24):** a village of four keeps a lumberjack, and a miner once a mine has room; lumberjacks, miners and masons
   rest at the storage limit (`resting:` conditions). Tests that measure a gatherer's output must spend the stock each day.
+- **Character (R8.11):** `Settlement.leaning()` (from `setLand`, stored in conditions as `leaning`/`land:*`, read once by
+  `SettlementService.readTheLand`) and `VillageCharacter.temperament(settlement)` (derived from history every call, never stored)
+  change behaviour in a few places: `SettlementSimulator.leaningBias` and `permanentTrade`, `Construction.direction` and the
+  upgrade pace, `Golems.wanted`, `newcomerDue`. Temperament reads the last 60 days of the capped history (cheap), so it is safe to call often; it is meant to change back.
 - **Levels, golems, marks (R4.29, R5.9, R4.25):** `Resident.xp()` is days worked in the trade the experience was earned in
   (`xpTrade`; a spell as a builder or guard keeps it, working at another trade starts it again); `TradeLevel` holds what each level gives. `Golems` decides and charges in core (called from
   `simulateDay`), the Paper layer spawns them (`SettlementService.placeGolems`) and records each by UUID. `WorldMarks` keeps

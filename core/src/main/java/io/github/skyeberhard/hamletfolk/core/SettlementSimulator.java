@@ -359,7 +359,7 @@ public final class SettlementSimulator {
             return false;
         }
         Long last = settlement.conditions().get("newcomerAt");
-        return last == null || settlement.lastSimulatedDay() - last >= NEWCOMER_COOLDOWN_DAYS;
+        return last == null || settlement.lastSimulatedDay() - last >= VillageCharacter.temperament(settlement).newcomerCooldownDays();
     }
 
     /** R4.1: starts the cooldown after a newcomer was added. */
@@ -457,6 +457,21 @@ public final class SettlementSimulator {
                     bestCover = cover;
                 }
             }
+            // R8.11: nothing is short. A trade of the village's leaning is still staffed while its stock is within a
+            // quarter of what is wanted, so what the land gives is worked before it runs short. A real shortage has
+            // always been staffed first, above.
+            if (best == null) {
+                for (Occupation candidate : JOB_CANDIDATES) {
+                    if (!workstationFree.test(settlement, candidate) || leaningBias(settlement, candidate) == 1.0) {
+                        continue;
+                    }
+                    double cover = cover(settlement, candidate) * leaningBias(settlement, candidate);
+                    if (cover < 1.0 && cover < bestCover) {
+                        best = candidate;
+                        bestCover = cover;
+                    }
+                }
+            }
         }
         // R4.24: with nothing short, the village still keeps a lumberjack and a miner. Never while food is short.
         if (best == null && !famine && !foodShort) {
@@ -488,6 +503,18 @@ public final class SettlementSimulator {
     }
 
     /**
+     * R8.11: how much sooner a trade of the village's leaning is staffed: its stock reads a fifth lower, so it is wanted
+     * while the stores still hold a quarter more than the village wants.
+     */
+    static double leaningBias(Settlement settlement, Occupation trade) {
+        return settlement.leaning().favours(trade) ? LEANING_BIAS : 1.0;
+    }
+
+    static final double LEANING_BIAS = 0.8;
+    /** R8.11: from this many residents, a village keeps a second lumberjack or miner if its leaning is that trade. */
+    static final int SECOND_PERMANENT_POPULATION = 8;
+
+    /**
      * R4.24: the trade a village keeps filled whatever its stock: a lumberjack from {@link #PERMANENT_MIN_POPULATION}
      * residents, and a miner once a registered mine has a free place. Null if both are held or cannot be had.
      */
@@ -496,8 +523,10 @@ public final class SettlementSimulator {
             return null;
         }
         for (Occupation trade : List.of(Occupation.LUMBERJACK, Occupation.MINER)) {
-            boolean held = settlement.residents().stream().anyMatch(r -> r.adult() && r.occupation() == trade);
-            if (!held && workstationFree.test(settlement, trade)) {
+            long held = settlement.residents().stream().filter(r -> r.adult() && r.occupation() == trade).count();
+            // R8.11: a timber or mining village keeps a second one once it has the people
+            long wanted = settlement.leaning().favours(trade) && settlement.population() >= SECOND_PERMANENT_POPULATION ? 2 : 1;
+            if (held < wanted && workstationFree.test(settlement, trade)) {
                 return trade;
             }
         }

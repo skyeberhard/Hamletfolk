@@ -351,6 +351,11 @@ public final class Settlement {
         }
     }
 
+    /** R8.11: on how many different days the village was attacked, on or after {@code fromDay} (a night's dead are one attack). */
+    public int incidentDaysSince(long fromDay) {
+        return (int) incidents.stream().filter(day -> day >= fromDay).distinct().count();
+    }
+
     /** R5.5: how many attacks happened on or after {@code fromDay}. */
     public int incidentsSince(long fromDay) {
         int count = 0;
@@ -549,6 +554,46 @@ public final class Settlement {
 
     public boolean hasCondition(String key) {
         return conditions.containsKey(key);
+    }
+
+    // ----- R8.11: character -----
+
+    /**
+     * Condition holding the leaning the land gave: its position in {@link Leaning#values()} plus one, so new leanings are
+     * only ever added at the end of that list (a saved village would otherwise change leaning).
+     */
+    static final String LEANING = "leaning";
+    static final String LAND = "land:";
+
+    /** Whether the land has been read to give this village a leaning yet. */
+    public boolean hasLeaning() {
+        return conditions.containsKey(LEANING);
+    }
+
+    /** What the land makes this village; all-round until it has been surveyed. */
+    public Leaning leaning() {
+        return Leaning.fromSave(conditions.getOrDefault(LEANING, 0L));
+    }
+
+    /** The score (0 to 100) the survey gave a resource at this village's site, or 0 if it has not been surveyed. */
+    public int landScore(SiteResource resource) {
+        return (int) (long) conditions.getOrDefault(LAND + resource.name(), 0L);
+    }
+
+    /** Forgets the survey and leaning, so the land is read again. */
+    public void clearLand() {
+        conditions.remove(LEANING);
+        for (SiteResource resource : SiteResource.values()) {
+            conditions.remove(LAND + resource.name());
+        }
+    }
+
+    /** Keeps the survey of the land round the village and the leaning it gives. */
+    public void setLand(SiteSurvey.Profile profile) {
+        for (SiteResource resource : SiteResource.values()) {
+            conditions.put(LAND + resource.name(), Math.round(profile.score(resource)));
+        }
+        conditions.put(LEANING, (long) Leaning.of(profile).ordinal() + 1);
     }
 
     /** R1.31: prefix of the condition marking a resident whose trade an admin set, which the simulation leaves alone. */

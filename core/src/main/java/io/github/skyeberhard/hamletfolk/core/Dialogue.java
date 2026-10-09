@@ -71,6 +71,38 @@ public final class Dialogue {
         return Optional.empty();
     }
 
+    /** R8.11: what residents say about the kind of place the village is: its land, its history and its size. */
+    static List<String> characterLines(Settlement settlement) {
+        String name = settlement.name();
+        List<String> lines = new ArrayList<>();
+        switch (settlement.leaning()) {
+            case TIMBER -> lines.add("We live by the forest here. Most of what stands in " + name + " began as a tree.");
+            case MINING -> lines.add("" + name + " is a mining place at heart. The hills give us stone and ore, and we give them back sweat.");
+            case FARMING -> lines.add("Good, open farmland. The fields are what " + name + " is about.");
+            case FISHING -> lines.add("The water is our living in " + name + ". We were fishers before we were anything else.");
+            case PASTORAL -> lines.add("Sheep and cattle graze all round " + name + ". It's herders' country.");
+            default -> {
+            }
+        }
+        switch (VillageCharacter.temperament(settlement)) {
+            case MARTIAL -> lines.add("We've come through enough raids in " + name + " to know how to hold the line.");
+            case HARD_PRESSED -> lines.add("These are lean years. Nobody in " + name + " plans far ahead any more.");
+            case WARY -> lines.add("Since the raiders overran " + name + ", we watch every stranger on the road.");
+            case PROSPEROUS -> lines.add("Full stores and a heavy treasury. " + name + " has never done better.");
+            case WELCOMING -> lines.add("Folk keep arriving in " + name + ". There's always room for one more.");
+            case STEADY -> {
+            }
+        }
+        switch (VillageCharacter.Stage.of(settlement.population())) {
+            case HAMLET -> lines.add(name + " is a small place, but we know every face in it.");
+            case TOWN -> lines.add("There are too many of us to know by name now. " + name + " is a town.");
+            case CITY -> lines.add(name + " is a city now! I still get lost in the lanes.");
+            case VILLAGE -> {
+            }
+        }
+        return lines;
+    }
+
     static String smallTalk(Resident resident, Settlement settlement, long day, Random random) {
         List<String> options = new ArrayList<>();
         Traits traits = resident.traits();
@@ -115,6 +147,9 @@ public final class Dialogue {
         }
 
         parentLine(resident, settlement).ifPresent(options::add);
+        if (resident.adult()) {
+            options.addAll(characterLines(settlement)); // R8.11
+        }
         if (resident.adult() && !settlement.decisions().isEmpty()) {
             Planner.Decision latest = settlement.decisions().get(settlement.decisions().size() - 1);
             if (day - latest.day() <= 14) {

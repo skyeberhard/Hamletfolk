@@ -131,6 +131,7 @@ final class SettlementCommand implements TabExecutor {
                         + " days ago)", NamedTextColor.GRAY)));
         service.refreshHousing(s);
         line(player, "Population", s.population() + " (" + children + " children)");
+        line(player, "Character", io.github.skyeberhard.hamletfolk.core.VillageCharacter.describe(s)); // R8.11
         line(player, "Housing", s.housingCapacity() + " beds (" + s.freeBeds() + " free)");
         if (s.turnedCount() > 0) {
             line(player, "Lost to zombies", s.turnedCount() + " (they can still be cured)");
@@ -480,11 +481,30 @@ final class SettlementCommand implements TabExecutor {
                     + " lots reserved and " + layout.filledCount() + " built on (" + layout.dropped()
                     + " dropped as too steep or wet). /settlement lots shows them.", NamedTextColor.GRAY));
         }
+        io.github.skyeberhard.hamletfolk.core.Leaning leaning = s.leaning();
+        io.github.skyeberhard.hamletfolk.core.VillageCharacter.Temperament temper =
+                io.github.skyeberhard.hamletfolk.core.VillageCharacter.temperament(s);
+        player.sendMessage(Component.text("Character: " + io.github.skyeberhard.hamletfolk.core.VillageCharacter.describe(s) + ". "
+                + (!s.hasLeaning() ? "Its land has not been read yet. "
+                        : leaning == io.github.skyeberhard.hamletfolk.core.Leaning.ALL_ROUND
+                                ? "The land round it has nothing that stands out, so it goes by what it makes. "
+                                : "The land gives it a " + leaning.label() + " leaning (" + leaning.reason() + "): the trades it can staff "
+                                        + "for that are staffed sooner and the buildings that serve it improved first. ")
+                + "Its history has made it " + temper.label() + ": " + switch (temper) {
+                    case HARD_PRESSED -> "it wants improvements only every fortnight.";
+                    case MARTIAL -> "it keeps one more iron golem.";
+                    case WARY -> "it takes in newcomers only every six days.";
+                    case PROSPEROUS -> "it improves a building every four days.";
+                    case WELCOMING -> "it takes in newcomers every two days.";
+                    case STEADY -> "nothing in its past has changed how it behaves.";
+                }, NamedTextColor.GRAY));
         io.github.skyeberhard.hamletfolk.core.Construction.Direction direction =
                 io.github.skyeberhard.hamletfolk.core.Construction.direction(s, today);
         player.sendMessage(Component.text("Direction: " + direction.label() + " village"
                 + (direction == io.github.skyeberhard.hamletfolk.core.Construction.Direction.UNDECIDED
-                        ? " (it has not made or traded enough yet to have one)" : " (from what it makes and trades most of)")
+                        ? " (it has not made or traded enough yet to have one)"
+                        : direction == io.github.skyeberhard.hamletfolk.core.Construction.Direction.TRADE ? " (from what it has banked and sells)"
+                        : leaning != io.github.skyeberhard.hamletfolk.core.Leaning.ALL_ROUND ? " (from the land)" : " (from what it makes and trades most of)")
                 + ". Once every need is met it improves the buildings that serve it first.", NamedTextColor.GRAY));
         List<Planner.Decision> log = s.decisions();
         if (!log.isEmpty()) {

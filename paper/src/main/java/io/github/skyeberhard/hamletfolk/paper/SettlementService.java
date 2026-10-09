@@ -16,6 +16,8 @@ import io.github.skyeberhard.hamletfolk.core.PlanGenerator;
 import io.github.skyeberhard.hamletfolk.core.Births;
 import io.github.skyeberhard.hamletfolk.core.FastForward;
 import io.github.skyeberhard.hamletfolk.core.Golems;
+import io.github.skyeberhard.hamletfolk.core.Leaning;
+import io.github.skyeberhard.hamletfolk.core.SiteSurvey;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.Stuck;
 import io.github.skyeberhard.hamletfolk.core.TradeLevel;
@@ -588,6 +590,7 @@ final class SettlementService {
             }
             considerNewcomer(settlement);
             considerBirth(settlement); // R4.28
+            readTheLand(settlement); // R8.11
             placeGolems(settlement); // R5.9
             releaseExemptResidents(settlement); // R1.30
             considerMigration(settlement);
@@ -679,6 +682,40 @@ final class SettlementService {
             track(villager);
             plugin.requestSave();
         }
+    }
+
+    // ----- R8.11: the land -----
+
+    /**
+     * Reads the land round a village once, from the game's computed biomes (which generate nothing), and keeps the survey
+     * and the leaning it gives. Done again by an admin's replan.
+     */
+    void readTheLand(Settlement settlement) {
+        readTheLand(settlement, null);
+    }
+
+    /** As above; {@code before} is the leaning an admin's replan is reading again, so an unchanged one is not written up twice. */
+    void readTheLand(Settlement settlement, Leaning before) {
+        if (settlement.hasLeaning()) {
+            return;
+        }
+        World world = Bukkit.getWorld(settlement.world());
+        if (world == null || !inScope(world)) {
+            return;
+        }
+        int x = settlement.centerX();
+        int z = settlement.centerZ();
+        int y = Math.max(world.getSeaLevel(), 64);
+        SiteSurvey.Profile profile = SiteSurvey.score(SiteSurvey.grid(SiteSurvey.MAX_RADIUS, 24,
+                (dx, dz) -> world.getComputedBiome(x + dx, y, z + dz).getKey().getKey()));
+        settlement.setLand(profile);
+        Leaning leaning = settlement.leaning();
+        if (leaning != before) {
+            settlement.record(settlement.lastSimulatedDay(), io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.MILESTONE,
+                    leaning == Leaning.ALL_ROUND ? settlement.name() + " sits on land with nothing that stands out: it will be an all-round place."
+                            : settlement.name() + " has " + leaning.reason() + ": it is a " + leaning.label() + " village.");
+        }
+        plugin.requestSave();
     }
 
     // ----- R5.9: golems -----
@@ -955,6 +992,9 @@ final class SettlementService {
                     "the village was re-planned", false);
         });
         settlement.setPlan(null);
+        Leaning was = settlement.hasLeaning() ? settlement.leaning() : null;
+        settlement.clearLand(); // read again
+        readTheLand(settlement, was);
         ensurePlan(settlement);
         plugin.requestSave();
         return settlement.plan() == null

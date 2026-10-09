@@ -42,7 +42,7 @@ from trade between villages (R6.5). Villagers' own trades mint emeralds in the g
 
 A village's character is not one setting. It is several traits, each read from something real, each shown to the player.
 
-### 3.1 Land: the leaning (R8.11)
+### 3.1 Land: the leaning (built: R8.11)
 
 When a village is founded or adopted, its surroundings are surveyed once (the R8.2 survey, extended) and kept:
 
@@ -61,7 +61,7 @@ A village can have a strong leaning, a mixed one or none ("all-round"). The lean
 come first, and a mining town still farms. Over years the leaning can drift with what the village actually does (a
 farming village whose fields are poor and whose hills are rich becomes a mining town), and each drift goes in the history.
 
-### 3.2 History: temperament
+### 3.2 History: temperament (built: R8.11)
 
 What happens to a village changes how it behaves. Each is a slow-moving score, recorded with its reason:
 
@@ -80,7 +80,7 @@ ambitious village upgrades sooner, a sociable one builds a tavern and a market b
 guards readily. Families (R6.1) pass trades down (R4.10 already does this for jobs), so a village of smiths stays a
 village of smiths. An elder (R6.4) can tilt policy.
 
-### 3.4 Size: stage
+### 3.4 Size: stage (built: R8.11)
 
 | Stage | Roughly | What it unlocks |
 |---|---|---|
@@ -279,6 +279,50 @@ The game's small houses have one bed each, which is why a village needs so many.
    one with the most beds for its cost; an upgrade only goes to a design with more beds.
 2. **Births** (built, R4.28): a well-fed village with a free bed has children of its own, near a player or not.
 3. **Households** (R6.1): couples and children share a house, and an upgraded house is where a family grows.
+
+## 8a. Voices (proposal, R4.30)
+
+Villages already say the right things about themselves (hunger, danger, their land and history), but every villager says
+them in the same voice. The idea is that a villager's voice comes from who they are, so a town of thirty sounds like thirty
+people.
+
+**What makes a voice.** All of it is worked out when a villager speaks, from things that already exist, and none of it is
+saved:
+
+| Input | What it does to the voice |
+|---|---|
+| Sociability | warm and chatty, or reserved and short |
+| Bravery | bold and blunt, or anxious and hedging |
+| Ambition | proud and forward-looking, or content and looking back |
+| Work ethic | brisk and busy, or easy-going |
+| Mood | shifts the tone: a cheerful villager who is starving is subdued; a gloomy one with a full larder lightens |
+| Age and stage | children are excitable, elders reminisce |
+| Trade and level | trade talk, in the words of the trade; a master speaks with authority |
+| Village temperament (R8.11) | wary villages are guarded with strangers, welcoming ones greet warmly, martial ones talk of watches |
+| A habit drawn from their id | one stable quirk: a favourite phrase, a habit of counting, of mentioning the weather, of calling strangers "friend" |
+
+From those come a tone (six to start with: warm, gruff, anxious, proud, dry, gentle) and a quirk (about a dozen). With four
+traits, a mood, a trade, an age and a quirk there are thousands of different villagers, and the same one is always recognisably
+the same person.
+
+**What they say.** The same fact in different tones, from text files:
+
+```
+# situation: hunger
+warm:     Times are lean in {village}, friend, but we share what we have.
+gruff:    No food. Don't look at me, I'm eating the same nothing as you.
+anxious:  The stores are nearly empty... what will we do when they are?
+proud:    {village} has been hungry before, and we are still standing.
+```
+
+Situations to cover first: greeting (by reputation), goodbye, hunger, plenty, danger, a loss, a raid, a gift, a request, work
+in each trade, weather and time of day, children, elders' memories, a neighbour (by name, using kin and trade), the village's
+land and history (R8.11). The files live in the plugin and in `plugins/Hamletfolk/dialogue/`, with slots for the village,
+trade, numbers and people, so an admin can add lines or whole voices without code. A villager keeps the same voice between
+conversations, never repeats the line they last said, and shifts tone with mood.
+
+**Not in scope here.** Villagers remembering what a particular player did (reputation already shapes greetings), and
+villagers talking to each other (R4.12's overheard lines could draw on the same voices once both exist).
 
 ## 9. Time and unattended play (built, R4.22)
 
