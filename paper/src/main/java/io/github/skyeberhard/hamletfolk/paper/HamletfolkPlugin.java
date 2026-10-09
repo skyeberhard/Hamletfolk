@@ -18,6 +18,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
 
     private SettlementStore store;
     private SettlementService service;
+    private BrainService brain;
     private TemplateLibrary templates;
     private ConstructionService construction;
     private boolean saveRequested;
@@ -82,6 +83,9 @@ public final class HamletfolkPlugin extends JavaPlugin {
         construction = new ConstructionService(this, service);
         construction.start();
         new WorldMarksService(this, service, construction).start(); // R4.25
+        brain = new BrainService(this, service); // R9.1: off unless brain.enabled
+        getServer().getPluginManager().registerEvents(brain, this);
+        brain.start();
         service.trackLoadedVillagers();
         getServer().getScheduler().runTaskTimer(this, service::simulateAll, SIMULATION_PERIOD_TICKS, SIMULATION_PERIOD_TICKS);
         service.startFastForward(); // R4.27
@@ -105,6 +109,9 @@ public final class HamletfolkPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (brain != null) {
+            brain.stop(); // R9.1: every added behaviour off before the world is saved, so the villagers are vanilla
+        }
         if (construction != null) {
             construction.releaseAll(); // R4.22: chunks held for unattended building
         }
@@ -116,6 +123,11 @@ public final class HamletfolkPlugin extends JavaPlugin {
         } catch (IOException e) {
             getLogger().log(Level.SEVERE, "Failed to save settlements", e);
         }
+    }
+
+    /** R9.1: the brain module's switch (null before the plugin has started). */
+    BrainService brain() {
+        return brain;
     }
 
     /**

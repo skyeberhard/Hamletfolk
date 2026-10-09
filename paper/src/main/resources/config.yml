@@ -123,3 +123,11 @@ construction:
   # smithy is nearly 300 wood) and a village's stores hold only 100 plus 10 per resident, so at 100 most villages
   # could never afford one. Lower is cheaper.
   cost-percent: 35
+
+# R9.1: the brain module, which adds behaviours to the village's villagers through the server's own internal code (so far
+# only a test one: a villager going about its day stops and looks at a player who comes within three blocks for a few seconds,
+# then carries on for at least ten). It is built for Paper 26.2 only and
+# checks at startup (whatever this is set to) that the server has everything it needs; if not, it says so and stays off and the rest of the plugin runs as usual.
+# Off (the default) until it has been played. /settlement brain on|off switches it live until the next restart.
+brain:
+  enabled: false

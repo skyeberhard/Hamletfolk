@@ -163,7 +163,13 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   Count them through points of interest (`World.locateAllPoiInRange` with `PoiTypes.HOME`), which also says which are claimed.
 - **Villager brain code (M9):** the public API cannot add villager behaviours, so anything that needs it (guards that
   fight, R9.3) goes in the isolated, switchable `brain/` module described in docs/SMART_VILLAGERS.md, never into `core` or the
-  rest of `paper`. Pinned to Paper 26.2; it must have the startup self-check and the live off switch before any behaviour.
+  rest of `paper`. Pinned to Paper 26.2. R9.1 built it: `brain/` compiles against `paper/run/versions/26.2/paper-26.2.jar` and
+  `paper/run/libraries` (run `./gradlew runServer` once first, or the build leaves the module out), and its classes go into the
+  plugin jar. `paper` talks to it only through `BrainModule` (no internal types) and loads `VillagerBrains` by name after
+  `BrainSelfCheck` passes; every internal class, field or method the module uses must be on `BrainSelfCheck.REQUIRED`. Behaviours
+  go into the brain's private `availableBehaviorsByPriority` table (not `Brain.addActivity`, which replaces requirements), and that
+  table may only be changed between ticks, never from inside a behaviour. Read internals from the jar with javap, never from memory
+  (the villager class moved to `npc.villager` in 26.x).
 - **`SettlementService.track()` returns null** for a world excluded by `worlds.allow/deny`
   (R1.10); callers must handle it.
 - **Line endings:** working copies are CRLF (autocrlf) while the repo stores LF, so git warns

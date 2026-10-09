@@ -21,11 +21,16 @@ tasks.processResources {
     filesMatching("plugin.yml") { expand(props) }
 }
 
-// Bundle the core classes into the plugin jar so the server only needs one file.
+// Bundle the core classes into the plugin jar so the server only needs one file, and the brain module's (R9.1), which the
+// plugin loads by name only when it is switched on and its self-check passes.
 tasks.jar {
     archiveBaseName.set("Hamletfolk")
-    dependsOn(":core:jar")
+    dependsOn(":core:jar", ":brain:classes")
     from(project(":core").sourceSets["main"].output)
+    // (only when the module could be built: with no local server its compile is skipped and old classes must not be packed)
+    if (file("run/versions/$minecraftVersion/paper-$minecraftVersion.jar").exists()) {
+        from(provider { project(":brain").the<SourceSetContainer>()["main"].output })
+    }
 }
 
 tasks.runServer {

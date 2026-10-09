@@ -1,3 +1,3 @@
 rootProject.name = "hamletfolk"
 
-include("core", "paper")
+include("core", "paper", "brain")

@@ -65,6 +65,10 @@ final class SettlementCommand implements TabExecutor {
             admin.run(sender, args);
             return true;
         }
+        if (args.length > 0 && args[0].equalsIgnoreCase("brain")) {
+            brain(sender, args);
+            return true;
+        }
         if (!(sender instanceof Player player)) {
             sender.sendMessage("Only players can use this command.");
             return true;
@@ -105,6 +109,9 @@ final class SettlementCommand implements TabExecutor {
         if (args.length > 1 && args[0].equalsIgnoreCase("admin")) {
             return admin.complete(sender, args);
         }
+        if (args.length == 2 && args[0].equalsIgnoreCase("brain") && sender.hasPermission(BrainService.PERMISSION)) {
+            return List.of("on", "off", "status").stream().filter(o -> o.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
+        }
         if (args.length == 2 && args[0].equalsIgnoreCase("donate")) {
             return "all".startsWith(args[1].toLowerCase(Locale.ROOT)) ? List.of("all") : List.of();
         }
@@ -118,8 +125,32 @@ final class SettlementCommand implements TabExecutor {
         List<String> options = new ArrayList<>(SUBCOMMANDS);
         if (sender.hasPermission(AdminCommand.PERMISSION)) {
             options.add("admin");
+            options.add("brain");
         }
         return options.stream().filter(s -> s.startsWith(prefix)).toList();
+    }
+
+    /**
+     * R9.1: /settlement brain on|off|status switches the brain module (the behaviours added to villagers through the server's
+     * internals) live, until the next restart; {@code brain.enabled} in the config says what it starts as. Admins only; works
+     * from the console.
+     */
+    private void brain(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(BrainService.PERMISSION)) {
+            sender.sendMessage("You don't have permission to do that.");
+            return;
+        }
+        BrainService brain = service.plugin().brain();
+        if (brain == null) {
+            sender.sendMessage("The brain module has not started.");
+            return;
+        }
+        switch (args.length > 1 ? args[1].toLowerCase(Locale.ROOT) : "status") {
+            case "on" -> brain.switchOn(sender);
+            case "off" -> brain.switchOff(sender);
+            case "status" -> brain.status(sender);
+            default -> sender.sendMessage("Usage: /settlement brain on|off|status");
+        }
     }
 
     private void info(Player player, Settlement s) {
