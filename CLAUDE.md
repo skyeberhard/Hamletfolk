@@ -119,7 +119,10 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   built-ins; a test that changes it must restore it). The tone weights in `Voice.BIAS` were solved so that ordinary traits give about
   one villager in six per tone: change a weight and re-run `VoiceTest`. Tests must not assert one exact wording of a voiced line
   (it depends on the villager's random traits): assert on its facts (the slot values) or on membership in the tone's lines.
-  `Resident.lastLine` (not saved) stops a repeat. Wealth, land, temperament, trade and parent remarks are still plain strings.
+  `Resident.lastLine` (not saved) stops a repeat. R4.31: an `Option` with no situation (every other remark) is wrapped by the REMARK lines
+  (`{statement}` is the sentence), so a test that looks for a remark's words can still find them; talk about a trade is WORK or WORK_EXPERT
+  with the slots of the trade's entry in `vocab_trade.txt` (`Lines.vocab`); `Dialogue.Ambient` (sky, time of day) comes from the Paper layer and
+  is null elsewhere; `{Name}` in a line is the slot `name` with a capital letter. `VillagerListener.sayGoodbyeWhenTheyWalkAway` calls `Dialogue.farewell`.
 - **Signature buildings (R8.12):** `Leaning.signature()` names the building; `Planner.growth` asks for it (after the house check, so it
   never hides one); the effects are three `buildingCount` checks in `SettlementSimulator` (lumberjack output, `process` smelting,
   `spoilAndCap`). They are real registered buildings, so they take any free lot and can be registered by sign.

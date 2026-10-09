@@ -46,9 +46,14 @@ public final class Dialogue {
         }
     }
 
+    /** R4.31: what the sky and the clock look like where the villager stands (Paper fills it in; null when unknown). */
+    public record Ambient(String sky, String time) {
+    }
+
     private static String render(Option option, Voice voice, Settlement settlement, Random random) {
         if (option.situation() == null) {
-            return option.plain();
+            // R4.31: a remark with no lines of its own still comes out in the speaker's tone, the fact unchanged
+            return library.pick(Situation.REMARK, voice.tone(), Map.of("statement", option.plain()), random).orElse(option.plain());
         }
         Map<String, String> slots = new HashMap<>(option.slots());
         if (settlement != null) {
@@ -103,11 +108,16 @@ public final class Dialogue {
     }
 
     public static String speak(Resident resident, Settlement settlement, long day, Random random) {
+        return speak(resident, settlement, day, random, null);
+    }
+
+    /** As above; with an {@link Ambient} they may remark on the weather and the time of day too (R4.31). */
+    public static String speak(Resident resident, Settlement settlement, long day, Random random, Ambient ambient) {
         Voice voice = Voice.of(resident, settlement, day);
         String base = "";
         for (int attempt = 0; attempt < 8; attempt++) { // R4.30: never the same thing twice running
             base = urgentOption(resident, settlement, day).map(o -> render(o, voice, settlement, random))
-                    .orElseGet(() -> smallTalk(resident, settlement, day, random));
+                    .orElseGet(() -> smallTalk(resident, settlement, day, random, ambient));
             if (!base.equals(resident.lastLine())) {
                 break;
             }
@@ -185,6 +195,10 @@ public final class Dialogue {
     }
 
     static String smallTalk(Resident resident, Settlement settlement, long day, Random random) {
+        return smallTalk(resident, settlement, day, random, null);
+    }
+
+    static String smallTalk(Resident resident, Settlement settlement, long day, Random random, Ambient ambient) {
         List<Option> options = new ArrayList<>();
         Traits traits = resident.traits();
         Occupation occupation = resident.occupation();
@@ -231,6 +245,13 @@ public final class Dialogue {
         }
 
         parentLine(resident, settlement).ifPresent(l -> options.add(Option.plain(l)));
+        if (resident.adult()) {
+            workOption(resident, settlement).ifPresent(options::add); // R4.31
+        }
+        if (ambient != null) {
+            options.add(Option.of(Situation.WEATHER, "It's " + ambient.time() + ", and " + ambient.sky() + ".",
+                    "sky", ambient.sky(), "time", ambient.time()));
+        }
         if (resident.adult()) {
             characterLines(settlement).forEach(l -> options.add(Option.plain(l))); // R8.11
             neighbour(resident, settlement, random).ifPresent(options::add); // R4.30
@@ -281,6 +302,18 @@ public final class Dialogue {
         }
 
         return render(options.get(random.nextInt(options.size())), Voice.of(resident, settlement, day), settlement, random);
+    }
+
+    /** R4.31: talk about their own trade in the trade's words, and more of it once they are an expert or a master. */
+    private static Optional<Option> workOption(Resident resident, Settlement settlement) {
+        Map<String, String> words = library.vocab("trade", resident.occupation().name());
+        if (words.isEmpty()) {
+            return Optional.empty();
+        }
+        Map<String, String> slots = new HashMap<>(words);
+        slots.put("days", String.valueOf(resident.xp()));
+        Situation situation = resident.level() >= 4 ? Situation.WORK_EXPERT : Situation.WORK;
+        return Optional.of(new Option(situation, slots, "I work at " + words.getOrDefault("craft", "my trade") + " in " + settlement.name() + "."));
     }
 
     /** R4.30: a word about a neighbour, by name and trade: another grown resident with a trade. */

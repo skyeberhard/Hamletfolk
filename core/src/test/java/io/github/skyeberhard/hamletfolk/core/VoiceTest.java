@@ -206,7 +206,8 @@ class VoiceTest {
         Map<String, String> slots = Map.ofEntries(Map.entry("village", "Oakvale"), Map.entry("player", "Skye"), Map.entry("name", "Ada"),
                 Map.entry("input", "metal"), Map.entry("text", "Something happened."), Map.entry("item", "wood"), Map.entry("pay", "9"),
                 Map.entry("left", "30"), Map.entry("trade", "farmer"), Map.entry("days", "88"), Map.entry("day", "12"),
-                Map.entry("neighbour", "Mira Oakes"));
+                Map.entry("neighbour", "Mira Oakes"), Map.entry("statement", "The land is good."), Map.entry("craft", "farming"),
+                Map.entry("work", "sowing"), Map.entry("product", "wheat"), Map.entry("sky", "a clear sky"), Map.entry("time", "morning"));
         Lines lines = Lines.builtIn();
         for (Situation situation : Situation.values()) {
             for (Tone tone : Tone.values()) {

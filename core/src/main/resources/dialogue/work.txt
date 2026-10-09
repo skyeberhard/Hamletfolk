@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; {Name} is the slot with a capital letter. A line whose slot is
+# missing is skipped. In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {craft} {work} {product} {village} (from the trade's entry in vocab_trade.txt)
+warm: I love {work}, truly. Come and see how the {craft} is going, friend!
+warm: Busy with {work} today. {village} counts on it, and so do I.
+warm: {Craft} is a good life. Ask me anything about it!
+gruff: {Work}. That's the job. Don't distract me.
+gruff: More {product}. Always more {product}.
+gruff: I do {craft}. It's work, not conversation.
+anxious: I worry about {product}... what if there isn't enough?
+anxious: {Work} is so much to keep up with. I hope I'm doing it right.
+anxious: If we run short of {product}, {village} will blame me first.
+proud: Nobody in {village} knows {craft} like I do.
+proud: The {product}: finest around, and I had a hand in every bit.
+proud: {Work} is an art, and I am good at it.
+dry: Ah, {work}. The thrilling life of {craft}.
+dry: More {product}. I can hardly contain myself.
+dry: Yes, I do {craft}. It pays in {product} and disappointment.
+gentle: I'm at {work} today. It's quiet work, and I like it.
+gentle: Looking after the {product} is peaceful work.
+gentle: {Craft} suits me. {village} needs it, and I'm glad to help.

@@ -148,9 +148,59 @@ final class VillagerListener implements Listener {
                 .append(Component.text(" · " + title + " of " + settlement.name() + " · " + mood(resident),
                         NamedTextColor.GRAY)));
         String line = Dialogue.greeting(resident, settlement, player.getUniqueId(), player.getName()) + " "
-                + Dialogue.speak(resident, settlement, day, chatter);
+                + Dialogue.speak(resident, settlement, day, chatter, ambientAt(villager)); // R4.31
         player.sendMessage(Component.text("\"" + line + "\"", NamedTextColor.WHITE, TextDecoration.ITALIC));
         resident.recordConversation(player.getUniqueId());
+        sayGoodbyeWhenTheyWalkAway(player, villager, resident, settlement);
+    }
+
+    // ----- R4.31: the weather, and goodbyes -----
+
+    /** What the sky and the clock look like where the villager stands, for a remark on the weather. */
+    private static Dialogue.Ambient ambientAt(Villager villager) {
+        org.bukkit.World world = villager.getWorld();
+        if (world.getEnvironment() != org.bukkit.World.Environment.NORMAL) {
+            return null; // no weather or day and night in the Nether or the End
+        }
+        String sky = world.isThundering() ? "thunder rolling" : world.hasStorm() ? "rain coming down" : "a clear sky";
+        long ticks = world.getTime(); // 0 is six in the morning
+        String time = ticks < 6000 || ticks >= 23000 ? "morning" : ticks < 12000 ? "afternoon" : ticks < 13800 ? "evening" : "night";
+        return new Dialogue.Ambient(sky, time);
+    }
+
+    /** Players who are in a conversation, and the check that says goodbye when they walk away. */
+    private final java.util.Map<UUID, org.bukkit.scheduler.BukkitTask> goodbyes = new java.util.HashMap<>();
+    /** How far (blocks) a player may be before the conversation is over, and the longest (ticks) one is waited on. */
+    private static final double WALK_AWAY_BLOCKS = 8;
+    private static final int GOODBYE_PATIENCE_TICKS = 20 * 45;
+
+    /**
+     * R4.31: once a player has talked to a villager, the villager says goodbye in their voice when the player walks more than
+     * eight blocks away (or leaves). Only the latest conversation of each player is followed, and none for longer than 45 seconds.
+     */
+    private void sayGoodbyeWhenTheyWalkAway(Player player, Villager villager, Resident resident, Settlement settlement) {
+        org.bukkit.scheduler.BukkitTask earlier = goodbyes.remove(player.getUniqueId());
+        if (earlier != null) {
+            earlier.cancel();
+        }
+        int[] waited = {0};
+        org.bukkit.scheduler.BukkitTask[] self = new org.bukkit.scheduler.BukkitTask[1];
+        self[0] = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            waited[0] += 10;
+            boolean gone = !player.isOnline() || !villager.isValid() || !player.getWorld().equals(villager.getWorld())
+                    || player.getLocation().distanceSquared(villager.getLocation()) > WALK_AWAY_BLOCKS * WALK_AWAY_BLOCKS;
+            if (gone || waited[0] >= GOODBYE_PATIENCE_TICKS) {
+                self[0].cancel();
+                goodbyes.remove(player.getUniqueId(), self[0]);
+                if (gone && player.isOnline() && villager.isValid() && player.getWorld().equals(villager.getWorld())
+                        && settlement.resident(resident.id()).isPresent()) {
+                    player.sendMessage(Component.text(resident.givenName() + ": ", NamedTextColor.GOLD).append(Component.text(
+                            "\"" + Dialogue.farewell(resident, settlement, player.getName(), chatter) + "\"", NamedTextColor.WHITE,
+                            TextDecoration.ITALIC)));
+                }
+            }
+        }, 10, 10);
+        goodbyes.put(player.getUniqueId(), self[0]);
     }
 
     /** R5.9: a village's golem that goes for any reason but being unloaded (killed, despawned, removed) is lost. */

@@ -1,0 +1,25 @@
+# What each trade is called, does and makes, for the WORK and WORK_EXPERT lines. One trade per line:
+#   occupation: craft=...; work=...; product=...
+# craft is the trade as a noun, work what the day's work is (after "I love"), product what it makes. Values may not contain ';'. A server file of this name in
+# plugins/Hamletfolk/dialogue/ replaces the entry of each trade it mentions.
+farmer: craft=farming; work=sowing and reaping; product=wheat and carrots
+fisherman: craft=fishing; work=casting nets and lines; product=fish
+butcher: craft=butchery; work=cutting and smoking meat; product=meat
+shepherd: craft=shepherding; work=minding the flock and shearing; product=wool
+leatherworker: craft=leatherwork; work=curing hides; product=leather
+fletcher: craft=fletching; work=shaping arrows; product=arrows
+mason: craft=masonry; work=cutting stone; product=stone blocks
+lumberjack: craft=felling timber; work=swinging the axe; product=logs
+miner: craft=mining; work=working the seam; product=ore and stone
+merchant: craft=trade; work=haggling over prices; product=good deals
+armorer: craft=armour-making; work=hammering plate; product=armour
+weaponsmith: craft=weapon-making; work=forging blades; product=blades
+toolsmith: craft=smithing; work=mending tools; product=tools
+cartographer: craft=map-making; work=drawing maps; product=maps
+cleric: craft=tending the sick; work=mixing remedies and saying prayers; product=remedies
+librarian: craft=bookkeeping; work=copying and shelving books; product=books
+beekeeper: craft=beekeeping; work=tending the hives; product=honey
+horse_trainer: craft=horse training; work=gentling the horses; product=well-trained horses
+glassblower: craft=glassblowing; work=working the furnace; product=glass
+guard: craft=standing watch; work=walking the walls; product=safe streets
+builder: craft=building; work=laying one block at a time; product=walls and roofs

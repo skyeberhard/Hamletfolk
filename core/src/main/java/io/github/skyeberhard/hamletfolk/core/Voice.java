@@ -12,9 +12,9 @@ public record Voice(Tone tone, Quirk quirk) {
 
     /** One stable habit of speech: something said before or after a line now and then. */
     public enum Quirk {
-        HM("Hm. ", ""), AYE("Aye. ", ""), WELL("Well. ", ""), LISTEN("Listen. ", ""), LOOK("Look. ", ""),
+        HM("Ahem. ", ""), AYE("Aye. ", ""), WELL("So. ", ""), LISTEN("Listen. ", ""), LOOK("Look. ", ""),
         MARK("", " Mark my words."), SO_THEY_SAY("", " Or so they say."), THAT_IS_HOW("", " That's how it is."),
-        HEH("", " Heh."), MIND_YOU("", " Mind you."), WEATHER("", " Fine weather for it, anyway."), ANYWAY("", " Anyway.");
+        HEH("", " Heh."), MIND_YOU("", " Mind you."), WEATHER("", " Such is life."), ANYWAY("", " Anyway.");
 
         private final String prefix;
         private final String suffix;
@@ -62,8 +62,8 @@ public record Voice(Tone tone, Quirk quirk) {
 
         if (!resident.adult()) {
             tone = tone == Tone.ANXIOUS ? Tone.ANXIOUS : Tone.WARM; // children are excitable
-        } else if (resident.level() >= TradeLevel.MASTER - 1 && tone != Tone.ANXIOUS) {
-            tone = Tone.PROUD; // an expert or a master speaks with authority
+        } else if (resident.level() >= TradeLevel.MASTER && tone != Tone.ANXIOUS) {
+            tone = Tone.PROUD; // a master speaks with authority (an expert, one below, keeps their own tone)
         }
         int mood = resident.needs().mood();
         if (mood < 35) { // a starving cheerful one is subdued

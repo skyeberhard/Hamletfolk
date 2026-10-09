@@ -291,8 +291,9 @@ The game's small houses have one bed each, which is why a village needs so many.
 Built as described below, with these differences: the tone weights are tuned (`Voice.BIAS`) so the six tones come out about equally
 common; the habit of speech is a prefix or suffix on about 45% of lines; 23 situations have lines (greetings, farewell, hunger,
 plenty, thin stores, blocked trade, worn tools, a death, danger, a request, children, elders, three kinds of memory, a
-neighbour, the village's latest plan). Still plain wording, for a later pass: work lines per trade, the village's land and
-temperament remarks, wealth, parents, the weather and time of day. Goodbyes exist in `Dialogue.farewell` but nothing calls them yet.
+neighbour, the village's latest plan). R4.31 (T73) added: every other remark wrapped in the speaker's tone, trade talk in the
+trade's words from `vocab_trade.txt` (and more of it from an expert), remarks on the weather and the time of day, and goodbyes when the player
+walks away. The land, mood, size, wealth and parent remarks are still one fact each, with a tone around it rather than lines of their own.
 Admins edit `plugins/Hamletfolk/dialogue/<situation>.txt` and run `/settlement admin dialogue`.
 
 Villages already say the right things about themselves (hunger, danger, their land and history), but every villager says

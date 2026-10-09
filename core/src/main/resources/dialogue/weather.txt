@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; {Name} is the slot with a capital letter. A line whose slot is
+# missing is skipped. In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {sky} {Sky} {time} {village} (sky: 'a clear sky', 'rain coming down' or 'thunder rolling'; time: morning, afternoon, evening or night)
+warm: This {time}, friend! Look: {sky}.
+warm: Good {time} for a walk. {Sky}, and all's well in {village}.
+warm: I always say, {sky} makes the {time} better.
+gruff: {Sky}. Good {time} to get on with it.
+gruff: Weather's {sky}. Not my concern.
+gruff: {Time}. {Sky}. Moving on.
+anxious: {Sky}... I hope nothing goes wrong this {time}.
+anxious: I don't like this {time}. {Sky}.
+anxious: With {sky}, who knows what the {time} brings?
+proud: {village} has seen every kind of weather, and this {time} with {sky} is no trouble.
+proud: {Sky} won't slow {village}'s {time}.
+proud: A fine {time} for {village}, {sky} or not.
+dry: {Sky}. How original, this {time}.
+dry: Ah, the {time}. {Sky}. Same as yesterday, as far as I can tell.
+dry: Look, {sky}. I'd comment but I've already said it.
+gentle: {Sky} this {time}. It's pretty in its way.
+gentle: It's a gentle {time}, with {sky}.
+gentle: I like the {time}, even with {sky}.

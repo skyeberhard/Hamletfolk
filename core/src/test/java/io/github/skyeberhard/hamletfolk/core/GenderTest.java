@@ -146,13 +146,13 @@ class GenderTest {
             String line = null;
             for (long seed = 0; seed < 500 && line == null; seed++) {
                 String said = Dialogue.smallTalk(child, s, 10, new java.util.Random(seed));
-                if (said.startsWith("My ")) {
+                if (said.contains("My " + row[1] + ", " + parent.givenName())) { // (R4.31: said in the speaker's tone, the fact inside)
                     line = said;
                 }
             }
             assertNotNull(line, "a child with a parent should sometimes mention them");
-            assertTrue(line.startsWith("My " + row[1] + ", " + parent.givenName()), line);
-            assertTrue(line.endsWith("from " + row[2]), line);
+            assertTrue(line.contains("My " + row[1] + ", " + parent.givenName()), line);
+            assertTrue(line.contains("from " + row[2]), line);
         }
     }
 

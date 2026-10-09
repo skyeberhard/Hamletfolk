@@ -21,10 +21,12 @@ import java.util.regex.Pattern;
  * adds to the built-in ones instead. A bad file or line is skipped and noted in {@link #problems()}.
  */
 public final class Lines {
-    private static final Pattern SLOT = Pattern.compile("\\{[a-z]+}");
+    private static final Pattern SLOT = Pattern.compile("\\{[A-Za-z]+}");
 
     private final Map<Situation, Map<Tone, List<String>>> lines = new EnumMap<>(Situation.class);
     private final List<String> problems = new ArrayList<>();
+    /** R4.31: vocabulary by group (e.g. "trade") and then key (e.g. "farmer"): the slots that key fills in. */
+    private final Map<String, Map<String, Map<String, String>>> vocab = new HashMap<>();
 
     private Lines() {
     }
@@ -45,6 +47,12 @@ public final class Lines {
                 out.parse(situation, text, "built-in " + situation.fileName(), false);
             }
         }
+        String trades = readResource("/dialogue/vocab_trade.txt");
+        if (trades == null) {
+            out.problems.add("built-in vocab_trade.txt is missing");
+        } else {
+            out.parseVocab("trade", trades, "built-in vocab_trade.txt");
+        }
         return out;
     }
 
@@ -64,7 +72,51 @@ public final class Lines {
                 }
             }
         }
+        Path vocabFile = directory.resolve("vocab_trade.txt");
+        if (Files.isRegularFile(vocabFile)) {
+            try {
+                out.parseVocab("trade", Files.readString(vocabFile, StandardCharsets.UTF_8), vocabFile.getFileName().toString());
+            } catch (IOException | RuntimeException e) {
+                out.problems.add(vocabFile.getFileName() + " could not be read and was skipped: " + e.getMessage());
+            }
+        }
         return out;
+    }
+
+    /**
+     * R4.31: reads vocabulary lines, {@code key: slot=value; slot=value}. A key that appears again (a server file over the
+     * built-in one) replaces the earlier entry whole.
+     */
+    void parseVocab(String group, String text, String source) {
+        Map<String, Map<String, String>> entries = vocab.computeIfAbsent(group, k -> new HashMap<>());
+        int number = 0;
+        for (String raw : text.split("\\R")) {
+            number++;
+            String line = raw.strip();
+            if (line.isEmpty() || line.startsWith("#")) {
+                continue;
+            }
+            int colon = line.indexOf(':');
+            Map<String, String> slots = new HashMap<>();
+            if (colon > 0) {
+                for (String pair : line.substring(colon + 1).split(";")) {
+                    int eq = pair.indexOf('=');
+                    if (eq > 0 && !pair.substring(eq + 1).isBlank()) {
+                        slots.put(pair.substring(0, eq).strip(), pair.substring(eq + 1).strip());
+                    }
+                }
+            }
+            if (colon <= 0 || slots.isEmpty()) {
+                problems.add(source + " line " + number + " skipped: expected 'name: slot=value; slot=value'");
+                continue;
+            }
+            entries.put(line.substring(0, colon).strip().toLowerCase(java.util.Locale.ROOT), slots);
+        }
+    }
+
+    /** The slots a vocabulary entry fills in, or none if there is no such entry. */
+    public Map<String, String> vocab(String group, String key) {
+        return vocab.getOrDefault(group, Map.of()).getOrDefault(key.toLowerCase(java.util.Locale.ROOT), Map.of());
     }
 
     private static String readResource(String path) {
@@ -145,7 +197,13 @@ public final class Lines {
     static String fill(String line, Map<String, String> slots) {
         String out = line;
         for (Map.Entry<String, String> slot : new HashMap<>(slots).entrySet()) {
-            out = out.replace("{" + slot.getKey() + "}", slot.getValue());
+            String value = slot.getValue();
+            out = out.replace("{" + slot.getKey() + "}", value);
+            String key = slot.getKey();
+            if (!key.isEmpty() && !value.isEmpty()) { // {Name}: the same slot with a capital letter, for the start of a sentence
+                out = out.replace("{" + Character.toUpperCase(key.charAt(0)) + key.substring(1) + "}",
+                        Character.toUpperCase(value.charAt(0)) + value.substring(1));
+            }
         }
         return out;
     }

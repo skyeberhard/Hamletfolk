@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; {Name} is the slot with a capital letter. A line whose slot is
+# missing is skipped. In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {craft} {days} {product} {village} (as WORK; for an expert or master of the trade)
+warm: {days} days at {craft}, friend, and I'm still learning something every day!
+warm: I've taught half of {village} a thing or two about {craft}. Ask me anything!
+warm: A master of {craft}, they call me. Come, I'll show you the {product}.
+gruff: {days} days at {craft}. I know what I'm doing. Stand back.
+gruff: Ask me about {craft}. I'll give you a straight answer. Once.
+gruff: Expert, they say. I say I just don't make mistakes anymore.
+anxious: Everyone says I'm good at {craft}, but I always fear I'll slip up.
+anxious: {days} days at it, and I still check my work twice.
+anxious: The more I know of {craft}, the more I see what could go wrong.
+proud: {days} days of {craft}. There is nobody in {village} I'd defer to.
+proud: I have mastered {craft}. My work speaks for itself.
+proud: When I speak of {craft}, listen. I have earned it.
+dry: {days} days of {craft}. You'd think {product} would be grateful by now.
+dry: I'm an expert in {craft}. It's a small pond, but I'm a big fish.
+dry: Master of {craft}. It doesn't pay more, but it sounds nice.
+gentle: After {days} days of {craft}, I think I finally understand it a little.
+gentle: I like teaching {craft}, if anyone wants to learn.
+gentle: It's been a good {days} days of {craft}.
