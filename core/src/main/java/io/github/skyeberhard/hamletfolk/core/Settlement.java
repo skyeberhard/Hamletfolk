@@ -572,7 +572,9 @@ public final class Settlement {
 
     /** What the land makes this village; all-round until it has been surveyed. */
     public Leaning leaning() {
-        return Leaning.fromSave(conditions.getOrDefault(LEANING, 0L));
+        Leaning base = Leaning.fromSave(conditions.getOrDefault(LEANING, 0L));
+        // R8.13: where the biomes gave nothing that stands out, what the survey counted may still give one
+        return base == Leaning.ALL_ROUND && conditions.containsKey(LEANING) ? Leaning.fromCounts(this) : base;
     }
 
     /** The score (0 to 100) the survey gave a resource at this village's site, or 0 if it has not been surveyed. */

@@ -599,8 +599,9 @@ public final class Construction {
         FARMING("farming", BuildingType.FARM, BuildingType.HOUSE, BuildingType.GRANARY),
         FORESTRY("timber", BuildingType.HOUSE, BuildingType.SHOP, BuildingType.SAWMILL),
         MINING("mining", BuildingType.MINE, BuildingType.SMITHY, BuildingType.FORGE),
-        CRAFT("craft", BuildingType.SMITHY, BuildingType.SHOP),
-        TRADE("trading", BuildingType.SHOP, BuildingType.TREASURY),
+        CRAFT("craft", BuildingType.SMITHY, BuildingType.SHOP, BuildingType.GLASSWORKS),
+        TRADE("trading", BuildingType.SHOP, BuildingType.TREASURY, BuildingType.TRADING_POST),
+        SCHOLARLY("scholarly", BuildingType.HOUSE, BuildingType.MAP_ROOM, BuildingType.LIBRARY),
         FISHING("fishing", BuildingType.HOUSE, BuildingType.SHOP, BuildingType.HARBOUR),
         PASTORAL("pastoral", BuildingType.FARM, BuildingType.HOUSE, BuildingType.GRANARY, BuildingType.PENS),
         UNDECIDED("all-round");
@@ -649,6 +650,15 @@ public final class Construction {
             }
             case PASTORAL -> {
                 return Direction.PASTORAL;
+            }
+            case SCHOLARLY -> {
+                return Direction.SCHOLARLY;
+            }
+            case CRAFT -> {
+                return Direction.CRAFT;
+            }
+            case TRADING -> {
+                return Direction.TRADE;
             }
             default -> {
                 // all-round: it goes by what it makes

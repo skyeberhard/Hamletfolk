@@ -86,6 +86,10 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   counted plugin tickets (`ConstructionService.hold/release`); nothing else in the plugin uses chunk tickets.
 - **Suppliers (R4.24):** a village of four keeps a lumberjack, and a miner once a mine has room; lumberjacks, miners and masons
   rest at the storage limit (`resting:` conditions). Tests that measure a gatherer's output must spend the stock each day.
+- **Counts leanings (R8.13):** SCHOLARLY, CRAFT and TRADING come after ALL_ROUND in `Leaning` (the saved number is the ordinal plus one:
+  never insert before them) and are never stored: `Settlement.leaning()` returns them only when the stored biome reading is ALL_ROUND,
+  from `LandCounts` (`Leaning.fromCounts`). A leaning's signature that is also a trade building (`Trades.isTradeBuilding`: harbour, pens,
+  map room, glassworks) is asked for by the trade rule once its trade opens, not by the signature rule; the trading post is not a trade building.
 - **Land trades (R8.13):** `LandCounts` (conditions `landCount:*`, only ever raised) is filled by `SettlementService.surveyLand` every 10
   village days from loaded chunks; `Trades` holds the rules (`opens`, `wanted`, `buildingFor`, `noteOpened`). A land trade is only a
   job candidate while `Trades.opens` (`SettlementSimulator.candidates`; FISHERMAN is also in `JOB_CANDIDATES` and so is not gated by the

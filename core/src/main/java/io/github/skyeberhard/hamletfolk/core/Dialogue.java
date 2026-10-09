@@ -159,6 +159,9 @@ public final class Dialogue {
             case FARMING -> lines.add("Good, open farmland. The fields are what " + name + " is about.");
             case FISHING -> lines.add("The water is our living in " + name + ". We were fishers before we were anything else.");
             case PASTORAL -> lines.add("Sheep and cattle graze all round " + name + ". It's herders' country.");
+            case SCHOLARLY -> lines.add("Reed beds and cattle: paper and leather, so " + name + " has always had maps and books.");
+            case CRAFT -> lines.add("There is sand for the glass all round " + name + ", and a glassblower can make anything of it.");
+            case TRADING -> lines.add("A bit of everything grows or grazes near " + name + ", so there is always something to trade.");
             default -> {
             }
         }

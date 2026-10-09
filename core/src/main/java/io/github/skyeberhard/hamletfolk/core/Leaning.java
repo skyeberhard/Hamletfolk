@@ -15,7 +15,12 @@ public enum Leaning {
     FARMING("farming", "open farmland", List.of(Occupation.FARMER)),
     FISHING("fishing", "water all round it", List.of(Occupation.FISHERMAN)),
     PASTORAL("pastoral", "grazing land", List.of(Occupation.SHEPHERD, Occupation.BUTCHER, Occupation.LEATHERWORKER)),
-    ALL_ROUND("all-round", "nothing in the land that stands out", List.of());
+    ALL_ROUND("all-round", "nothing in the land that stands out", List.of()),
+    // R8.13: read from what the survey counts rather than from the biomes, and only where the biomes gave nothing that stands out.
+    // They come after ALL_ROUND so that the leanings already saved keep their numbers.
+    SCHOLARLY("scholarly", "sugar cane and cattle for paper and books", List.of(Occupation.CARTOGRAPHER, Occupation.LIBRARIAN)),
+    CRAFT("craft", "sand enough for glass", List.of(Occupation.GLASSBLOWER)),
+    TRADING("trading", "a little of everything to trade", List.of());
 
     /** The score (out of 100) a resource needs to be a leaning at all. */
     static final double MIN_SCORE = 40;
@@ -50,6 +55,9 @@ public enum Leaning {
             case FARMING -> BuildingType.GRANARY;
             case PASTORAL -> BuildingType.PENS; // R8.13
             case FISHING -> BuildingType.HARBOUR; // R8.13
+            case SCHOLARLY -> BuildingType.MAP_ROOM; // (and a library once it is a town: see Trades)
+            case CRAFT -> BuildingType.GLASSWORKS;
+            case TRADING -> BuildingType.TRADING_POST;
             case ALL_ROUND -> null;
         };
     }
@@ -85,6 +93,37 @@ public enum Leaning {
             }
         }
         return values[best] >= MIN_SCORE && values[best] - second >= LEAD ? kinds[best] : ALL_ROUND;
+    }
+
+    /** Sugar cane and cattle a village needs within reach to lean scholarly; sand to lean craft; how many kinds of thing for trading. */
+    static final int SCHOLARLY_CANE = 16;
+    static final int SCHOLARLY_CATTLE = 4;
+    static final int CRAFT_SAND = 60;
+    static final int TRADING_KINDS = 4;
+
+    /**
+     * R8.13: the leaning the survey's counts give a village whose biomes gave none: scholarly (paper and leather for books and
+     * maps), craft (sand for glass), or trading (many kinds of thing within reach, a crossroads); otherwise all-round.
+     */
+    static Leaning fromCounts(Settlement settlement) {
+        int cane = LandCounts.get(settlement, LandCounts.Feature.SUGAR_CANE);
+        int cattle = LandCounts.get(settlement, LandCounts.Feature.CATTLE);
+        int sand = LandCounts.get(settlement, LandCounts.Feature.SAND);
+        if (cane >= SCHOLARLY_CANE && cattle >= SCHOLARLY_CATTLE) {
+            return SCHOLARLY;
+        }
+        if (sand >= CRAFT_SAND) {
+            return CRAFT;
+        }
+        int kinds = 0;
+        kinds += LandCounts.get(settlement, LandCounts.Feature.WATER) >= 40 ? 1 : 0;
+        kinds += LandCounts.get(settlement, LandCounts.Feature.SHEEP) >= 4 ? 1 : 0;
+        kinds += cattle >= 4 ? 1 : 0;
+        kinds += LandCounts.get(settlement, LandCounts.Feature.HORSES) >= 3 ? 1 : 0;
+        kinds += cane >= SCHOLARLY_CANE ? 1 : 0;
+        kinds += sand >= 30 ? 1 : 0;
+        kinds += LandCounts.get(settlement, LandCounts.Feature.BEES) >= 2 ? 1 : 0;
+        return kinds >= TRADING_KINDS ? TRADING : ALL_ROUND;
     }
 
     static Leaning fromSave(long ordinalPlusOne) {

@@ -74,9 +74,17 @@ public final class Trades {
     /** Condition key marking that a trade's opening has been written up. */
     private static final String NOTED = "tradeOpened:";
 
-    /** Writes up, once each, the land trades that have just opened. Returns how many were written. */
+    /** Writes up, once each, the land trades that have just opened, and a leaning the counts have just given. Returns how many. */
     public static int noteOpened(Settlement settlement, long day) {
         int noted = 0;
+        Leaning leaning = settlement.leaning();
+        String leaningKey = NOTED + "leaning:" + leaning.name();
+        if (leaning.ordinal() > Leaning.ALL_ROUND.ordinal() && !settlement.conditions().containsKey(leaningKey)) {
+            settlement.conditions().put(leaningKey, day);
+            settlement.record(day, HistoryEvent.Kind.MILESTONE, "What the land round " + settlement.name() + " offers (" + LandCounts.describe(settlement)
+                    + ") gives it " + leaning.reason() + ": it is a " + leaning.label() + " village.");
+            noted++;
+        }
         for (Rule rule : RULES) {
             String key = NOTED + rule.trade().name();
             if (!settlement.conditions().containsKey(key) && opens(settlement, rule.trade())) {

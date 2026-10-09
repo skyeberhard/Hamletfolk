@@ -363,6 +363,9 @@ public final class Planner {
                         case FORGE -> "a forge lets each smith smelt four more ore a day";
                         case HARBOUR -> "a harbour is where its fishermen work, and they land a quarter more";
                         case PENS -> "pens are where its shepherds work, and they shear a quarter more";
+                        case MAP_ROOM -> "a map room is where its cartographers work, and they draw a quarter more";
+                        case GLASSWORKS -> "a glassworks is where its glassblowers work, and they blow a quarter more";
+                        case TRADING_POST -> "a trading post gives each merchant one more sale a day";
                         default -> "a granary halves how fast its food spoils";
                     }));
         }
@@ -373,7 +376,7 @@ public final class Planner {
         for (BuildingType building : trades) {
             out.add(new Directive(Tier.GROWTH, Kind.BUILD, building.name().toLowerCase(Locale.ROOT), Trades.reasonFor(building)));
         }
-        if (trades.isEmpty() && (s.buildingCount(BuildingType.TRADING_POST) == 0 && s.buildingCount(BuildingType.SHOP) > 0 && s.population() >= 12
+        if (trades.isEmpty() && signature != BuildingType.TRADING_POST && (s.buildingCount(BuildingType.TRADING_POST) == 0 && s.buildingCount(BuildingType.SHOP) > 0 && s.population() >= 12
                 && s.residents().stream().anyMatch(r -> r.adult() && r.occupation() == Occupation.MERCHANT))) {
             out.add(new Directive(Tier.GROWTH, Kind.BUILD, "trading_post",
                     "it has merchants and a shop, and a trading post gives each merchant one more sale a day"));
