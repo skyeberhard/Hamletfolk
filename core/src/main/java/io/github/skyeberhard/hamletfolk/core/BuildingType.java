@@ -26,7 +26,9 @@ public enum BuildingType {
     /** R5.6: street lights, a work along the plan's streets rather than a building on a lot (no sign, no lot, no template). */
     STREET_LIGHTS("Street Lights"),
     /** R5.6: a fence ring round the village, also a work on the plan rather than a building. */
-    PALISADE("Palisade");
+    PALISADE("Palisade"),
+    /** R5.10: the palisade strengthened, tier by tier, into a wall with gates and towers; also a work on the plan. */
+    RAMPART("Rampart");
 
     /** R2.3: how many residents one building gives work to. */
     public static final int WORKERS_PER_BUILDING = 4;
@@ -57,13 +59,13 @@ public enum BuildingType {
             case MINE -> Optional.of(Occupation.MINER);
             case SMITHY -> Optional.of(Occupation.TOOLSMITH);
             case SHOP -> Optional.of(Occupation.MERCHANT);
-            case HOUSE, GUARD_POST, TREASURY, SQUARE, STREET_LIGHTS, PALISADE, SAWMILL, FORGE, GRANARY -> Optional.empty();
+            case HOUSE, GUARD_POST, TREASURY, SQUARE, STREET_LIGHTS, PALISADE, RAMPART, SAWMILL, FORGE, GRANARY -> Optional.empty();
         };
     }
 
     /** R5.6: true for a work on the plan (street lights, a palisade): built by the village, never registered with a sign. */
     public boolean isWorks() {
-        return this == STREET_LIGHTS || this == PALISADE;
+        return this == STREET_LIGHTS || this == PALISADE || this == RAMPART;
     }
 
     /** e.g. "Guard Post". */

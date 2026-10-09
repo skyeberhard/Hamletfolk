@@ -6,6 +6,7 @@ import io.github.skyeberhard.hamletfolk.core.BuildingType;
 import io.github.skyeberhard.hamletfolk.core.Construction;
 import io.github.skyeberhard.hamletfolk.core.ConstructionProject;
 import io.github.skyeberhard.hamletfolk.core.HeightSource;
+import io.github.skyeberhard.hamletfolk.core.Rampart;
 import io.github.skyeberhard.hamletfolk.core.Rect;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.TerrainPad;
@@ -386,6 +387,10 @@ final class ConstructionService {
         // R4.21: 4 a second, up to 10 for a master; R4.22: times the speed setting.
         int perPass = Math.max(1, Math.min(MAX_BLOCKS_PER_PASS,
                 (int) Math.round(Construction.blocksPerPass(builder.get().built()) * speed(settlement))));
+        if (project.type() == BuildingType.RAMPART) {
+            workRampart(settlement, world, project, perPass);
+            return;
+        }
         if (project.type().isWorks()) {
             workWorks(settlement, world, project, perPass);
             return;
@@ -603,6 +608,196 @@ final class ConstructionService {
         }
     }
 
+    /** The block under a rampart column: the surface, looking down through the blocks this column's own pieces are made of. */
+    private static int rampartGround(World world, int x, int z, Set<Material> ours) {
+        int y = surfaceY(world, x, z);
+        while (y != Construction.UNKNOWN_GROUND && y > world.getMinHeight() && ours.contains(world.getBlockAt(x, y, z).getType())) {
+            y--;
+        }
+        return y;
+    }
+
+    private static Material materialOf(String block) {
+        int bracket = block.indexOf('[');
+        return Material.matchMaterial(bracket < 0 ? block : block.substring(0, bracket));
+    }
+
+    /** How long (village days) a rampart may wait for materials with nothing placed before it steps aside. */
+    private static final int RAMPART_PATIENCE_DAYS = 20;
+    /** Not saved: the village day a rampart began waiting for materials, per project. */
+    private final Map<Integer, Long> workDry = new HashMap<>();
+
+    /**
+     * R5.10: raises the rampart a few blocks a pass, piece by piece (a wall column, a gate pillar with its lintel, a tower),
+     * each block paid for from the ledger as it goes down (footings are free). What stands is worked out from the world each
+     * pass. A block is built over only if it is exactly what the tier below put there (a fence post, or a block of the lower
+     * tier); a block that is anything else, or whose column's lowest block is blocked, leaves a gap, so something a player built
+     * on the ring is never touched. If the stores cannot supply it for twenty days it steps aside, so the village can build
+     * other things, and is asked for again later.
+     */
+    private void workRampart(Settlement settlement, World world, ConstructionProject project, int perPass) {
+        VillagePlan plan = settlement.plan();
+        List<Rampart.Piece> pieces = Rampart.pieces(plan, project.stage(), project.tier());
+        if (pieces.isEmpty()) {
+            giveUp(settlement, project, "the village has no ring to build the wall on", false);
+            return;
+        }
+        boolean unattended = unattended();
+        if (unattended) {
+            Set<Long> chunks = new HashSet<>();
+            for (Rampart.Piece piece : pieces) {
+                chunks.add(chunkKey((piece.x() - 2) >> 4, (piece.z() - 2) >> 4));
+                chunks.add(chunkKey((piece.x() + 2) >> 4, (piece.z() + 2) >> 4));
+            }
+            hold(world, "p" + project.id() + "@" + settlement.id(), chunks);
+        }
+        if (!unattended && !playerNear(new Location(world, plan.centerX(), 64, plan.centerZ()))) {
+            return;
+        }
+        Map<Rampart.Pos, String> replaceable = Rampart.replaced(plan, project.stage(), project.tier());
+        Set<Long> given = skipped.computeIfAbsent(project.id(), k -> new HashSet<>());
+        Set<Long> standing = standingSpots.computeIfAbsent(project.id(), k -> new HashSet<>());
+        long day = settlement.lastSimulatedDay();
+        int placed = 0;
+        int left = 0;
+        boolean dry = false;
+        for (Rampart.Piece piece : pieces) {
+            long key = ((long) piece.x() << 32) ^ (piece.z() & 0xffffffffL);
+            if (given.contains(key) || standing.contains(key)) {
+                continue;
+            }
+            if (!loaded(world, piece.x() - 3, piece.z() - 3, 7)) {
+                left++; // not loaded yet: it waits for a player to come near, or for the chunks to be held
+                continue;
+            }
+            // The blocks this column holds when it is built, now or from the tier below: the ground is under all of them.
+            Set<Material> ours = new java.util.HashSet<>();
+            for (Rampart.Block block : piece.blocks()) {
+                Material m = materialOf(block.material());
+                if (m != null && !block.ifEmpty() && block.dx() == 0 && block.dz() == 0) {
+                    ours.add(m);
+                }
+            }
+            replaceable.forEach((pos, material) -> {
+                if (pos.x() == piece.x() && pos.z() == piece.z() && materialOf(material) != null) {
+                    ours.add(materialOf(material));
+                }
+            });
+            int ground = rampartGround(world, piece.x(), piece.z(), ours);
+            Block base = ground == Construction.UNKNOWN_GROUND ? null : world.getBlockAt(piece.x(), ground, piece.z());
+            if (base == null || !base.getType().isSolid() || base.isLiquid() || !clearable(base, true) || exemptNear(base.getLocation())) {
+                given.add(key); // water, something built, or an exempt villager near: a gap in the wall here
+                continue;
+            }
+            // Group the piece's blocks by column; a column whose lowest block is in the way is left out whole.
+            Map<Long, List<Rampart.Block>> columns = new java.util.LinkedHashMap<>();
+            for (Rampart.Block block : piece.blocks()) {
+                columns.computeIfAbsent(((long) block.dx() << 32) ^ (block.dz() & 0xffffffffL), k -> new ArrayList<>()).add(block);
+            }
+            List<Rampart.Block> todo = new ArrayList<>();
+            for (List<Rampart.Block> column : columns.values()) {
+                List<Rampart.Block> wanted = new ArrayList<>();
+                boolean firstSeen = false;
+                boolean columnBlocked = false;
+                for (Rampart.Block block : column) {
+                    Block at = world.getBlockAt(piece.x() + block.dx(), ground + block.dy(), piece.z() + block.dz());
+                    Material want = materialOf(block.material());
+                    if (want == null) {
+                        continue; // a block this server does not know: left out
+                    }
+                    boolean lowest = !block.ifEmpty() && !firstSeen;
+                    firstSeen |= !block.ifEmpty();
+                    if (block.ifEmpty()) {
+                        if (!at.getType().isSolid() && !at.isLiquid() && (at.getType().isAir() || growthOnly(at))) {
+                            wanted.add(block); // a footing where the ground falls away
+                        }
+                    } else if (at.getType() == want) {
+                        continue;
+                    } else if (at.getType().isAir() || growthOnly(at)) {
+                        wanted.add(block);
+                    } else if (at.getType().name().equals(replaceable.get(new Rampart.Pos(piece.x() + block.dx(), block.dy(),
+                            piece.z() + block.dz())))) {
+                        wanted.add(block); // exactly what the tier below put here: built over
+                    } else if (lowest) {
+                        columnBlocked = true; // the base of this column is something else: not ours to build on or over
+                    }
+                }
+                if (!columnBlocked) {
+                    todo.addAll(wanted);
+                }
+            }
+            if (todo.isEmpty()) {
+                standing.add(key);
+                continue;
+            }
+            boolean finished = true;
+            for (Rampart.Block block : todo) {
+                if (dry || placed >= perPass) {
+                    finished = false;
+                    continue;
+                }
+                BlockData data;
+                try {
+                    data = TemplateLibrary.dataOf(block.material());
+                } catch (IllegalArgumentException e) {
+                    continue; // a block this server does not know: left out, and not paid for
+                }
+                if (!block.ifEmpty() && !Construction.charge(settlement, project, block.material(), day)) {
+                    dry = true; // the stores ran dry: wait for wood or stone
+                    finished = false;
+                    continue;
+                }
+                Block at = world.getBlockAt(piece.x() + block.dx(), ground + block.dy(), piece.z() + block.dz());
+                boolean joins = Tag.FENCES.isTagged(data.getMaterial()) || Tag.WALLS.isTagged(data.getMaterial());
+                at.setBlockData(data, joins); // fences and walls with physics, so they join their neighbours
+                placed++;
+            }
+            if (!finished) {
+                left++;
+            } else {
+                standing.add(key);
+            }
+        }
+        project.setBlocksLeft(left);
+        Long progressed = workProgress.get(project.id());
+        if (progressed == null || placed > 0) {
+            workProgress.put(project.id(), day);
+        }
+        if (placed > 0 || !dry) {
+            workDry.remove(project.id());
+        } else {
+            workDry.putIfAbsent(project.id(), day);
+        }
+        if (dry && placed == 0 && day - workDry.getOrDefault(project.id(), day) >= RAMPART_PATIENCE_DAYS) {
+            workDry.remove(project.id());
+            giveUp(settlement, project, "the stores could not supply it", false); // asked for again after a while
+            return;
+        }
+        boolean stalled = left > 0 && !dry && placed == 0 && progressed != null && day - progressed >= WORKS_STALL_DAYS;
+        if (left == 0 || stalled) {
+            if (stalled) {
+                settlement.record(day, io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.BUILDING, "The rampart was left with gaps where "
+                        + left + " pieces could not be reached.");
+            }
+            Construction.finish(settlement, project, day);
+            forget(project.id());
+            plugin.requestSave();
+        } else if (placed > 0) {
+            plugin.requestSave();
+        }
+    }
+
+    private static boolean loaded(World world, int x, int z, int size) {
+        for (int cx = x >> 4; cx <= (x + size) >> 4; cx++) {
+            for (int cz = z >> 4; cz <= (z + size) >> 4; cz++) {
+                if (!world.isChunkLoaded(cx, cz)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     /**
      * R5.8: the ring has moved out: the posts of the old one that the new one does not use are taken down (only an oak
      * fence post standing on the old ring's line, which the village put there) and half their wood goes back to the stores.
@@ -620,7 +815,10 @@ final class ConstructionService {
             for (int[] d : new int[][] {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
                 onLine |= at.getRelative(d[0], 0, d[1]).getType() == Material.OAK_FENCE;
             }
-            if (at.getType() == Material.OAK_FENCE && onLine && at.getRelative(0, 1, 0).getType() != Material.TORCH) {
+            // (and never the rail on top of a rampart: that stands on the wall, not on the ground)
+            Material below = at.getRelative(0, -1, 0).getType();
+            if (at.getType() == Material.OAK_FENCE && onLine && at.getRelative(0, 1, 0).getType() != Material.TORCH
+                    && below != Material.OAK_PLANKS && below != Material.STONE_BRICKS) {
                 at.setType(Material.AIR, true);
                 taken++;
             }
@@ -642,6 +840,7 @@ final class ConstructionService {
         gradingPasses.remove(projectId);
         standingSpots.remove(projectId);
         workProgress.remove(projectId);
+        workDry.remove(projectId);
     }
 
     private void giveUp(Settlement settlement, ConstructionProject project, String reason, boolean abandonLot) {

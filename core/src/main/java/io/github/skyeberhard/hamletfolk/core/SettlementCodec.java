@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 25;
+    public static final int FORMAT_VERSION = 26;
 
     private SettlementCodec() {
     }
@@ -107,6 +107,9 @@ public final class SettlementCodec {
                 project.put("type", p.type().name());
                 project.put("tier", p.tier());
                 project.put("previousTier", p.previousTier());
+                if (p.stage() != 1) {
+                    project.put("stage", p.stage()); // R5.10
+                }
                 project.put("biome", p.biomeSet());
                 project.put("x", p.x());
                 project.put("y", p.y());
@@ -310,6 +313,7 @@ public final class SettlementCodec {
                     status = ConstructionProject.Status.CANCELLED;
                     builder = null;
                 }
+                project.setStage(p.get("stage") instanceof Number st ? st.intValue() : 1); // v25 -> v26: optional
                 project.setTurns(p.get("turns") instanceof Number t ? t.intValue() : 0);
                 project.setOldTurns(p.get("oldTurns") instanceof Number t ? t.intValue() : 0);
                 project.setGraded(Boolean.TRUE.equals(p.get("graded")));
@@ -393,6 +397,8 @@ public final class SettlementCodec {
         // an older build must refuse a save that may contain it.
         // v17 -> v18: "plan" (R8.3, the streets and lots) is optional, so an old save has none until the ground is surveyed.
         // v16 -> v17: "decisions" (R8.1, the planner's log) is optional, so an old save has none; the planner fills it in.
+        // v25 -> v26: a project may carry the "stage" of the plan it was laid out for (R5.10, the rampart) and the work RAMPART; an
+        // older build would fail on the unknown type, so it must refuse the save.
         // v24 -> v25: buildings and projects may be the SAWMILL, FORGE and GRANARY (R8.12); an older build would fail on the
         // unknown type, so it must refuse the save.
         // v23 -> v24: "xp" (R4.29, days worked in a trade) is optional on residents, so an old save's residents are novices.

@@ -77,6 +77,17 @@ public final class ConstructionProject {
         return previousTier;
     }
 
+    /** R5.10: the plan stage a rampart was laid out for (its tier is how strong it is); 1 for anything else. */
+    private int stage = 1;
+
+    public int stage() {
+        return stage;
+    }
+
+    public void setStage(int stage) {
+        this.stage = Math.max(1, stage);
+    }
+
     public boolean isUpgrade() {
         return previousTier > 0;
     }

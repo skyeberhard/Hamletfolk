@@ -165,13 +165,32 @@ public final class Works {
         return palisade(plan, plan.stage());
     }
 
-    /** As {@link #palisade(VillagePlan)}, round what the plan had laid out by a stage, with gates for the streets of that stage. */
-    public static List<Spot> palisade(VillagePlan plan, int stage) {
+    /**
+     * The ring a stage's palisade runs round, clockwise from its north-west corner: every cell of it in order, and which of
+     * them are gaps where a street leaves (R5.6). The rampart (R5.10) builds on the same cells.
+     */
+    record Ring(Rect rect, List<Spot> cells, boolean[] gap) {
+        boolean corner(int index) {
+            Spot s = cells.get(index);
+            return (s.x() == rect.x() || s.x() == rect.maxX()) && (s.z() == rect.z() || s.z() == rect.maxZ());
+        }
+    }
+
+    static Optional<Ring> ring(VillagePlan plan, int stage) {
         Optional<Rect> extent = extent(plan, stage);
         if (extent.isEmpty()) {
-            return List.of();
+            return Optional.empty();
         }
         Rect ring = extent.get().inflated(FENCE_MARGIN);
+        List<Spot> cells = ringCells(ring);
+        boolean[] gap = new boolean[cells.size()];
+        for (int i = 0; i < gap.length; i++) {
+            gap[i] = gate(plan, stage, ring, cells.get(i));
+        }
+        return Optional.of(new Ring(ring, cells, gap));
+    }
+
+    private static List<Spot> ringCells(Rect ring) {
         List<Spot> cells = new ArrayList<>();
         for (int x = ring.x(); x <= ring.maxX(); x++) {
             cells.add(new Spot(x, ring.z()));
@@ -185,10 +204,19 @@ public final class Works {
         for (int z = ring.maxZ() - 1; z > ring.z(); z--) {
             cells.add(new Spot(ring.x(), z));
         }
+        return cells;
+    }
+
+    /** As {@link #palisade(VillagePlan)}, round what the plan had laid out by a stage, with gates for the streets of that stage. */
+    public static List<Spot> palisade(VillagePlan plan, int stage) {
+        Optional<Ring> ring = ring(plan, stage);
+        if (ring.isEmpty()) {
+            return List.of();
+        }
         List<Spot> out = new ArrayList<>();
-        for (Spot cell : cells) {
-            if (!gate(plan, stage, ring, cell)) {
-                out.add(cell);
+        for (int i = 0; i < ring.get().cells().size(); i++) {
+            if (!ring.get().gap()[i]) {
+                out.add(ring.get().cells().get(i));
             }
         }
         return out;

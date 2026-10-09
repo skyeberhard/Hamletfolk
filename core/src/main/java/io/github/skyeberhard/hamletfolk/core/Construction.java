@@ -193,6 +193,7 @@ public final class Construction {
         String what = switch (project.type()) {
             case STREET_LIGHTS -> project.isUpgrade() ? "lighting the new streets." : "lighting the streets.";
             case PALISADE -> project.isUpgrade() ? "moving the palisade out round the grown village." : "raising the palisade.";
+            case RAMPART -> project.tier() >= Rampart.LAST_TIER ? "rebuilding the rampart in stone." : "raising the rampart.";
             default -> (project.isUpgrade() ? "upgrading the " : "building a ") + project.type().label().toLowerCase(Locale.ROOT)
                     + " (tier " + project.tier() + ").";
         };
@@ -353,6 +354,25 @@ public final class Construction {
                 && (p.status() == ConstructionProject.Status.DONE || p.isOpen()));
     }
 
+    /**
+     * R5.10: how strong the wall round the village is for this stage of its plan: 0 with no palisade, 1 the fence, 2 or 3 the
+     * rampart of that tier if one was laid out for this stage or a later one.
+     */
+    public static int wallTier(Settlement settlement, int stage) {
+        int tier = worksDone(settlement, BuildingType.PALISADE, stage) ? 1 : 0;
+        for (ConstructionProject p : settlement.projects()) {
+            if (p.type() == BuildingType.RAMPART && p.status() == ConstructionProject.Status.DONE && p.stage() >= stage) {
+                tier = Math.max(tier, p.tier());
+            }
+        }
+        return tier;
+    }
+
+    /** R5.10: true if a rampart is being built. */
+    public static boolean rampartOpen(Settlement settlement) {
+        return settlement.projects().stream().anyMatch(p -> p.type() == BuildingType.RAMPART && p.isOpen());
+    }
+
     /** True if the village has finished the work, for any stage. */
     public static boolean worksDone(Settlement settlement, BuildingType type) {
         return worksDone(settlement, type, 1);
@@ -366,6 +386,11 @@ public final class Construction {
 
     /** True if there is nothing to start: it stands or is in hand, was given up lately, or the plan has no place for it. */
     private static boolean worksSettled(Settlement settlement, BuildingType type, long day) {
+        if (type == BuildingType.RAMPART) {
+            return rampartOpen(settlement) || Works.spots(BuildingType.PALISADE, settlement.plan()).isEmpty()
+                    || settlement.projects().stream().anyMatch(p -> p.type() == type && p.status() == ConstructionProject.Status.CANCELLED
+                            && day - p.finishedDay() < WORKS_RETRY_DAYS);
+        }
         return hasWorks(settlement, type, settlement.plan().stage()) || Works.spots(type, settlement.plan()).isEmpty()
                 || settlement.projects().stream().anyMatch(p -> p.type() == type
                         && p.status() == ConstructionProject.Status.CANCELLED && day - p.finishedDay() < WORKS_RETRY_DAYS);
@@ -380,7 +405,10 @@ public final class Construction {
         VillagePlan plan = settlement.plan();
         int before = settlement.projects().stream().filter(p -> p.type() == type && p.status() == ConstructionProject.Status.DONE)
                 .mapToInt(ConstructionProject::tier).max().orElse(0);
-        Map<ResourceType, Integer> price = Works.price(type, plan, before, plan.stage()); // R5.8: only the new posts
+        // R5.10: a rampart is the next tier up from the wall there is now, over the whole ring
+        int nextTier = Math.min(Rampart.LAST_TIER, Math.max(Rampart.FIRST_TIER, wallTier(settlement, plan.stage()) + 1));
+        Map<ResourceType, Integer> price = type == BuildingType.RAMPART ? Rampart.price(plan, plan.stage(), nextTier)
+                : Works.price(type, plan, before, plan.stage()); // R5.8: only the new posts
         StringBuilder lacks = new StringBuilder();
         price.forEach((resource, units) -> {
             int needed = Math.min(units, (int) (SettlementSimulator.capacity(settlement, resource) * WORKS_START_SHARE));
@@ -391,7 +419,8 @@ public final class Construction {
                         .append(resource.name().toLowerCase(Locale.ROOT)).append(" (it has ").append(have).append(')');
             }
         });
-        String name = type == BuildingType.STREET_LIGHTS ? "the street lights" : "the palisade";
+        String name = type == BuildingType.STREET_LIGHTS ? "the street lights"
+                : type == BuildingType.RAMPART ? "a tier " + nextTier + " rampart" : "the palisade";
         if (lacks.length() > 0) {
             Long last = settlement.conditions().get(BLOCKED + ":" + type.name());
             if (last == null || day - last >= BLOCKED_REMINDER_DAYS) {
@@ -404,12 +433,19 @@ public final class Construction {
         // R5.8: a work's tier is the plan stage it is laid out for; the previous tier is the ring it replaces, if any.
         int previous = settlement.projects().stream().filter(p -> p.type() == type && p.status() == ConstructionProject.Status.DONE)
                 .mapToInt(ConstructionProject::tier).max().orElse(0);
-        ConstructionProject project = new ConstructionProject(settlement.nextProjectId(), type, plan.stage(), previous, "plains",
-                plan.centerX(), 0, plan.centerZ(), -1, day);
+        ConstructionProject project = type == BuildingType.RAMPART
+                ? new ConstructionProject(settlement.nextProjectId(), type, nextTier, nextTier - 1, "plains", plan.centerX(), 0,
+                        plan.centerZ(), -1, day)
+                : new ConstructionProject(settlement.nextProjectId(), type, plan.stage(), previous, "plains",
+                        plan.centerX(), 0, plan.centerZ(), -1, day);
+        project.setStage(plan.stage());
         settlement.addProject(project);
         settlement.conditions().put(DECIDED, day);
         settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " set out to "
-                + (type == BuildingType.STREET_LIGHTS ? "light its streets" : "raise a palisade") + ": " + reason + ".");
+                + (type == BuildingType.STREET_LIGHTS ? "light its streets" : type == BuildingType.RAMPART
+                        ? (nextTier == Rampart.FIRST_TIER ? "raise a rampart of planks, with gates and watch towers"
+                                : "rebuild its rampart in stone")
+                        : "raise a palisade") + ": " + reason + ".");
         return Optional.of(project);
     }
 
@@ -459,7 +495,9 @@ public final class Construction {
                     if (works.isPresent()) {
                         return works;
                     }
-                    needUnmet = true;
+                    // Lights and a fence are saved up for ahead of everything else; a stronger wall is not worth stopping the
+                    // village's other building for (it still notes what it lacks, so a lumberjack is taken on).
+                    needUnmet |= type.get() != BuildingType.RAMPART;
                 }
                 continue;
             }

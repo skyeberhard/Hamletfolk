@@ -180,7 +180,7 @@ recomputed. The new ring is built first. Then the old sections that are now insi
 go back to the stores. Only posts the village placed are removed (they are on record). Later, at town size, inner rings
 become district boundaries: an old town and a new quarter.
 
-### The wall upgrades in tiers
+### The wall upgrades in tiers (built: R5.10, tiers 1 to 3; the keep and battlements of tier 4 are not)
 
 | Tier | Wall | Gates | Towers |
 |---|---|---|---|

@@ -219,9 +219,38 @@ public final class Planner {
                     : "the village has been attacked " + (attacks == 1 ? "once" : attacks + " times")
                             + ", and a fence keeps monsters from walking in"));
         }
+        // R5.10: a town that has been threatened strengthens the wall it has, a tier at a time.
+        if (Construction.worksDone(settlement, BuildingType.PALISADE, stage) && !Construction.rampartOpen(settlement)) {
+            int built = Construction.wallTier(settlement, stage);
+            int wanted = wallTierWanted(settlement, day);
+            if (wanted > built) {
+                int next = Math.max(Rampart.FIRST_TIER, built + 1);
+                out.add(new Directive(Tier.SAFETY, Kind.BUILD, "rampart", "it is a " + VillageCharacter.Stage.of(settlement.population()).label()
+                        + " that has been attacked lately, and " + (next == Rampart.FIRST_TIER
+                                ? "a wall of planks with gates and watch towers keeps out more than a fence"
+                                : "a wall of stone outlasts one of wood")));
+            }
+        }
         out.addAll(rest);
         return out;
     }
+
+    /**
+     * R5.10: the strongest wall a village wants: none beyond the fence unless it has been attacked within the last three
+     * months; then planks for a town (20 residents) and stone for a city (50). (A martial or wary village has been attacked
+     * lately by definition.)
+     */
+    static int wallTierWanted(Settlement settlement, long day) {
+        boolean threatened = settlement.incidentDaysSince(day - THREAT_MEMORY_DAYS) > 0;
+        if (!threatened) {
+            return 1;
+        }
+        VillageCharacter.Stage size = VillageCharacter.Stage.of(settlement.population());
+        return size == VillageCharacter.Stage.CITY ? Rampart.LAST_TIER : size == VillageCharacter.Stage.TOWN ? Rampart.FIRST_TIER : 1;
+    }
+
+    /** Days after an attack that a village still counts as threatened when it considers its walls. */
+    static final int THREAT_MEMORY_DAYS = 90;
 
     /**
      * R4.20: once food is covered, a village with no mine wants one ahead of everything else, as stone and metal come
