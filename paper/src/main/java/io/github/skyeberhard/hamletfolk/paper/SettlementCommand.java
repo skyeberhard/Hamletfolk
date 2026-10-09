@@ -315,6 +315,9 @@ final class SettlementCommand implements TabExecutor {
                 return;
             }
             Location here = player.getLocation();
+            // R8.14: the district you are standing in, on the action bar while the outlines are on
+            io.github.skyeberhard.hamletfolk.core.Districts.at(current, here.getBlockX(), here.getBlockZ()).ifPresent(district ->
+                    player.sendActionBar(Component.text(district.name() + " (stage " + district.stage() + ")", NamedTextColor.GOLD)));
             java.util.Map<io.github.skyeberhard.hamletfolk.core.BuildingType, List<Rect>> reserved = new java.util.EnumMap<>(
                     io.github.skyeberhard.hamletfolk.core.BuildingType.class);
             List<Rect> built = new ArrayList<>();
@@ -486,6 +489,9 @@ final class SettlementCommand implements TabExecutor {
                     + layout.square().centerX() + ", " + layout.square().centerZ() + ", " + layout.reservedCount()
                     + " lots reserved and " + layout.filledCount() + " built on (" + layout.dropped()
                     + " dropped as too steep or wet). /settlement lots shows them.", NamedTextColor.GRAY));
+            for (String district : io.github.skyeberhard.hamletfolk.core.Districts.describe(s)) { // R8.14
+                player.sendMessage(Component.text("  " + district, NamedTextColor.GRAY));
+            }
         }
         String land = io.github.skyeberhard.hamletfolk.core.LandCounts.describe(s);
         if (!land.isEmpty()) {

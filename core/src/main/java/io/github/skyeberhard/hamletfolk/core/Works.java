@@ -111,7 +111,7 @@ public final class Works {
                 continue;
             }
             Rect r = road.rect();
-            boolean alongX = r.width() >= r.depth();
+            boolean alongX = plan.runsAlongX(road); // (not by shape: a short extension of the street is wider than it is long)
             int length = alongX ? r.width() : r.depth();
             for (int i = LIGHT_SPACING / 2; i < length; i += LIGHT_SPACING) {
                 out.add(alongX ? new Spot(r.x() + i, r.z()) : new Spot(r.x(), r.z() + i));
@@ -229,7 +229,7 @@ public final class Works {
                 continue;
             }
             Rect r = road.rect();
-            boolean alongX = r.width() >= r.depth();
+            boolean alongX = plan.runsAlongX(road);
             if (alongX && cell.z() >= r.z() && cell.z() <= r.maxZ() && (cell.x() == ring.x() || cell.x() == ring.maxX())) {
                 return true;
             }

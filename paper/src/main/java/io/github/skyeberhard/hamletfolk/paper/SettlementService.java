@@ -27,6 +27,7 @@ import io.github.skyeberhard.hamletfolk.core.SettlementRegistry;
 import io.github.skyeberhard.hamletfolk.core.SettlementSimulator;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -167,8 +168,13 @@ final class SettlementService {
 
     /** True if every chunk within {@code radius} blocks of a point is loaded, so the ground there can be measured. */
     private static boolean groundLoaded(World world, int cx, int cz, int radius) {
-        for (int x = (cx - radius) >> 4; x <= (cx + radius) >> 4; x++) {
-            for (int z = (cz - radius) >> 4; z <= (cz + radius) >> 4; z++) {
+        return groundLoaded(world, cx, cz, radius, radius);
+    }
+
+    /** As above, for a rectangle: {@code reachX} blocks east and west of the point and {@code reachZ} north and south. */
+    private static boolean groundLoaded(World world, int cx, int cz, int reachX, int reachZ) {
+        for (int x = (cx - reachX) >> 4; x <= (cx + reachX) >> 4; x++) {
+            for (int z = (cz - reachZ) >> 4; z <= (cz + reachZ) >> 4; z++) {
                 if (!world.isChunkLoaded(x, z)) {
                     return false;
                 }
@@ -188,10 +194,20 @@ final class SettlementService {
             return;
         }
         VillagePlan plan = settlement.plan();
-        if (plan != null && (plan.stage() >= 2 || settlement.population() < STAGE_TWO_POPULATION)) {
+        // R8.14: up to four stages, at 25, 50 and 100 residents; one at a time, each only once the ground it needs is loaded
+        int wantedStage = plan == null ? 1 : PlanGenerator.stageFor(settlement.population());
+        if (plan != null && plan.stage() >= wantedStage) {
             return;
         }
-        if (!groundLoaded(world, settlement.centerX(), settlement.centerZ(), 112)) {
+        int needStage = plan == null ? 1 : plan.stage() + 1;
+        int reach = PlanGenerator.readRadius(needStage);
+        // The first two stages measure a square (as they always did); the later ones are a strip along the main street, so a server with an
+        // ordinary view distance can still lay them out: the street and its branches reach about 60 blocks to either side.
+        boolean strip = plan != null && needStage >= 3;
+        boolean alongX = plan != null && plan.spineAlongX();
+        int reachX = strip && !alongX ? 96 : reach;
+        int reachZ = strip && alongX ? 96 : reach;
+        if (!groundLoaded(world, settlement.centerX(), settlement.centerZ(), reachX, reachZ)) {
             return;
         }
         if (plan == null && !PlanGenerator.siteUsable(terrainOf(world), settlement.centerX(), settlement.centerZ())) {
@@ -202,12 +218,16 @@ final class SettlementService {
             settlement.setPlan(PlanGenerator.generate(settlement.centerX(), settlement.centerZ(), seed, "plains", terrainOf(world)));
             plugin.requestSave();
         } else if (PlanGenerator.extend(plan, terrainOf(world))) {
+            java.util.List<io.github.skyeberhard.hamletfolk.core.Districts.District> districts =
+                    io.github.skyeberhard.hamletfolk.core.Districts.of(plan);
+            if (!districts.isEmpty() && districts.get(districts.size() - 1).stage() == plan.stage()) {
+                settlement.record(settlement.lastSimulatedDay(), HistoryEvent.Kind.MILESTONE, settlement.name()
+                        + " has outgrown its streets: " + districts.get(districts.size() - 1).name().toLowerCase(Locale.ROOT)
+                        + " is laid out beyond them.");
+            }
             plugin.requestSave();
         }
     }
-
-    /** The population at which a village's plan grows to its second stage. */
-    static final int STAGE_TWO_POPULATION = 25;
 
     /**
      * R1.8: reports where each loaded villager of a settlement is, so one that has settled in another

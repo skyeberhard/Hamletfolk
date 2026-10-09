@@ -102,6 +102,11 @@ public final class VillagePlan {
         this.square = square;
     }
 
+    /** True if a road runs east-west: the main street along the spine's axis, a branch across it (whatever its length). */
+    public boolean runsAlongX(Road road) {
+        return road.kind() == RoadKind.SPINE ? spineAlongX : !spineAlongX;
+    }
+
     public List<Road> roads() {
         return java.util.Collections.unmodifiableList(roads);
     }
@@ -275,8 +280,9 @@ public final class VillagePlan {
                         number(l, "stage").intValue(), LotStatus.valueOf(String.valueOf(l.get("status")))));
             }
         }
-        if (plan.roads.stream().filter(r -> r.kind() == RoadKind.SPINE).count() != 1) {
-            throw new IllegalArgumentException("a plan needs exactly one main street");
+        // (the main street is one piece at stage 1 and a piece more for every stage that lengthened it: R8.3, R8.14)
+        if (plan.roads.stream().filter(r -> r.kind() == RoadKind.SPINE).count() < 1) {
+            throw new IllegalArgumentException("a plan needs a main street");
         }
         return plan;
     }

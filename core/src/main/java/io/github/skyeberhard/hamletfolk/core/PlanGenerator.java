@@ -26,11 +26,42 @@ public final class PlanGenerator {
     static final int BRANCH_LEN_1 = 28;
     static final int BRANCH_AT_2 = 52;
     static final int BRANCH_LEN_2 = 36;
+    /** R8.14: the plan grows to four stages. */
+    public static final int MAX_STAGE = 4;
+    /** Residents at which the plan reaches each stage (index is the stage). */
+    private static final int[] STAGE_POPULATION = {0, 0, 25, 50, 100};
+    /** How far the spine runs, where a stage's branches cross it and how long they are (index is the stage). */
+    private static final int[] SPINE = {0, SPINE_1, SPINE_2, 100, 128};
+    private static final int[] BRANCH_AT = {0, BRANCH_AT_1, BRANCH_AT_2, 76, 104};
+    private static final int[] BRANCH_LEN = {0, BRANCH_LEN_1, BRANCH_LEN_2, 40, 44};
+
+    /** The stage of plan a village of this many residents has: 1 to {@link #MAX_STAGE}. */
+    public static int stageFor(int population) {
+        int stage = 1;
+        for (int s = 2; s <= MAX_STAGE; s++) {
+            if (population >= STAGE_POPULATION[s]) {
+                stage = s;
+            }
+        }
+        return stage;
+    }
+
+    /** How far from the centre the ground must be loaded and measured to lay out a stage (its spine and a margin). */
+    public static int readRadius(int stage) {
+        // (never less than the 112 the first two stages always needed: the axis choice samples 96 blocks each way)
+        return Math.max(112, SPINE[Math.max(1, Math.min(MAX_STAGE, stage))] + 40);
+    }
 
     private static final BuildingType[] STAGE_ONE = {BuildingType.HOUSE, BuildingType.FARM, BuildingType.HOUSE,
             BuildingType.SHOP, BuildingType.HOUSE, BuildingType.MINE, BuildingType.HOUSE, BuildingType.SMITHY,
             BuildingType.HOUSE, BuildingType.TREASURY, BuildingType.HOUSE, BuildingType.GUARD_POST, BuildingType.FARM,
             BuildingType.HOUSE};
+    private static final BuildingType[] STAGE_THREE = {BuildingType.HOUSE, BuildingType.SHOP, BuildingType.HOUSE,
+            BuildingType.TREASURY, BuildingType.HOUSE, BuildingType.FARM, BuildingType.HOUSE, BuildingType.GUARD_POST,
+            BuildingType.HOUSE, BuildingType.SMITHY};
+    private static final BuildingType[] STAGE_FOUR = {BuildingType.HOUSE, BuildingType.HOUSE, BuildingType.SHOP,
+            BuildingType.HOUSE, BuildingType.FARM, BuildingType.HOUSE, BuildingType.MINE, BuildingType.HOUSE,
+            BuildingType.GUARD_POST, BuildingType.HOUSE};
     private static final BuildingType[] STAGE_TWO = {BuildingType.HOUSE, BuildingType.HOUSE, BuildingType.FARM,
             BuildingType.HOUSE, BuildingType.SHOP, BuildingType.HOUSE, BuildingType.SMITHY, BuildingType.HOUSE,
             BuildingType.FARM, BuildingType.HOUSE};
@@ -101,35 +132,42 @@ public final class PlanGenerator {
     }
 
     /**
-     * Grows the plan to stage 2: the spine is lengthened, two more branches are added, and the new streets get their
-     * own lots. Does nothing, and returns false, if the plan is already at stage 2.
+     * Grows the plan by one stage (up to {@link #MAX_STAGE}): the spine is lengthened, two more branches are added further
+     * out, and the new streets get their own lots. Does nothing, and returns false, if the plan is already at the last stage.
+     * (R8.14: stages 3 and 4 are the same again, further out.)
      */
     public static boolean extend(VillagePlan plan, HeightSource terrain) {
-        if (plan.stage() >= 2) {
+        int next = plan.stage() + 1;
+        if (next > MAX_STAGE) {
             return false;
         }
         Frame frame = new Frame(plan.centerX(), plan.centerZ(), plan.spineAlongX());
-        VillagePlan.Road spine = plan.roads().stream().filter(r -> r.kind() == VillagePlan.RoadKind.SPINE).findFirst()
-                .orElseThrow();
-        int oldUp = alongMax(frame, spine.rect());
-        int oldDown = -alongMin(frame, spine.rect());
-        int up = armLength(terrain, frame, oldUp + 1, SPINE_2, +1, 0);
-        int down = armLength(terrain, frame, oldDown + 1, SPINE_2, -1, 0);
+        int oldUp = 0;
+        int oldDown = 0;
+        for (VillagePlan.Road road : plan.roads()) {
+            if (road.kind() == VillagePlan.RoadKind.SPINE) {
+                oldUp = Math.max(oldUp, alongMax(frame, road.rect()));
+                oldDown = Math.max(oldDown, -alongMin(frame, road.rect()));
+            }
+        }
+        int up = armLength(terrain, frame, oldUp + 1, SPINE[next], +1, 0);
+        int down = armLength(terrain, frame, oldDown + 1, SPINE[next], -1, 0);
         List<Arm> arms = new ArrayList<>();
         if (up > oldUp) {
             plan.addRoad(new VillagePlan.Road(plan.newId(), VillagePlan.RoadKind.SPINE,
-                    frame.rect(oldUp + 1, -SPINE_HALF_WIDTH, up - oldUp, 2 * SPINE_HALF_WIDTH + 1), 2));
+                    frame.rect(oldUp + 1, -SPINE_HALF_WIDTH, up - oldUp, 2 * SPINE_HALF_WIDTH + 1), next));
             arms.add(new Arm(true, 0, +1, oldUp + 2, up, SPINE_HALF_WIDTH));
         }
         if (down > oldDown) {
             plan.addRoad(new VillagePlan.Road(plan.newId(), VillagePlan.RoadKind.SPINE,
-                    frame.rect(-down, -SPINE_HALF_WIDTH, down - oldDown, 2 * SPINE_HALF_WIDTH + 1), 2));
+                    frame.rect(-down, -SPINE_HALF_WIDTH, down - oldDown, 2 * SPINE_HALF_WIDTH + 1), next));
             arms.add(new Arm(true, 0, -1, oldDown + 2, down, SPINE_HALF_WIDTH));
         }
-        addBranch(plan, frame, terrain, +BRANCH_AT_2, BRANCH_LEN_2, 2, arms, up);
-        addBranch(plan, frame, terrain, -BRANCH_AT_2, BRANCH_LEN_2, 2, arms, down);
-        plan.setStage(2);
-        placeLots(plan, frame, terrain, arms, STAGE_TWO, 2, plan.lots().size());
+        addBranch(plan, frame, terrain, +BRANCH_AT[next], BRANCH_LEN[next], next, arms, up);
+        addBranch(plan, frame, terrain, -BRANCH_AT[next], BRANCH_LEN[next], next, arms, down);
+        plan.setStage(next);
+        BuildingType[][] sequences = {null, STAGE_ONE, STAGE_TWO, STAGE_THREE, STAGE_FOUR};
+        placeLots(plan, frame, terrain, arms, sequences[next], next, plan.lots().size());
         return true;
     }
 

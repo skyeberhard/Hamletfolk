@@ -281,7 +281,7 @@ class VillagePlanTest {
                 assertFalse(overlap(plan.lots().get(i).rect(), plan.lots().get(j).rect()));
             }
         }
-        assertFalse(PlanGenerator.extend(plan, HeightSource.flat(64)), "only once");
+        assertEquals(2, plan.stage()); // (stages 3 and 4 follow, and then it stops: see DistrictsTest)
     }
 
     @Test

@@ -90,6 +90,11 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   never insert before them) and are never stored: `Settlement.leaning()` returns them only when the stored biome reading is ALL_ROUND,
   from `LandCounts` (`Leaning.fromCounts`). A leaning's signature that is also a trade building (`Trades.isTradeBuilding`: harbour, pens,
   map room, glassworks) is asked for by the trade rule once its trade opens, not by the signature rule; the trading post is not a trade building.
+- **Plan stages and districts (R8.14):** `VillagePlan.stage()` runs 1 to `PlanGenerator.MAX_STAGE` (4); `PlanGenerator.stageFor(population)` says which
+  stage a village is big enough for (25, 50, 100) and `extend` adds one stage at a time (the main street is one `SPINE` road piece per stage:
+  never assume there is one, and `VillagePlan.fromMap` accepts any number of them). `Districts` (core) derives the districts from the plan,
+  never stored: stage 1 is the old town, stage 2 the new quarter, later ones are named for the commonest non-house lot type of their stage.
+  `Districts.wall` reads the finished PALISADE (its tier is the stage) and RAMPART (its `stage()`) projects.
 - **Workshop trades (R8.15):** fletcher, mason, weaponsmith, armorer and cleric are `Trades` rules too, but their triggers also read the
   settlement (a mine, a smithy, an attack in the last 90 days, metal in the stores, temperament, size). A building can employ more than one
   trade: use `BuildingType.jobs()`, not `job()` (the first), when counting places. `Trades.wanted` lists a building once however many of its
