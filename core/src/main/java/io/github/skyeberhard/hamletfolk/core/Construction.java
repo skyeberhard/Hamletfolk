@@ -555,13 +555,13 @@ public final class Construction {
      * It decides which buildings are improved first.
      */
     public enum Direction {
-        FARMING("farming", BuildingType.FARM, BuildingType.HOUSE),
-        FORESTRY("timber", BuildingType.HOUSE, BuildingType.SHOP),
-        MINING("mining", BuildingType.MINE, BuildingType.SMITHY),
+        FARMING("farming", BuildingType.FARM, BuildingType.HOUSE, BuildingType.GRANARY),
+        FORESTRY("timber", BuildingType.HOUSE, BuildingType.SHOP, BuildingType.SAWMILL),
+        MINING("mining", BuildingType.MINE, BuildingType.SMITHY, BuildingType.FORGE),
         CRAFT("craft", BuildingType.SMITHY, BuildingType.SHOP),
         TRADE("trading", BuildingType.SHOP, BuildingType.TREASURY),
         FISHING("fishing", BuildingType.HOUSE, BuildingType.SHOP),
-        PASTORAL("pastoral", BuildingType.FARM, BuildingType.HOUSE),
+        PASTORAL("pastoral", BuildingType.FARM, BuildingType.HOUSE, BuildingType.GRANARY),
         UNDECIDED("all-round");
 
         private final String label;

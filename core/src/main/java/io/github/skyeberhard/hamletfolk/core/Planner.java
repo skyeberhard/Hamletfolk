@@ -323,6 +323,17 @@ public final class Planner {
         if (out.isEmpty() && s.freeBeds() == 0 && s.housing().counted() && s.housingCapacity() > 0) {
             out.add(new Directive(Tier.GROWTH, Kind.BUILD, "house", "every bed is taken, and a spare bed is what lets newcomers settle"));
         }
+        // R8.12: what the land calls for, once the village is big enough to afford the room: one of its signature building.
+        BuildingType signature = s.leaning().signature();
+        // (still asked for while one is queued or being built: the planner dropping the ask would cancel the queued project)
+        if (signature != null && s.population() >= VillageCharacter.Stage.VILLAGE.from() && s.buildingCount(signature) == 0) {
+            out.add(new Directive(Tier.GROWTH, Kind.BUILD, signature.name().toLowerCase(Locale.ROOT),
+                    "it is a " + s.leaning().label() + " village, and " + switch (signature) {
+                        case SAWMILL -> "a sawmill makes its lumberjacks' wood go a quarter further";
+                        case FORGE -> "a forge lets each smith smelt four more ore a day";
+                        default -> "a granary halves how fast its food spoils";
+                    }));
+        }
         return out;
     }
 

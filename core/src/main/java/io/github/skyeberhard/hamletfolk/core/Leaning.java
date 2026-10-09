@@ -42,6 +42,16 @@ public enum Leaning {
         return reason;
     }
 
+    /** The building this leaning calls for once every need is met (R8.12), or null if it has none yet. */
+    public BuildingType signature() {
+        return switch (this) {
+            case TIMBER -> BuildingType.SAWMILL;
+            case MINING -> BuildingType.FORGE;
+            case FARMING, PASTORAL -> BuildingType.GRANARY;
+            case FISHING, ALL_ROUND -> null;
+        };
+    }
+
     /** True for a trade of this leaning, which is staffed sooner. */
     public boolean favours(Occupation trade) {
         return trades.contains(trade);

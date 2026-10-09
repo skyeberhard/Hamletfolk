@@ -113,6 +113,10 @@ public final class SettlementSimulator {
     static final int STORAGE_PER_RESIDENT = 10;
     /** R3.10: percent of the food stock that spoils each day (whole units, so a small stock keeps). */
     static final int FOOD_SPOILAGE_PERCENT = 2;
+    /** R8.12: a granary halves it; a sawmill adds this share to a lumberjack's output; a forge this many smelts to each smith. */
+    static final int GRANARY_SPOILAGE_PERCENT = 1;
+    static final double SAWMILL_OUTPUT = 1.25;
+    static final int FORGE_SMELTS = 4;
     /** A shortage returning within this many days of its recorded end isn't recorded again. */
     static final int SHORTAGE_QUIET_DAYS = 7;
 
@@ -383,7 +387,8 @@ public final class SettlementSimulator {
     /** R3.10: food spoils, then anything beyond a resource's storage limit is wasted. */
     private static void spoilAndCap(Settlement settlement) {
         Ledger ledger = settlement.ledger();
-        ledger.take(ResourceType.FOOD, ledger.get(ResourceType.FOOD) * FOOD_SPOILAGE_PERCENT / 100);
+        int spoilage = settlement.buildingCount(BuildingType.GRANARY) > 0 ? GRANARY_SPOILAGE_PERCENT : FOOD_SPOILAGE_PERCENT; // R8.12
+        ledger.take(ResourceType.FOOD, ledger.get(ResourceType.FOOD) * spoilage / 100);
         for (ResourceType type : ResourceType.values()) {
             ledger.take(type, ledger.get(type) - capacity(settlement, type));
         }
@@ -676,6 +681,9 @@ public final class SettlementSimulator {
         double diligence = 0.5 + resident.traits().workEthic() / 100.0;
         double ageFactor = resident.stage(day) == LifeStage.ELDER ? ELDER_OUTPUT : 1.0;
         double skill = TradeLevel.outputFactor(resident.level()); // R4.29
+        if (occupation == Occupation.LUMBERJACK && settlement.buildingCount(BuildingType.SAWMILL) > 0) {
+            skill *= SAWMILL_OUTPUT; // R8.12
+        }
         int output = (int) Math.floor(occupation.baseOutput() * diligence * toolFactor * needsFactor(resident.needs())
                 * ageFactor * skill + random.nextDouble());
         ledger.add(product, output);
@@ -737,7 +745,7 @@ public final class SettlementSimulator {
         }
 
         long capacity = settlement.residents().stream().filter(r -> r.adult() && r.occupation().isSmith())
-                .mapToLong(r -> TradeLevel.smelts(r.level())).sum(); // R4.29: each smith by their level
+                .mapToLong(r -> TradeLevel.smelts(r.level()) + (settlement.buildingCount(BuildingType.FORGE) > 0 ? FORGE_SMELTS : 0)).sum(); // R4.29, R8.12
         long credit = settlement.conditions().getOrDefault(SMELT_CREDIT, 0L);
         smelting:
         for (Commodity[] pair : SMELTS) {

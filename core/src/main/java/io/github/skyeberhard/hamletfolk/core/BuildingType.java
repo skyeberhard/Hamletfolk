@@ -17,6 +17,12 @@ public enum BuildingType {
     TREASURY("Treasury"),
     /** R4.7: the village's meeting place, with its bell: the game's own town-centre pieces, built once on the main square. */
     SQUARE("Town Square"),
+    /** R8.12: a timber village's signature building: its lumberjacks make a quarter more wood. */
+    SAWMILL("Sawmill"),
+    /** R8.12: a mining village's: each smith smelts four more ore a day. */
+    FORGE("Forge"),
+    /** R8.12: a farming or pastoral village's: food spoils half as fast. */
+    GRANARY("Granary"),
     /** R5.6: street lights, a work along the plan's streets rather than a building on a lot (no sign, no lot, no template). */
     STREET_LIGHTS("Street Lights"),
     /** R5.6: a fence ring round the village, also a work on the plan rather than a building. */
@@ -51,7 +57,7 @@ public enum BuildingType {
             case MINE -> Optional.of(Occupation.MINER);
             case SMITHY -> Optional.of(Occupation.TOOLSMITH);
             case SHOP -> Optional.of(Occupation.MERCHANT);
-            case HOUSE, GUARD_POST, TREASURY, SQUARE, STREET_LIGHTS, PALISADE -> Optional.empty();
+            case HOUSE, GUARD_POST, TREASURY, SQUARE, STREET_LIGHTS, PALISADE, SAWMILL, FORGE, GRANARY -> Optional.empty();
         };
     }
 

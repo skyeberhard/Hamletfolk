@@ -91,7 +91,7 @@ village of smiths. An elder (R6.4) can tilt policy.
 
 Stage can fall as well as rise (R8.9), and the history says when it changes.
 
-## 4. How character shows
+## 4. How character shows (signature buildings built: R8.12 sawmill, forge, granary)
 
 Character the player cannot see does not exist. Every trait has to be visible somewhere:
 

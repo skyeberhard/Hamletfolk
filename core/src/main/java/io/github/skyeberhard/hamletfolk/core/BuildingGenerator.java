@@ -24,7 +24,7 @@ public final class BuildingGenerator {
     /** True for the building types that are generated (the rest come from vanilla village pieces). */
     public static boolean generates(BuildingType type) {
         return switch (type) {
-            case MINE, GUARD_POST, SHOP, TREASURY -> true;
+            case MINE, GUARD_POST, SHOP, TREASURY, SAWMILL, FORGE, GRANARY -> true;
             case FARM, SMITHY, HOUSE, SQUARE, STREET_LIGHTS, PALISADE -> false;
         };
     }
@@ -38,7 +38,7 @@ public final class BuildingGenerator {
             throw new IllegalArgumentException("tier must be 1 to " + TIERS);
         }
         int size = tier == 1 ? 5 : 7;
-        boolean stone = tier == 2 || type == BuildingType.TREASURY;
+        boolean stone = tier == 2 || type == BuildingType.TREASURY || type == BuildingType.FORGE;
         Plan plan = new Plan(size, size);
         plan.hut(stone ? "STONE_BRICKS" : "OAK_PLANKS", stone ? "STONE_BRICKS" : "OAK_LOG",
                 stone ? "COBBLESTONE" : "OAK_PLANKS", type == BuildingType.TREASURY ? "IRON_BARS" : "GLASS_PANE");
@@ -47,6 +47,9 @@ public final class BuildingGenerator {
             case GUARD_POST -> plan.guardPost(tier);
             case SHOP -> plan.shop();
             case TREASURY -> plan.treasury(tier);
+            case SAWMILL -> plan.sawmill(tier);
+            case FORGE -> plan.forge(tier);
+            case GRANARY -> plan.granary(tier);
             default -> throw new IllegalStateException();
         }
         plan.sign();
@@ -147,6 +150,54 @@ public final class BuildingGenerator {
             if (tier == 2) {
                 put(1, 1, 2, "CHEST");
                 put(width - 2, 1, 2, "CHEST");
+            }
+        }
+
+        /** R8.12: stacked logs and planks, a chest of tools, a sawing bench (a fence and slab) and a lantern. */
+        void sawmill(int tier) {
+            put(1, 1, 1, "OAK_LOG");
+            put(2, 1, 1, "OAK_LOG");
+            put(1, 2, 1, "OAK_LOG");
+            put(width - 2, 1, 1, "OAK_PLANKS");
+            put(width - 2, 2, 1, "OAK_PLANKS");
+            put(width - 2, 1, 2, "CHEST");
+            put(width / 2, 1, 2, "OAK_FENCE");
+            put(width / 2, 2, 2, "OAK_SLAB");
+            put(width - 2, 2, 2, "LANTERN"); // on the chest, as in the other designs
+            if (tier == 2) {
+                put(1, 1, 2, "OAK_LOG");
+                put(1, 2, 2, "OAK_LOG");
+                put(2, 2, 1, "OAK_LOG");
+                put(width - 3, 1, 1, "OAK_PLANKS");
+            }
+        }
+
+        /** R8.12: furnaces and an anvil, iron bars at the window, a chest of ore and a lantern. (No job-site blocks.) */
+        void forge(int tier) {
+            put(1, 1, 1, "FURNACE[facing=south]");
+            put(2, 1, 1, "FURNACE[facing=south]");
+            put(width - 2, 1, 1, "CHEST");
+            put(width / 2, 1, 2, "ANVIL[facing=east]");
+            put(width - 2, 2, 1, "LANTERN"); // on the chest, as in the other designs
+            put(0, 3, body / 2, "IRON_BARS");
+            if (tier == 2) {
+                put(3, 1, 1, "FURNACE[facing=south]");
+                put(1, 1, 2, "CHEST");
+                put(width - 2, 1, 2, "CHEST");
+            }
+        }
+
+        /** R8.12: bales of hay and chests of grain, raised on planks off the floor. */
+        void granary(int tier) {
+            int bales = tier == 1 ? 4 : 8;
+            for (int i = 0; i < bales; i++) {
+                put(1 + i % 2, 1 + i / 4, 1 + (i / 2) % 2, "HAY_BLOCK");
+            }
+            put(width - 2, 1, 1, "CHEST");
+            put(width - 2, 1, 2, "CHEST");
+            put(width - 2, 2, 1, "LANTERN");
+            if (tier == 2) {
+                put(width - 3, 1, 1, "CHEST");
             }
         }
 

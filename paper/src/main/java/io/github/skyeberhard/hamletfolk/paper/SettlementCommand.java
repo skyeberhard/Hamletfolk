@@ -376,6 +376,9 @@ final class SettlementCommand implements TabExecutor {
             case TREASURY -> org.bukkit.Color.fromRGB(190, 60, 255);
             case GUARD_POST -> org.bukkit.Color.fromRGB(60, 130, 255);
             case SQUARE -> org.bukkit.Color.fromRGB(255, 255, 255);
+            case SAWMILL -> org.bukkit.Color.fromRGB(139, 90, 43);
+            case FORGE -> org.bukkit.Color.fromRGB(200, 80, 80);
+            case GRANARY -> org.bukkit.Color.fromRGB(220, 200, 90);
             case STREET_LIGHTS, PALISADE -> org.bukkit.Color.fromRGB(255, 255, 255); // never a lot
         };
     }
