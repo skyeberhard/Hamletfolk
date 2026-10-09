@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {village}
+warm: Something's hunting {village}, friend. Stay close to the lights.
+warm: We've had trouble after dark. Come stay with us tonight.
+warm: It's been dangerous lately. Watch out for each other.
+gruff: Something's hunting us. If it comes back, I'll be ready.
+gruff: Trouble out there. Let it come.
+gruff: Monsters. I'll deal with them. Stay behind me.
+anxious: I don't go out after dark anymore. Not after what's happened.
+anxious: Something's out there... I hear it at night.
+anxious: It isn't safe in {village}. It isn't safe anywhere.
+proud: {village} has faced worse. Let them come; we'll be ready.
+proud: The creatures will learn what {village} is made of.
+proud: We are not afraid. {village} stands.
+dry: Monsters again. Lovely. Always when I've just sat down.
+dry: Something's hunting us. So relaxing.
+dry: Danger. I'd be more worried, but I have a headache.
+gentle: It's been frightening in {village} lately. Please be careful.
+gentle: Something's out there. I hope no one else is hurt.
+gentle: Stay close to the torches, won't you?

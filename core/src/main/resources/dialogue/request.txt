@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {item} {pay} {left} {village}
+warm: We're short of {item}, friend! {village} will pay {pay} emeralds for {left} more, if you can spare some.
+warm: Could you help {village} with {item}? We'll pay {pay} emeralds for {left} more.
+warm: Bring us {left} {item}, and {village} will pay you {pay} emeralds. Fair?
+gruff: Need {item}. {left} more. {pay} emeralds. {village} pays.
+gruff: {village} wants {left} {item}. {pay} emeralds if you bring it.
+gruff: {item}. {left}. {pay} emeralds. Deal or no deal.
+anxious: We're so short of {item}... {village} will pay {pay} emeralds for {left} more. Please.
+anxious: If you could find {left} {item}, {village} would pay {pay} emeralds. We're desperate.
+anxious: {item}... we need {left} more. {pay} emeralds, please, anything.
+proud: {village} needs {item}: {left} more. We pay {pay} emeralds, and we pay fairly.
+proud: {village} will pay {pay} emeralds for {left} {item}. A fine bargain.
+proud: A worthy traveller could earn {pay} emeralds from {village} for {left} {item}.
+dry: We need {left} more {item}. {pay} emeralds, from {village}. Try to contain your excitement.
+dry: {item}. {village} will pay {pay} emeralds for {left}. Riveting stuff.
+dry: If you're looking for work: {left} {item}, {pay} emeralds.
+gentle: {village} is short of {item}. We'd be grateful for {left} more, and we'll pay {pay} emeralds.
+gentle: If you could spare {left} {item}, {village} would pay {pay} emeralds. Thank you.
+gentle: We need {left} {item}, dear traveller, and we'll pay {pay} emeralds.

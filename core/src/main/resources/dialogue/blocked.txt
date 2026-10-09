@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {input} {village}
+warm: I haven't been able to work in days, friend. There's no {input} anywhere in {village}.
+warm: Oh, I'm itching to work, but there's no {input} in {village}.
+warm: No {input} to be had, and my hands are idle. Know where I can find some?
+gruff: No {input}. Can't work. Fix it.
+gruff: Stuck. There's no {input} in {village}.
+gruff: No {input}, no work. Simple.
+anxious: I can't work... there's no {input} in {village}. What if we never get any?
+anxious: No {input} left. I keep thinking everything will fall apart.
+anxious: Without {input} I can't work. I'm so worried.
+proud: A craftsman is nothing without {input}, and {village} has none.
+proud: I haven't worked in days: there's no {input}. An insult to the trade.
+proud: Give me {input} and you'll see what I can do. {village} has none.
+dry: No {input} in {village}. I'm having a lovely rest, thanks.
+dry: I'd work, but there's no {input}. Tragic.
+dry: My trade needs {input}. {village} hasn't got any. Lucky me.
+gentle: I haven't been able to work, I'm afraid. There's no {input} in {village}.
+gentle: Oh, I do wish I had some {input}. I miss my work.
+gentle: There is no {input} to be found. I hope that changes soon.

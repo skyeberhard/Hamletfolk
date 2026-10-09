@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {village}
+warm: Our tools are worn to nothing, friend. Everything's slower in {village}.
+warm: My tools are falling apart, but we manage.
+warm: We could use new tools in {village}, truly.
+gruff: Tools are junk. Everything's slower.
+gruff: Worn out tools. Fix that and we'll talk.
+gruff: No decent tools in {village}. Don't ask why.
+anxious: The tools are nearly gone... one will break and then what?
+anxious: Our tools are worn to nothing. I'm afraid we'll fall behind.
+anxious: What if we can't get new tools? Everything's slowing down.
+proud: A worker with worn tools isn't at their best, and {village} knows it.
+proud: {village} deserves better tools than these.
+proud: Even the best hands are slowed by tools like these.
+dry: The tools are worn to nothing. Efficient, in its own way: nothing gets done quickly.
+dry: Worn tools. {village} runs at the speed of a very old snail.
+dry: Our tools have retired. Nobody told us.
+gentle: The tools are worn thin, I'm afraid. Everything is slower in {village}.
+gentle: Our tools need replacing, when someone can.
+gentle: We're managing with worn tools, as gently as we can.

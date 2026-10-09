@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {player}
+warm: Oh. {player}. I'd like to trust you, truly.
+warm: {player}. Hello. I'm trying to be friendly, honestly.
+warm: Hello, {player}. We got off on the wrong foot, didn't we?
+gruff: {player}. I'm watching you.
+gruff: Keep your hands to yourself, {player}.
+gruff: Oh. {player}. Behave.
+anxious: Oh... {player}. I'll be watching, if that's all right.
+anxious: {player}... you're not going to do anything, are you?
+anxious: It's {player}. Everyone stay calm.
+proud: {player}. I have my eye on you, and so does everyone in the village.
+proud: {player}. You'll find us hard to fool.
+proud: I know your name, {player}. Mind how you act.
+dry: {player}. Try not to burn anything down.
+dry: Oh. {player}. I've heard things.
+dry: {player}. The village has opinions about you.
+gentle: {player}... I hope you mean well.
+gentle: Hello, {player}. People are a little wary of you, you know.
+gentle: {player}. I'd like to think you're better than they say.

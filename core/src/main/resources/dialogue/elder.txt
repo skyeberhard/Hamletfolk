@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {days}
+warm: I've lived {days} days, friend, and every one was worth it!
+warm: {days} days old, and my knees complain, but I'm happy.
+warm: Come sit by me. {days} days, and I've plenty of stories.
+gruff: {days} days. Knees hurt. Don't ask.
+gruff: Old. {days} days of it. Won't see many more.
+gruff: {days} days and I'm still here. Shows what you know.
+anxious: I'm {days} days old... I don't think I've many more.
+anxious: {days} days, and I worry about what's left.
+anxious: I'm {days} days old, and my knees tell me I won't see many more.
+proud: I have lived {days} days and built this village with my hands.
+proud: {days} days of work behind me, and I'd do every one again.
+proud: {days} days, and still standing proud.
+dry: I'm {days} days old. My knees say I won't see many more. They've been right before.
+dry: {days} days. Highly recommended, but the warranty is nearly up.
+dry: {days} days, and I'm mostly creaks now.
+gentle: I've lived {days} days, dear, and I'm grateful for them.
+gentle: {days} days. My knees tell me there won't be many more.
+gentle: {days} days... a long life, and a kind one.

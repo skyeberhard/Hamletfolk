@@ -306,6 +306,17 @@ public final class Resident {
         familiarity.merge(playerId, 1, Integer::sum);
     }
 
+    /** R4.30: the last thing this resident said in small talk, so they do not say it twice running. Not saved. */
+    private String lastLine = "";
+
+    public String lastLine() {
+        return lastLine;
+    }
+
+    public void setLastLine(String lastLine) {
+        this.lastLine = lastLine == null ? "" : lastLine;
+    }
+
     Map<UUID, Integer> familiarity() {
         return familiarity;
     }

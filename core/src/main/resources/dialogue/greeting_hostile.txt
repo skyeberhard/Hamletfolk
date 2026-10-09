@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {player} {village}
+warm: {player}. I wanted to like you. {village} remembers what you did.
+warm: Oh, {player}... how could you do that to {village}?
+warm: {player}, I'm sorry, but you aren't welcome in {village} now.
+gruff: You. {village} hasn't forgotten what you did, {player}.
+gruff: {player}. Move along before someone settles it.
+gruff: Get out of {village}, {player}.
+anxious: {player}! Please... I don't want trouble. We know what you did.
+anxious: Stay back, {player}! {village} remembers!
+anxious: Oh no, it's {player}. Everyone said you might come.
+proud: {player}. {village} is a proud place, and it will not forget your crime.
+proud: You dare show your face in {village}, {player}?
+proud: The people of {village} remember, {player}. They will not forgive.
+dry: Oh, {player}. The one the whole village is talking about.
+dry: {player}. I'd say welcome, but that would be a lie.
+dry: Ah, {player}. Famous in {village}, for all the wrong reasons.
+gentle: {player}... I wish it had gone otherwise. {village} hasn't forgotten.
+gentle: Oh, {player}. There's a lot of hurt here still.
+gentle: {player}, it's hard to look at you after what happened.

@@ -213,7 +213,9 @@ class RequestTest {
         boolean said = false;
         for (int i = 0; i < 300 && !said; i++) {
             String line = Dialogue.smallTalk(talker, s, 1, random);
-            said = line.contains("will pay") && line.contains("emeralds for");
+            var request = s.requests().iterator().next();
+            said = line.contains("emeralds") && line.contains(request.type().name().toLowerCase())
+                    && line.contains(String.valueOf(request.unpaid())) && line.contains(String.valueOf(request.remaining()));
         }
         assertTrue(said);
         assertFalse(s.requests().isEmpty());

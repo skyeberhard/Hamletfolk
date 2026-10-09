@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {neighbour} {trade} {village}
+warm: Have you met {neighbour}? The {trade}. Lovely company!
+warm: {neighbour} the {trade} is the heart of this place, friend.
+warm: You must meet {neighbour}, our {trade}. They'll like you.
+gruff: {neighbour}. The {trade}. Does the job.
+gruff: Talk to {neighbour} if you need a {trade}. Not me.
+gruff: {neighbour} is the {trade}. Leave them to it.
+anxious: {neighbour}, the {trade}, worries me. Always out in the dark.
+anxious: Do you know {neighbour}? The {trade}. I hope they're all right.
+anxious: I haven't seen {neighbour} the {trade} today. Do you think they're safe?
+proud: {neighbour} is our {trade}, and a fine one. Not quite as good as me.
+proud: Ask {neighbour} about the {trade}'s work. Almost as good as mine.
+proud: We have {neighbour} the {trade}. {village} is lucky to have them.
+dry: {neighbour} is the {trade}. Talks a lot.
+dry: If you want a {trade}, there's {neighbour}. Sorry.
+dry: {neighbour}, our {trade}. I get on with them in small doses.
+gentle: {neighbour} is the {trade}, and very kind.
+gentle: Have you met {neighbour}? The {trade}. A good soul.
+gentle: I'm fond of {neighbour}, our {trade}.

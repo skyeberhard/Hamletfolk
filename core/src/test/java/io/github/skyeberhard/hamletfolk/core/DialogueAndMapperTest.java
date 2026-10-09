@@ -25,7 +25,7 @@ class DialogueAndMapperTest {
         new SettlementSimulator().simulateTo(s, 2, 100);
 
         String line = Dialogue.speak(smith, s, 2, new Random(1));
-        assertTrue(line.contains("no metal"), line);
+        assertTrue(line.contains("metal"), line); // (every tone names what is missing)
     }
 
     @Test
@@ -51,7 +51,8 @@ class DialogueAndMapperTest {
             r.recordConversation(player);
         }
         assertFalse(first.contains("Skye"));
-        assertTrue(Dialogue.greeting(r, player, "Skye").contains("Good to see you"));
+        r.recordConversation(player); // (six now: a friend)
+        assertTrue(Dialogue.greeting(r, player, "Skye").contains("Skye"), "a friend is greeted by name");
     }
 
     @Test

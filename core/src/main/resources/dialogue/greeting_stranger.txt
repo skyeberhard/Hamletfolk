@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {name}
+warm: Hello there, stranger! I'm {name}. Come in, come in.
+warm: Well met, traveller! Name's {name}. Stay a while.
+warm: A new face! I'm {name}. Welcome.
+gruff: {name}. Who are you?
+gruff: State your business. I'm {name}, and I'm busy.
+gruff: Hm. Stranger. Keep your hands where I can see them.
+anxious: Oh! I didn't see you there... I'm {name}.
+anxious: Who... who are you? I'm {name}, and I don't want any trouble.
+anxious: Are you here to help? Please say you are. I'm {name}.
+proud: I am {name}. You're standing in a fine place, traveller.
+proud: Welcome, stranger. I'm {name}, and you'll hear that name again.
+proud: Greetings. {name}, at your service, if you've something worth my time.
+dry: ...Can I help you?
+dry: Oh. A person. I'm {name}, if it matters.
+dry: Another stranger. Splendid. I'm {name}.
+gentle: Hello, dear traveller. My name is {name}.
+gentle: Oh, hello. I'm {name}. It's nice to see someone new.
+gentle: Peace be with you, stranger. I'm {name}.

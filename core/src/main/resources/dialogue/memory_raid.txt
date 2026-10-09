@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {day} {text}
+warm: I still think about day {day}, friend. {text} We pulled through together.
+warm: Day {day}... {text} We looked after each other.
+warm: {text} That was day {day}. We were stronger for it.
+gruff: Day {day}. {text} Won't forget it.
+gruff: {text} Day {day}. Don't want to talk about it.
+gruff: Day {day}. {text} We held.
+anxious: I still dream about day {day}. {text}
+anxious: Day {day}... {text} I can't forget it.
+anxious: {text} Day {day}. I hope it never happens again.
+proud: Day {day}. {text} We stood together, and we are still here.
+proud: {text} Remember day {day}, and be proud we survived.
+proud: On day {day}: {text} They'll tell it for years.
+dry: I still think about day {day}. {text} Good times.
+dry: Day {day}. {text} Lovely day out.
+dry: {text} Day {day}. I enjoyed it enormously, obviously.
+gentle: I still think about day {day}. {text}
+gentle: Day {day}... {text} It still hurts.
+gentle: {text} I remember day {day} often.

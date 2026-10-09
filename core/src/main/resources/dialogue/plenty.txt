@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {village}
+warm: We've more food than we can eat, friend! Good years don't last, so enjoy it.
+warm: The larder's full in {village}. Come eat!
+warm: What a harvest! Share a loaf with me.
+gruff: More food than we need. Don't get comfortable.
+gruff: Full stores. Good. Won't last.
+gruff: Plenty of food. Don't waste it.
+anxious: We've a surplus, but good years never last...
+anxious: The stores are full. I keep waiting for the catch.
+anxious: So much food. Surely something will go wrong.
+proud: {village} has never eaten so well. This is what good work gets you.
+proud: A surplus! {village} is flourishing.
+proud: Full larders, and all of it earned.
+dry: More food than we can eat. A real problem.
+dry: The larder's full. Shocking.
+dry: Surplus food. I'll try to bear it.
+gentle: We have plenty this year. I'm grateful for it.
+gentle: The stores are full in {village}, thank goodness.
+gentle: It's a good year. Let's be thankful.

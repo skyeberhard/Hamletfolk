@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {trade} {village}
+warm: When I grow up I want to be the best {trade} in {village}!
+warm: I'm going to be a {trade}! Watch me!
+warm: Do you think I'd be a good {trade}? I will be!
+gruff: I'm going to be a {trade}. Better than you.
+gruff: Don't talk to me. I'm planning to be a {trade}.
+gruff: I'll be the best {trade} here. Just wait.
+anxious: I want to be a {trade}... but what if I'm not good?
+anxious: Do you think a {trade} is safe? I want to be one.
+anxious: I think I'll be a {trade} if the zombies let me.
+proud: One day I'll be the greatest {trade} {village} has ever seen!
+proud: I'm going to be a {trade} and everyone will know my name.
+proud: Everyone says I'll be a wonderful {trade}.
+dry: I'll be a {trade}. It sounds better than being a child.
+dry: When I grow up I'll be a {trade}. If I grow up.
+dry: Being a {trade} must be better than this.
+gentle: I'd like to be a {trade} when I'm big.
+gentle: When I grow up, I want to be a {trade} in {village}.
+gentle: Maybe I'll be a {trade}. I like helping.

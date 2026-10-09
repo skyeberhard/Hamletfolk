@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {player}
+warm: Safe travels, {player}! Come back soon.
+warm: Goodbye, {player}! Take care of yourself.
+warm: Off already? Come back and tell me everything.
+gruff: Go on, then.
+gruff: Fine. Mind the road, {player}.
+gruff: Don't let the door hit you. Come back, though.
+anxious: Be careful out there, {player}... please.
+anxious: Oh, you're leaving? Watch for zombies.
+anxious: Goodbye, {player}. Stay out of the dark.
+proud: Farewell, {player}. Tell them what you saw here.
+proud: Go well, {player}. You'll not find a better village.
+proud: Until we meet again, {player}.
+dry: Leaving? Pity. I was almost enjoying this.
+dry: Off you go, then, {player}.
+dry: Goodbye. Try to come back in one piece.
+gentle: Goodbye for now, {player}. Take care.
+gentle: Go gently, {player}.
+gentle: Come back when you can, {player}.

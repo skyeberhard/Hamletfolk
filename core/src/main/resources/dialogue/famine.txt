@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {village}
+warm: Times are hard in {village}, friend. There's no food, but we're sharing what we find.
+warm: Oh, friend, {village} is hungry. We're rationing and holding on together.
+warm: We've no food left, but we're looking out for each other.
+gruff: No food in {village}. Don't ask me for any.
+gruff: The stores are bare. We ration, and we put up with it.
+gruff: Hungry. All of us. Next question.
+anxious: There's no food left in {village}... what are we going to do?
+anxious: We're starving, and I can't stop thinking about it.
+anxious: The stores are empty. I'm so afraid.
+proud: {village} has been hungry before and is still standing. We ration and we endure.
+proud: No food, yes. But {village} won't break over an empty larder.
+proud: We're short of food, and we'll get through it, as we always have.
+dry: No food in {village}. The cooking is excellent: nothing, nicely done.
+dry: The larder is bare. Worst feast I've attended.
+dry: We're out of food. It's very quiet at mealtimes.
+gentle: Oh, {village} has no food left. We're rationing what little we find.
+gentle: It's a hungry time in {village}. Please be kind to one another.
+gentle: The stores are empty, dear. We're sharing what we can.

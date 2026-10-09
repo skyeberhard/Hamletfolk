@@ -1,6 +1,7 @@
 package io.github.skyeberhard.hamletfolk.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.LinkedHashMap;
@@ -91,9 +92,17 @@ class ReputationTest {
         String stranger = Dialogue.greeting(resident, s, SKYE, "Skye");
         assertEquals(Dialogue.greeting(resident, SKYE, "Skye"), stranger);
         s.adjustReputation(SKYE, 80);
-        assertTrue(Dialogue.greeting(resident, s, SKYE, "Skye").contains("speaks well of you"));
+        String honoured = Dialogue.greeting(resident, s, SKYE, "Skye");
+        assertTrue(honoured.contains("Skye"), honoured);
+        assertNotEquals(stranger, honoured);
+        assertTrue(Dialogue.library().lines(Situation.GREETING_HONOURED, Voice.of(resident, s, 0).tone()).stream()
+                .anyMatch(l -> l.replace("{player}", "Skye").replace("{village}", s.name()).equals(honoured)), "from the honoured lines: " + honoured);
         s.adjustReputation(SKYE, -200);
-        assertTrue(Dialogue.greeting(resident, s, SKYE, "Skye").contains("not forgotten"));
+        String hostile = Dialogue.greeting(resident, s, SKYE, "Skye");
+        assertTrue(hostile.contains("Skye"), hostile);
+        assertNotEquals(honoured, hostile);
+        assertTrue(Dialogue.library().lines(Situation.GREETING_HOSTILE, Voice.of(resident, s, 0).tone()).stream()
+                .anyMatch(l -> l.replace("{player}", "Skye").replace("{village}", s.name()).equals(hostile)), "from the hostile lines: " + hostile);
         assertEquals(stranger, Dialogue.greeting(resident, s, OTHER, "Other"));
     }
 

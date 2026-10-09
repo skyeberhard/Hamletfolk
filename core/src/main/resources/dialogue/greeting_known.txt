@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {player}
+warm: Oh, it's you again, {player}! Lovely!
+warm: {player}! Back so soon? Good.
+warm: There's {player}! How are you keeping?
+gruff: You again, {player}.
+gruff: Back, {player}. What is it this time?
+gruff: {player}. Fine. Go on.
+anxious: Oh, {player}... it's you. Is something wrong?
+anxious: {player}? You startled me.
+anxious: Back again, {player}? Is everything all right?
+proud: Ah, {player}. You've come back to see how we do.
+proud: {player}. Returning, I see. Wise of you.
+proud: Welcome back, {player}. You'll have noticed the improvements.
+dry: Oh, it's {player} again. Thrilling.
+dry: {player}. Again. Well.
+dry: Back, {player}. How unexpected, and how not.
+gentle: Hello again, {player}.
+gentle: It's good to see you again, {player}.
+gentle: {player}, welcome back. Come, sit a moment.

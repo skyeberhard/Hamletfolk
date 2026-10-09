@@ -25,6 +25,15 @@ public final class HamletfolkPlugin extends JavaPlugin {
     private Path backupDirectory;
     private int backupsKept;
 
+    /** R4.30: lays the server's dialogue/ folder over the built-in lines; returns what was wrong with it (also logged). */
+    java.util.List<String> loadDialogue() {
+        io.github.skyeberhard.hamletfolk.core.Lines lines = io.github.skyeberhard.hamletfolk.core.Lines.withOverrides(
+                getDataFolder().toPath().resolve("dialogue"));
+        io.github.skyeberhard.hamletfolk.core.Dialogue.setLibrary(lines);
+        lines.problems().forEach(problem -> getLogger().warning("dialogue: " + problem));
+        return lines.problems();
+    }
+
     @Override
     public void onEnable() {
         saveDefaultConfig();
@@ -56,6 +65,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
         io.github.skyeberhard.hamletfolk.core.Construction.setCostPercent(getConfig().getInt("construction.cost-percent", 35));
         templates = new TemplateLibrary(this);
         templates.load();
+        loadDialogue(); // R4.30
         service = new SettlementService(this, registry, HamletfolkConfig.from(getConfig()));
         getServer().getPluginManager().registerEvents(new VillagerListener(this, service), this);
         getServer().getPluginManager().registerEvents(new RaidListener(service), this);

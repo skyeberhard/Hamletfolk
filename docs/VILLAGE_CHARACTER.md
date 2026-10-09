@@ -280,7 +280,14 @@ The game's small houses have one bed each, which is why a village needs so many.
 2. **Births** (built, R4.28): a well-fed village with a free bed has children of its own, near a player or not.
 3. **Households** (R6.1): couples and children share a house, and an upgraded house is where a family grows.
 
-## 8a. Voices (proposal, R4.30)
+## 8a. Voices (built, R4.30; coded but not yet played, T68)
+
+Built as described below, with these differences: the tone weights are tuned (`Voice.BIAS`) so the six tones come out about equally
+common; the habit of speech is a prefix or suffix on about 45% of lines; 23 situations have lines (greetings, farewell, hunger,
+plenty, thin stores, blocked trade, worn tools, a death, danger, a request, children, elders, three kinds of memory, a
+neighbour, the village's latest plan). Still plain wording, for a later pass: work lines per trade, the village's land and
+temperament remarks, wealth, parents, the weather and time of day. Goodbyes exist in `Dialogue.farewell` but nothing calls them yet.
+Admins edit `plugins/Hamletfolk/dialogue/<situation>.txt` and run `/settlement admin dialogue`.
 
 Villages already say the right things about themselves (hunger, danger, their land and history), but every villager says
 them in the same voice. The idea is that a villager's voice comes from who they are, so a town of thirty sounds like thirty

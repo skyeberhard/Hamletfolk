@@ -228,7 +228,7 @@ class AgingTest {
         boolean said = false;
         Random random = new Random(1); // one generator: sequential seeds start with near-identical draws
         for (int i = 0; i < 300 && !said; i++) {
-            said = Dialogue.smallTalk(elder, s, 100, random).contains("see many more");
+            said = Dialogue.smallTalk(elder, s, 100, random).contains(elder.age(100) + " days");
         }
         assertTrue(said);
     }

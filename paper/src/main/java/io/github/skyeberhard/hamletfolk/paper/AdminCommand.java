@@ -15,8 +15,8 @@ import org.bukkit.entity.Player;
  */
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
-    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "replan", "warp", "job", "unstick", "fastforward");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | replan [name] | warp [name] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all] [speed|stop]";
+    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | replan [name] | warp [name] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
 
     private final SettlementService service;
     private final TemplateCommand templates;
@@ -24,6 +24,14 @@ final class AdminCommand {
     AdminCommand(SettlementService service) {
         this.service = service;
         this.templates = new TemplateCommand(service);
+    }
+
+    /** R4.30: /settlement admin dialogue reads the dialogue folder again, so lines can be changed without a restart. */
+    private void dialogue(CommandSender sender) {
+        java.util.List<String> problems = service.plugin().loadDialogue();
+        sender.sendMessage("Dialogue reloaded from plugins/Hamletfolk/dialogue/ over the built-in lines"
+                + (problems.isEmpty() ? "." : ", with " + problems.size() + " problem(s):"));
+        problems.stream().limit(10).forEach(p -> sender.sendMessage(" - " + p));
     }
 
     /** Args are the full command args, starting with "admin". */
@@ -48,6 +56,7 @@ final class AdminCommand {
             case "job" -> job(sender, args);
             case "unstick" -> unstick(sender, args);
             case "fastforward", "ff" -> fastForward(sender, args);
+            case "dialogue" -> dialogue(sender);
             default -> sender.sendMessage(USAGE);
         }
     }

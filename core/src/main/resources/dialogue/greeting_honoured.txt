@@ -1,0 +1,23 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# slots: {player} {village}
+warm: Welcome, {player}! Everyone in {village} speaks well of you!
+warm: {player}! The pride of {village}! Come in!
+warm: Oh, {player}, we couldn't have done it without you.
+gruff: {player}. {village} wouldn't be standing without you.
+gruff: Hm. {player}. The best friend {village} has. Don't let it go to your head.
+gruff: {player}. You're one of us. That's rare from me.
+anxious: {player}! You're here! Everyone in {village} is safer when you are.
+anxious: Oh, {player}, thank goodness. We talk about you all the time.
+anxious: {player}... I can't thank you enough. {village} loves you.
+proud: Welcome, {player}, champion of {village}!
+proud: Hail, {player}! Your name is spoken with honour in {village}.
+proud: {player}! {village} would raise a statue of you if we had the stone.
+dry: {player}. Our local hero. The village won't shut up about you.
+dry: Oh, {player}. Famous in {village}. Try to bear it.
+dry: {player}. Everyone in {village} likes you. It's slightly exhausting.
+gentle: Welcome, {player}. Everyone in {village} speaks so warmly of you.
+gentle: {player}, you've given {village} so much. Thank you.
+gentle: It's an honour to see you, {player}. {village} is lucky.

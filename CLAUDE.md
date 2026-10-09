@@ -91,6 +91,14 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   rampart's own materials and re-evaluates every piece from the world each pass. A RAMPART project's `tier` is the wall tier (2 or 3)
   and its `stage` the plan stage; `Construction.wallTier(settlement, stage)` is 0 (nothing), 1 (fence), 2 or 3. It never sets
   `needUnmet`, unlike lights and the fence.
+- **Voices (R4.30):** `Dialogue` decides *what* is said (a `Situation` plus slot values, or a plain string for the many remarks that
+  have no voiced lines yet); `Voice.of(resident, settlement, day)` (never stored, deterministic) gives the tone and habit; `Lines`
+  holds the text (`core/src/main/resources/dialogue/<situation>.txt`, `tone: text`, `+tone:` adds, `{slots}`; a line with an unfilled
+  slot is skipped). `Dialogue.setLibrary` swaps the lines in use (the Paper layer lays `plugins/Hamletfolk/dialogue/` over the
+  built-ins; a test that changes it must restore it). The tone weights in `Voice.BIAS` were solved so that ordinary traits give about
+  one villager in six per tone: change a weight and re-run `VoiceTest`. Tests must not assert one exact wording of a voiced line
+  (it depends on the villager's random traits): assert on its facts (the slot values) or on membership in the tone's lines.
+  `Resident.lastLine` (not saved) stops a repeat. Wealth, land, temperament, trade and parent remarks are still plain strings.
 - **Signature buildings (R8.12):** `Leaning.signature()` names the building; `Planner.growth` asks for it (after the house check, so it
   never hides one); the effects are three `buildingCount` checks in `SettlementSimulator` (lumberjack output, `process` smelting,
   `spoilAndCap`). They are real registered buildings, so they take any free lot and can be registered by sign.

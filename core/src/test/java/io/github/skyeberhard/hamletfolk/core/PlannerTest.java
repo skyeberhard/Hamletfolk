@@ -343,11 +343,11 @@ class PlannerTest {
         Random random = new Random(7); // one sequence: consecutive small seeds give near-identical first draws
         boolean said = false;
         for (int draw = 0; draw < 200 && !said; draw++) {
-            said = Dialogue.smallTalk(adult, s, 12, random).contains("There's talk in Planford. Build a farm");
+            said = Dialogue.smallTalk(adult, s, 12, random).contains("Build a farm: food is short.");
         }
         assertTrue(said, "a recent decision comes up in talk");
         for (int draw = 0; draw < 100; draw++) {
-            assertFalse(Dialogue.smallTalk(adult, s, 40, random).contains("There's talk"), "an old one does not");
+            assertFalse(Dialogue.smallTalk(adult, s, 40, random).contains("Build a farm: food is short."), "an old one does not");
         }
     }
 
