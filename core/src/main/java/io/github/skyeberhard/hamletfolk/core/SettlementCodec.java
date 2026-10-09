@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 27;
+    public static final int FORMAT_VERSION = 28;
 
     private SettlementCodec() {
     }
@@ -397,6 +397,8 @@ public final class SettlementCodec {
         // an older build must refuse a save that may contain it.
         // v17 -> v18: "plan" (R8.3, the streets and lots) is optional, so an old save has none until the ground is surveyed.
         // v16 -> v17: "decisions" (R8.1, the planner's log) is optional, so an old save has none; the planner fills it in.
+        // v27 -> v28: buildings and projects may be the BOWYER, MASONS_YARD, ARMOURY and CHAPEL (R8.15); an older build would fail on the
+        // unknown names, so it must refuse the save.
         // v26 -> v27: buildings and projects may be the trade buildings HARBOUR, PENS, SMOKEHOUSE, TANNERY, STABLE, APIARY, MAP_ROOM,
         // LIBRARY, GLASSWORKS and TRADING_POST, and residents the new occupations BEEKEEPER, HORSE_TRAINER and GLASSBLOWER (R8.13); the
         // survey counts are kept in conditions. An older build would fail on the unknown names, so it must refuse the save.

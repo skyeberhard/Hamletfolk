@@ -90,6 +90,10 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   never insert before them) and are never stored: `Settlement.leaning()` returns them only when the stored biome reading is ALL_ROUND,
   from `LandCounts` (`Leaning.fromCounts`). A leaning's signature that is also a trade building (`Trades.isTradeBuilding`: harbour, pens,
   map room, glassworks) is asked for by the trade rule once its trade opens, not by the signature rule; the trading post is not a trade building.
+- **Workshop trades (R8.15):** fletcher, mason, weaponsmith, armorer and cleric are `Trades` rules too, but their triggers also read the
+  settlement (a mine, a smithy, an attack in the last 90 days, metal in the stores, temperament, size). A building can employ more than one
+  trade: use `BuildingType.jobs()`, not `job()` (the first), when counting places. `Trades.wanted` lists a building once however many of its
+  trades are open.
 - **Land trades (R8.13):** `LandCounts` (conditions `landCount:*`, only ever raised) is filled by `SettlementService.surveyLand` every 10
   village days from loaded chunks; `Trades` holds the rules (`opens`, `wanted`, `buildingFor`, `noteOpened`). A land trade is only a
   job candidate while `Trades.opens` (`SettlementSimulator.candidates`; FISHERMAN is also in `JOB_CANDIDATES` and so is not gated by the

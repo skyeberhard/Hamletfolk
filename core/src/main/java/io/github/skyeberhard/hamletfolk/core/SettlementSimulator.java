@@ -249,7 +249,7 @@ public final class SettlementSimulator {
     static int placesFor(Settlement settlement, Occupation occupation) {
         int places = 0;
         for (Building building : settlement.buildings()) {
-            if (building.type().job().filter(job -> job == occupation).isPresent()) {
+            if (building.type().jobs().contains(occupation)) {
                 places += building.type().places() + (settlement.tierOf(building) - 1) * building.type().placesPerTier(); // R4.19
             }
         }

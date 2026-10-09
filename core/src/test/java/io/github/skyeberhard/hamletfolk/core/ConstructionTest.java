@@ -362,7 +362,7 @@ class ConstructionTest {
         old.remove("projects");
         old.put("format", 18);
         assertTrue(SettlementCodec.decode(old).projects().isEmpty());
-        assertEquals(27, SettlementCodec.FORMAT_VERSION);
+        assertEquals(28, SettlementCodec.FORMAT_VERSION);
     }
 
     @Test
@@ -538,19 +538,25 @@ class ConstructionTest {
         java.util.Set<String> jobSites = java.util.Set.of("BARREL", "LECTERN", "LOOM", "COMPOSTER", "SMOKER", "BLAST_FURNACE",
                 "FLETCHING_TABLE", "CARTOGRAPHY_TABLE", "BREWING_STAND", "GRINDSTONE", "STONECUTTER", "SMITHING_TABLE", "CAULDRON");
         // R8.13: a trade building holds the workstation of its own trade, and no other trade's
-        Map<BuildingType, String> own = Map.of(BuildingType.HARBOUR, "BARREL", BuildingType.PENS, "LOOM", BuildingType.SMOKEHOUSE, "SMOKER",
-                BuildingType.TANNERY, "CAULDRON", BuildingType.MAP_ROOM, "CARTOGRAPHY_TABLE", BuildingType.LIBRARY, "LECTERN");
+        Map<BuildingType, java.util.Set<String>> own = Map.of(BuildingType.HARBOUR, java.util.Set.of("BARREL"), BuildingType.PENS,
+                java.util.Set.of("LOOM"), BuildingType.SMOKEHOUSE, java.util.Set.of("SMOKER"), BuildingType.TANNERY, java.util.Set.of("CAULDRON"),
+                BuildingType.MAP_ROOM, java.util.Set.of("CARTOGRAPHY_TABLE"), BuildingType.LIBRARY, java.util.Set.of("LECTERN"),
+                BuildingType.BOWYER, java.util.Set.of("FLETCHING_TABLE"), BuildingType.MASONS_YARD, java.util.Set.of("STONECUTTER"),
+                BuildingType.ARMOURY, java.util.Set.of("GRINDSTONE", "BLAST_FURNACE"));
         for (BuildingType type : BuildingType.values()) {
             for (int tier = 1; tier <= BuildingGenerator.TIERS; tier++) {
                 for (String material : BuildingGenerator.generate(type, tier).map(Blueprint::materialCounts).orElse(Map.of()).keySet()) {
                     String name = Blueprint.name(material);
-                    assertTrue(!jobSites.contains(name) || name.equals(own.get(type)), type + " tier " + tier + " has a " + material);
+                    assertTrue(!jobSites.contains(name) || own.getOrDefault(type, java.util.Set.of()).contains(name),
+                            type + " tier " + tier + " has a " + material);
                 }
             }
         }
-        for (Map.Entry<BuildingType, String> trade : own.entrySet()) {
-            assertTrue(BuildingGenerator.generate(trade.getKey(), 1).orElseThrow().materialCounts().keySet().stream()
-                    .anyMatch(m -> Blueprint.name(m).equals(trade.getValue())), trade.getKey() + " holds its workstation");
+        for (Map.Entry<BuildingType, java.util.Set<String>> trade : own.entrySet()) {
+            for (String station : trade.getValue()) {
+                assertTrue(BuildingGenerator.generate(trade.getKey(), 1).orElseThrow().materialCounts().keySet().stream()
+                        .anyMatch(m -> Blueprint.name(m).equals(station)), trade.getKey() + " holds its " + station);
+            }
         }
     }
 

@@ -149,10 +149,10 @@ class LandTradesTest {
     void everyLandTradeHasABuildingThatEmploysIt() {
         for (Occupation trade : Trades.landTrades()) {
             BuildingType building = Trades.buildingFor(trade).orElseThrow();
-            assertEquals(Optional.of(trade), building.job(), building + " employs the " + trade);
+            assertTrue(building.jobs().contains(trade), building + " employs the " + trade);
             assertEquals(Optional.of(building), BuildingType.fromSign(building.signText()), "its sign registers it");
         }
-        assertEquals(9, Trades.landTrades().size());
+        assertEquals(14, Trades.landTrades().size());
         assertTrue(Occupation.BEEKEEPER.simOwned() && Occupation.HORSE_TRAINER.simOwned() && Occupation.GLASSBLOWER.simOwned());
     }
 
@@ -321,6 +321,122 @@ class LandTradesTest {
         assertTrue(s.history().stream().anyMatch(e -> e.text().contains("glassblower") && e.text().contains("glassworks")));
         LandCounts.record(s, Map.of(LandCounts.Feature.HORSES, 3), 6);
         assertEquals(1, Trades.noteOpened(s, 6));
+    }
+
+    // ----- R8.15: the trades that need a smithy, a mine, a threat or a town -----
+
+    private static void smithy(Settlement s) {
+        s.registerBuilding(new Building(BuildingType.SMITHY, 2030, 64, 2000, 0, "a player"));
+    }
+
+    @Test
+    void aFletcherNeedsGravelAndChickens() {
+        Settlement s = village(8, Occupation.NITWIT);
+        LandCounts.record(s, Map.of(LandCounts.Feature.GRAVEL, 16, LandCounts.Feature.CHICKENS, 3), 1);
+        assertTrue(Trades.opens(s, Occupation.FLETCHER));
+        Settlement noFeathers = village(8, Occupation.NITWIT);
+        LandCounts.record(noFeathers, Map.of(LandCounts.Feature.GRAVEL, 40, LandCounts.Feature.CHICKENS, 2), 1);
+        assertFalse(Trades.opens(noFeathers, Occupation.FLETCHER));
+        Settlement noFlint = village(8, Occupation.NITWIT);
+        LandCounts.record(noFlint, Map.of(LandCounts.Feature.GRAVEL, 15, LandCounts.Feature.CHICKENS, 9), 1);
+        assertFalse(Trades.opens(noFlint, Occupation.FLETCHER));
+        assertEquals(BuildingType.BOWYER, Trades.buildingFor(Occupation.FLETCHER).orElseThrow());
+    }
+
+    @Test
+    void aMasonNeedsExposedStoneAndAMine() {
+        Settlement s = village(8, Occupation.NITWIT); // (the helper registers a mine)
+        LandCounts.record(s, Map.of(LandCounts.Feature.STONE, 40), 1);
+        assertTrue(Trades.opens(s, Occupation.MASON));
+        LandCounts.record(s, Map.of(LandCounts.Feature.STONE, 0), 2); // (never lowered)
+        assertTrue(Trades.opens(s, Occupation.MASON));
+        Settlement fewer = village(8, Occupation.NITWIT);
+        LandCounts.record(fewer, Map.of(LandCounts.Feature.STONE, 39), 1);
+        assertFalse(Trades.opens(fewer, Occupation.MASON));
+        Settlement noMine = new Settlement(new UUID(99, 5000), "Minelessham", "world", 0, 0, 0);
+        for (int i = 0; i < 8; i++) {
+            noMine.addResident(person(Occupation.NITWIT));
+        }
+        LandCounts.record(noMine, Map.of(LandCounts.Feature.STONE, 200), 1);
+        assertFalse(Trades.opens(noMine, Occupation.MASON), "no mine to supply it");
+    }
+
+    @Test
+    void aWeaponsmithNeedsASmithyAndARecentAttack() {
+        Settlement s = village(8, Occupation.NITWIT);
+        assertFalse(Trades.opens(s, Occupation.WEAPONSMITH));
+        smithy(s);
+        assertFalse(Trades.opens(s, Occupation.WEAPONSMITH), "a smithy but no attack");
+        s.setLastSimulatedDay(100);
+        s.recordIncident(60);
+        assertTrue(Trades.opens(s, Occupation.WEAPONSMITH));
+        s.setLastSimulatedDay(60 + Planner.THREAT_MEMORY_DAYS + 5);
+        assertFalse(Trades.opens(s, Occupation.WEAPONSMITH), "the attack is more than three months back");
+        Settlement noSmithy = village(8, Occupation.NITWIT);
+        noSmithy.setLastSimulatedDay(10);
+        noSmithy.recordIncident(9);
+        assertFalse(Trades.opens(noSmithy, Occupation.WEAPONSMITH));
+    }
+
+    @Test
+    void anArmorerNeedsASmithyMetalAndEitherAWarlikeVillageOrATown() {
+        Settlement town = village(20, Occupation.NITWIT);
+        smithy(town);
+        assertFalse(Trades.opens(town, Occupation.ARMORER), "no metal");
+        town.ledger().add(Commodity.IRON, 20);
+        assertTrue(Trades.opens(town, Occupation.ARMORER));
+        Settlement village = village(10, Occupation.NITWIT);
+        smithy(village);
+        village.ledger().add(Commodity.IRON, 50);
+        assertFalse(Trades.opens(village, Occupation.ARMORER), "a quiet village has no use for armour");
+        Settlement noSmithy = village(20, Occupation.NITWIT);
+        noSmithy.ledger().add(Commodity.IRON, 50);
+        assertFalse(Trades.opens(noSmithy, Occupation.ARMORER));
+        Settlement thin = village(20, Occupation.NITWIT);
+        smithy(thin);
+        thin.ledger().add(Commodity.IRON, 19);
+        assertFalse(Trades.opens(thin, Occupation.ARMORER), "twenty metal, not nineteen");
+    }
+
+    @Test
+    void aClericNeedsATown() {
+        assertTrue(Trades.opens(village(20, Occupation.NITWIT), Occupation.CLERIC));
+        assertFalse(Trades.opens(village(19, Occupation.NITWIT), Occupation.CLERIC));
+        assertEquals(BuildingType.CHAPEL, Trades.buildingFor(Occupation.CLERIC).orElseThrow());
+    }
+
+    @Test
+    void anArmouryEmploysBothSmithsAndIsAskedForOnce() {
+        Settlement s = village(20, Occupation.NITWIT);
+        smithy(s);
+        s.ledger().add(Commodity.IRON, 40);
+        s.setLastSimulatedDay(30);
+        s.recordIncident(20);
+        assertTrue(Trades.opens(s, Occupation.ARMORER) && Trades.opens(s, Occupation.WEAPONSMITH));
+        assertEquals(1, Trades.wanted(s).stream().filter(b -> b == BuildingType.ARMOURY).count(), "wanted once for two trades");
+        long asked = Planner.directives(s, 30, 200).stream().filter(d -> d.target().equals("armoury")).count();
+        assertEquals(1, asked);
+        s.registerBuilding(new Building(BuildingType.ARMOURY, 3000, 64, 3000, 0, "the builders"));
+        assertEquals(4, SettlementSimulator.placesFor(s, Occupation.ARMORER));
+        assertEquals(4, SettlementSimulator.placesFor(s, Occupation.WEAPONSMITH));
+        assertEquals(0, SettlementSimulator.placesFor(s, Occupation.MASON));
+        assertTrue(Trades.worked(s, Occupation.ARMORER) && Trades.worked(s, Occupation.WEAPONSMITH));
+        assertEquals(Optional.of(Occupation.ARMORER), BuildingType.ARMOURY.job());
+        assertEquals(List.of(Occupation.ARMORER, Occupation.WEAPONSMITH), BuildingType.ARMOURY.jobs());
+        assertEquals(List.of(), BuildingType.TRADING_POST.jobs());
+    }
+
+    @Test
+    void theNewTradesAreAskedForAtTheirOwnBuildings() {
+        Settlement s = village(20, Occupation.NITWIT);
+        assertTrue(asks(s, BuildingType.CHAPEL), "a town wants a chapel");
+        LandCounts.record(s, Map.of(LandCounts.Feature.GRAVEL, 30, LandCounts.Feature.CHICKENS, 5, LandCounts.Feature.STONE, 90), 1);
+        assertTrue(asks(s, BuildingType.BOWYER));
+        assertTrue(asks(s, BuildingType.MASONS_YARD));
+        s.registerBuilding(new Building(BuildingType.CHAPEL, 3000, 64, 3000, 0, "the builders"));
+        assertFalse(asks(s, BuildingType.CHAPEL));
+        assertEquals(Optional.of(BuildingType.MASONS_YARD), BuildingType.fromSign("[Masons Yard]"));
+        assertEquals(Optional.of(BuildingType.ARMOURY), BuildingType.fromSign("[Armoury]"));
     }
 
     @Test

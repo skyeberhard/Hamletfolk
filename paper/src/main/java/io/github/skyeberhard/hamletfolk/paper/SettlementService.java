@@ -783,7 +783,8 @@ final class SettlementService {
                     case SUGAR_CANE -> io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.SUGAR_CANE;
                     case SAND, RED_SAND -> io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.SAND;
                     case WATER -> io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.WATER;
-                    default -> null;
+                    case GRAVEL -> io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.GRAVEL; // R8.15
+                    default -> Tag.BASE_STONE_OVERWORLD.isTagged(top) ? io.github.skyeberhard.hamletfolk.core.LandCounts.Feature.STONE : null;
                 };
                 if (feature != null) {
                     found.merge(feature, 1, Integer::sum);

@@ -30,7 +30,13 @@ public final class Trades {
             new Rule(Occupation.BEEKEEPER, BuildingType.APIARY, VILLAGE, "there are bees to keep"),
             new Rule(Occupation.CARTOGRAPHER, BuildingType.MAP_ROOM, VILLAGE, "there is sugar cane to make paper"),
             new Rule(Occupation.LIBRARIAN, BuildingType.LIBRARY, TOWN, "there is paper and leather to make books"),
-            new Rule(Occupation.GLASSBLOWER, BuildingType.GLASSWORKS, VILLAGE, "there is sand to melt into glass"));
+            new Rule(Occupation.GLASSBLOWER, BuildingType.GLASSWORKS, VILLAGE, "there is sand to melt into glass"),
+            // R8.15: the trades that need a smithy, a mine, a threat or a town
+            new Rule(Occupation.FLETCHER, BuildingType.BOWYER, VILLAGE, "there is flint and there are feathers for arrows"),
+            new Rule(Occupation.MASON, BuildingType.MASONS_YARD, VILLAGE, "there is stone to cut and a mine to supply it"),
+            new Rule(Occupation.WEAPONSMITH, BuildingType.ARMOURY, VILLAGE, "it has a smithy and has been attacked lately"),
+            new Rule(Occupation.ARMORER, BuildingType.ARMOURY, VILLAGE, "it has a smithy, metal to spare, and the need to arm itself"),
+            new Rule(Occupation.CLERIC, BuildingType.CHAPEL, TOWN, "it is a town with people to care for"));
 
     /** True if the building is the workplace of a land trade (so the trade's rules, not a leaning's, decide when it is asked for). */
     public static boolean isTradeBuilding(BuildingType building) {
@@ -67,6 +73,13 @@ public final class Trades {
             case CARTOGRAPHER -> LandCounts.get(settlement, LandCounts.Feature.SUGAR_CANE) >= 16;
             case LIBRARIAN -> LandCounts.get(settlement, LandCounts.Feature.SUGAR_CANE) >= 8 && cattle >= 2;
             case GLASSBLOWER -> LandCounts.get(settlement, LandCounts.Feature.SAND) >= 30;
+            case FLETCHER -> LandCounts.get(settlement, LandCounts.Feature.GRAVEL) >= 16 && chickens >= 3;
+            case MASON -> LandCounts.get(settlement, LandCounts.Feature.STONE) >= 40 && settlement.buildingCount(BuildingType.MINE) > 0;
+            case WEAPONSMITH -> settlement.buildingCount(BuildingType.SMITHY) > 0
+                    && settlement.incidentDaysSince(settlement.lastSimulatedDay() - Planner.THREAT_MEMORY_DAYS) > 0;
+            case ARMORER -> settlement.buildingCount(BuildingType.SMITHY) > 0 && settlement.ledger().get(ResourceType.METAL) >= 20
+                    && (settlement.population() >= TOWN || VillageCharacter.temperament(settlement) == VillageCharacter.Temperament.MARTIAL);
+            case CLERIC -> true; // (the size is in the rule)
             default -> false;
         };
     }
@@ -106,8 +119,8 @@ public final class Trades {
     public static List<BuildingType> wanted(Settlement settlement) {
         List<BuildingType> out = new ArrayList<>();
         for (Rule rule : RULES) {
-            if (opens(settlement, rule.trade()) && settlement.buildingCount(rule.building()) == 0) {
-                out.add(rule.building());
+            if (opens(settlement, rule.trade()) && settlement.buildingCount(rule.building()) == 0 && !out.contains(rule.building())) {
+                out.add(rule.building()); // (an armoury is wanted once, for either of its trades)
             }
         }
         return out;

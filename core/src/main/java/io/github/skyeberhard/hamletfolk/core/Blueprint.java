@@ -138,15 +138,19 @@ public record Blueprint(String key, int width, int height, int depth, List<Block
     }
 
     /** R8.13: what the workstations and furnishings of the trade buildings cost, in planks (or the unit of their material). */
-    private static final java.util.Map<String, ResourceMapper.Value> WORKSTATIONS = java.util.Map.of(
-            "BARREL", new ResourceMapper.Value(ResourceType.WOOD, 8),
-            "LOOM", new ResourceMapper.Value(ResourceType.WOOD, 6),
-            "LECTERN", new ResourceMapper.Value(ResourceType.WOOD, 10),
-            "BOOKSHELF", new ResourceMapper.Value(ResourceType.WOOD, 6),
-            "CARTOGRAPHY_TABLE", new ResourceMapper.Value(ResourceType.WOOD, 6),
-            "BEEHIVE", new ResourceMapper.Value(ResourceType.WOOD, 6),
-            "SMOKER", new ResourceMapper.Value(ResourceType.STONE, 8),
-            "CAULDRON", new ResourceMapper.Value(ResourceType.METAL, 7));
+    private static final java.util.Map<String, ResourceMapper.Value> WORKSTATIONS = java.util.Map.ofEntries(
+            java.util.Map.entry("FLETCHING_TABLE", new ResourceMapper.Value(ResourceType.WOOD, 4)), // R8.15
+            java.util.Map.entry("STONECUTTER", new ResourceMapper.Value(ResourceType.STONE, 3)),
+            java.util.Map.entry("GRINDSTONE", new ResourceMapper.Value(ResourceType.WOOD, 5)),
+            java.util.Map.entry("BLAST_FURNACE", new ResourceMapper.Value(ResourceType.METAL, 5)),
+            java.util.Map.entry("BARREL", new ResourceMapper.Value(ResourceType.WOOD, 8)),
+            java.util.Map.entry("LOOM", new ResourceMapper.Value(ResourceType.WOOD, 6)),
+            java.util.Map.entry("LECTERN", new ResourceMapper.Value(ResourceType.WOOD, 10)),
+            java.util.Map.entry("BOOKSHELF", new ResourceMapper.Value(ResourceType.WOOD, 6)),
+            java.util.Map.entry("CARTOGRAPHY_TABLE", new ResourceMapper.Value(ResourceType.WOOD, 6)),
+            java.util.Map.entry("BEEHIVE", new ResourceMapper.Value(ResourceType.WOOD, 6)),
+            java.util.Map.entry("SMOKER", new ResourceMapper.Value(ResourceType.STONE, 8)),
+            java.util.Map.entry("CAULDRON", new ResourceMapper.Value(ResourceType.METAL, 7)));
 
     /** A material without its block state: "LADDER[facing=south]" is "LADDER". */
     static String name(String material) {

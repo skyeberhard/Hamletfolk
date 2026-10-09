@@ -156,7 +156,7 @@ class CommodityTest {
         loaded.ledger().add(Commodity.RAW_COPPER, 4);
         Settlement again = SettlementCodec.decode(SettlementCodec.encode(loaded));
         assertEquals(4, again.ledger().get(Commodity.RAW_COPPER), "commodities survive a save");
-        assertEquals(27, SettlementCodec.FORMAT_VERSION);
+        assertEquals(28, SettlementCodec.FORMAT_VERSION);
     }
 
     // ----- R3.17 -----

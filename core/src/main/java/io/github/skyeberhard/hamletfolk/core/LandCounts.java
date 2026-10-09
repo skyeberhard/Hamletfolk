@@ -11,7 +11,9 @@ import java.util.Map;
 public final class LandCounts {
     /** What is counted. */
     public enum Feature {
-        SHEEP, CATTLE, PIGS, CHICKENS, HORSES, BEES, SUGAR_CANE, SAND, WATER;
+        SHEEP, CATTLE, PIGS, CHICKENS, HORSES, BEES, SUGAR_CANE, SAND, WATER,
+        /** R8.15: exposed gravel (flint) and exposed stone, counted as surface blocks. */
+        GRAVEL, STONE;
 
         public String label() {
             return name().toLowerCase(Locale.ROOT).replace('_', ' ');

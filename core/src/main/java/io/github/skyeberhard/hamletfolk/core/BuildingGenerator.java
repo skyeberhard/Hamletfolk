@@ -25,7 +25,7 @@ public final class BuildingGenerator {
     public static boolean generates(BuildingType type) {
         return switch (type) {
             case MINE, GUARD_POST, SHOP, TREASURY, SAWMILL, FORGE, GRANARY, HARBOUR, PENS, SMOKEHOUSE, TANNERY, STABLE, APIARY,
-                    MAP_ROOM, LIBRARY, GLASSWORKS, TRADING_POST -> true;
+                    MAP_ROOM, LIBRARY, GLASSWORKS, TRADING_POST, BOWYER, MASONS_YARD, ARMOURY, CHAPEL -> true;
             case FARM, SMITHY, HOUSE, SQUARE, STREET_LIGHTS, PALISADE, RAMPART, GATEHOUSE, TOWER -> false;
         };
     }
@@ -60,6 +60,10 @@ public final class BuildingGenerator {
             case MAP_ROOM -> plan.furnish(tier, "CARTOGRAPHY_TABLE", "BOOKSHELF", "CHEST");
             case LIBRARY -> plan.furnish(tier, "LECTERN[facing=south]", "BOOKSHELF", "BOOKSHELF");
             case GLASSWORKS -> plan.furnish(tier, "FURNACE[facing=south]", "COBBLESTONE", "CHEST");
+            case BOWYER -> plan.furnish(tier, "FLETCHING_TABLE", "OAK_FENCE", "CHEST");
+            case MASONS_YARD -> plan.furnish(tier, "STONECUTTER", "COBBLESTONE", "CHEST");
+            case ARMOURY -> plan.furnish(tier, "GRINDSTONE[face=floor,facing=south]", "BLAST_FURNACE[facing=south]", "CHEST");
+            case CHAPEL -> plan.furnish(tier, "BOOKSHELF", "OAK_FENCE", "CHEST");
             case TRADING_POST -> {
                 plan.shop();
                 plan.furnish(tier, "CHEST", "CHEST", "CHEST");

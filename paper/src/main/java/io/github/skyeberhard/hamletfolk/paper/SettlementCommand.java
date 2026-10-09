@@ -379,7 +379,8 @@ final class SettlementCommand implements TabExecutor {
             case SAWMILL -> org.bukkit.Color.fromRGB(139, 90, 43);
             case FORGE -> org.bukkit.Color.fromRGB(200, 80, 80);
             case GRANARY -> org.bukkit.Color.fromRGB(220, 200, 90);
-            case HARBOUR, PENS, SMOKEHOUSE, TANNERY, STABLE, APIARY, MAP_ROOM, LIBRARY, GLASSWORKS, TRADING_POST ->
+            case HARBOUR, PENS, SMOKEHOUSE, TANNERY, STABLE, APIARY, MAP_ROOM, LIBRARY, GLASSWORKS, TRADING_POST, BOWYER, MASONS_YARD,
+                    ARMOURY, CHAPEL ->
                     org.bukkit.Color.fromRGB(120, 200, 200); // R8.13: the trade buildings
             case STREET_LIGHTS, PALISADE, RAMPART, GATEHOUSE, TOWER -> org.bukkit.Color.fromRGB(255, 255, 255); // never a lot
         };

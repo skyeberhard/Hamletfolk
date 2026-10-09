@@ -598,7 +598,7 @@ public final class Construction {
     public enum Direction {
         FARMING("farming", BuildingType.FARM, BuildingType.HOUSE, BuildingType.GRANARY),
         FORESTRY("timber", BuildingType.HOUSE, BuildingType.SHOP, BuildingType.SAWMILL),
-        MINING("mining", BuildingType.MINE, BuildingType.SMITHY, BuildingType.FORGE),
+        MINING("mining", BuildingType.MINE, BuildingType.SMITHY, BuildingType.FORGE, BuildingType.MASONS_YARD),
         CRAFT("craft", BuildingType.SMITHY, BuildingType.SHOP, BuildingType.GLASSWORKS),
         TRADE("trading", BuildingType.SHOP, BuildingType.TREASURY, BuildingType.TRADING_POST),
         SCHOLARLY("scholarly", BuildingType.HOUSE, BuildingType.MAP_ROOM, BuildingType.LIBRARY),

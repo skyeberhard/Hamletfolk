@@ -52,7 +52,15 @@ public enum BuildingType {
     /** R8.13: furnaces and glass, where a glassblower works. */
     GLASSWORKS("Glassworks"),
     /** R8.13: a market stall house: each of its merchants makes one more sale a day. */
-    TRADING_POST("Trading Post");
+    TRADING_POST("Trading Post"),
+    /** R8.15: where a fletcher works (a fletching table). */
+    BOWYER("Bowyer"),
+    /** R8.15: where a mason works (a stonecutter). */
+    MASONS_YARD("Masons Yard"),
+    /** R8.15: where a weaponsmith (a grindstone) and an armorer (a blast furnace) work. */
+    ARMOURY("Armoury"),
+    /** R8.15: where a cleric works; a town's. */
+    CHAPEL("Chapel");
 
     /** R2.3: how many residents one building gives work to. */
     public static final int WORKERS_PER_BUILDING = 4;
@@ -92,9 +100,19 @@ public enum BuildingType {
             case MAP_ROOM -> Optional.of(Occupation.CARTOGRAPHER);
             case LIBRARY -> Optional.of(Occupation.LIBRARIAN);
             case GLASSWORKS -> Optional.of(Occupation.GLASSBLOWER);
+            case BOWYER -> Optional.of(Occupation.FLETCHER);
+            case MASONS_YARD -> Optional.of(Occupation.MASON);
+            case ARMOURY -> Optional.of(Occupation.ARMORER); // (and the weaponsmith: see jobs())
+            case CHAPEL -> Optional.of(Occupation.CLERIC);
             case HOUSE, GUARD_POST, TREASURY, SQUARE, STREET_LIGHTS, PALISADE, RAMPART, SAWMILL, FORGE, GRANARY, GATEHOUSE, TOWER,
                     TRADING_POST -> Optional.empty();
         };
+    }
+
+    /** R8.15: every occupation a building of this kind employs (an armoury, two); {@link #job()} is the first. */
+    public java.util.List<Occupation> jobs() {
+        return this == ARMOURY ? java.util.List.of(Occupation.ARMORER, Occupation.WEAPONSMITH)
+                : job().map(java.util.List::of).orElse(java.util.List.of());
     }
 
     /** R5.6: true for a work on the plan (street lights, a palisade): built by the village, never registered with a sign. */
