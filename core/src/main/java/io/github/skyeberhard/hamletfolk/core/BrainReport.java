@@ -22,7 +22,7 @@ public final class BrainReport {
     /** Everything a report is made of. */
     public record Input(String pluginVersion, String serverVersion, String generated, BrainSwitch.State state, String reason,
             boolean configEnabled, boolean debug, int attached, BrainStats.Summary stats, List<String> missing,
-            List<VillagerView> villagers, List<String> decisions, long decisionsTotal) {
+            List<VillagerView> villagers, List<String> decisions, long decisionsTotal, List<String> behaviours) {
     }
 
     /** The lines {@code /settlement brain inspect} prints for a villager. */
@@ -56,6 +56,8 @@ public final class BrainReport {
         out.add("brain.enabled in the config: " + in.configEnabled() + "    debug logging: " + (in.debug() ? "on" : "off"));
         out.add("Villagers with the added behaviours: " + in.attached());
         out.add("Cost: " + in.stats().describe());
+        out.add("Behaviours (R9.4):");
+        in.behaviours().forEach(b -> out.add("  " + b));
         out.add("");
         out.add(in.missing().isEmpty() ? "Self-check: everything the module needs is in this server."
                 : "Self-check: MISSING from this server:");

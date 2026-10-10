@@ -174,9 +174,15 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   `BrainSelfCheck` passes; every internal class, field or method the module uses must be on `BrainSelfCheck.REQUIRED`. Behaviours
   go into the brain's private `availableBehaviorsByPriority` table (not `Brain.addActivity`, which replaces requirements), and that
   table may only be changed between ticks, never from inside a behaviour. R9.2 tools: `BrainStats` (per call and per tick, fed by
-  `VillagerBrains.record(gameTick, nanos)` from every behaviour), `DecisionLog` (filled only while debug is on, through
+  `VillagerBrains.record(name, serverTick, nanos)` from every behaviour), `DecisionLog` (filled only while debug is on, through
   `VillagerBrains.decided`, which a behaviour calls only when `debugging()`), `BrainReport` (the text), and `BrainService.inspect/debug/report`. Read internals from the jar with javap, never from memory
-  (the villager class moved to `npc.villager` in 26.x).
+  (the villager class moved to `npc.villager` in 26.x). R9.4: a new behaviour needs three things: a `Spec` in `BrainBehaviours.ALL`
+  (name, family, budget), a maker in `VillagerBrains.MAKERS`, and a `brain.behaviours.<name>` block in config.yml. It must ask
+  `module.active(name)` before acting and call `module.record(name, serverTick, nanos)` for every call (that is what the budget
+  judges). `BrainModule.attach(villager, names)` gives exactly that set; the plugin decides the set (`BrainService.fit`: the
+  running ones near a player, none otherwise). The budget is not judged for the first `BehaviourMeter.WARM_UP` (100) measured
+  ticks after a start or a switch-on. An over-budget trip arrives inside a brain tick, so the plugin only queues the
+  `detachEverywhere` for the timer.
 - **`SettlementService.track()` returns null** for a world excluded by `worlds.allow/deny`
   (R1.10); callers must handle it.
 - **Line endings:** working copies are CRLF (autocrlf) while the repo stores LF, so git warns

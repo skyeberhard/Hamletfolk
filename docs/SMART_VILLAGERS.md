@@ -82,8 +82,10 @@ simulation only, which also keeps the cost down), and they show what the simulat
    discards it), so every behaviour catches every Throwable, and the self-check compares full signatures (parameter types,
    return type, constructors): a member whose signature changes in an update is caught at startup, not in a tick.
 3. **Cost.** About 1 to 3 microseconds per call for the test behaviour (worst seen 0.2 ms, at startup): some 20 microseconds a
-   tick for 8 villagers, against 50,000 in a tick. Real behaviours will cost more; R9.2 shows the figure, and the budget
-   breaker of rule 4 is still to be built (with R9.4).
+   tick for 8 villagers, against 50,000 in a tick. Real behaviours will cost more; R9.2 shows the figure, and R9.4 added the
+   budget breaker of rule 4: each behaviour has a budget for all its calls in one tick, and one that goes over it in 10 of
+   the last 100 ticks stands aside, is logged once and comes off every villager, while the others carry on (on the test
+   server the first tick after switching on took 0.7 ms, warm-up, which is why a single slow tick does not count).
 4. **Not yet seen in play:** a villager whose brain the game rebuilds (on a change of profession) getting the behaviours back
    (the module checks once a second and re-attaches; a `/data` profession change on the test server left all 8 being called,
    but whether that rebuilt the brain is not known), the fault path on a real error, and the test behaviour with a player near.

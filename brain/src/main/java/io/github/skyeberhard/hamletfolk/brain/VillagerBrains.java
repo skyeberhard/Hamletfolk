@@ -1,9 +1,16 @@
 package io.github.skyeberhard.hamletfolk.brain;
 
+import io.github.skyeberhard.hamletfolk.core.BehaviourMeter;
+import io.github.skyeberhard.hamletfolk.core.BrainBehaviours;
+import io.github.skyeberhard.hamletfolk.core.BrainStats;
 import io.github.skyeberhard.hamletfolk.paper.BrainModule;
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -25,50 +32,106 @@ import org.bukkit.craftbukkit.entity.CraftVillager;
  * activity, then a set), in the CORE activity, which a villager always runs. {@code Brain.addActivity} is not used: it would
  * also replace the activity's requirements. Nothing is written into the world, and a brain the game rebuilds (on a change of
  * profession) simply comes back without them, which {@link #attach} notices and puts right.
+ *
+ * <p>R9.4: each behaviour has a name (from {@link BrainBehaviours#ALL}), a maker here, and its own meter: one that goes over
+ * its budget stands aside by itself (the others carry on) and tells the plugin, which takes it off every villager.
  */
 public final class VillagerBrains implements BrainModule {
     /** Priority of the added behaviours in CORE. If vanilla uses it too, the set is shared and only ours is ever taken out. */
     static final int PRIORITY = 2;
 
+    /** Makes one villager's instance of a behaviour. */
+    @FunctionalInterface
+    interface Maker {
+        Behavior<Villager> make(VillagerBrains module, UUID villager, BrainBehaviours.Spec spec);
+    }
+
+    /** Every behaviour the module can make. Keep in step with {@link BrainBehaviours#ALL}. */
+    private static final Map<String, Maker> MAKERS = Map.of(
+            "attention", AttentionBehaviour::new);
+
     private final Field table;
     private final Map<UUID, Attachment> attached = new HashMap<>();
     private volatile boolean active;
     private BiConsumer<UUID, Throwable> faults = (id, e) -> { };
-    final io.github.skyeberhard.hamletfolk.core.BrainStats stats = new io.github.skyeberhard.hamletfolk.core.BrainStats();
+    private BiConsumer<String, String> overBudget = (name, figures) -> { };
+    final BrainStats stats = new BrainStats();
+    private final Map<String, BrainBehaviours.Spec> specs = new LinkedHashMap<>();
+    private final Map<String, BehaviourMeter> meters = new HashMap<>();
+    /** Behaviours standing aside (over their budget) until the plugin lets them run again. Main thread only. */
+    private final Set<String> aside = new HashSet<>();
     private volatile boolean debug;
     private BiConsumer<UUID, String> decisions = (id, text) -> { };
 
-    /** One villager's added behaviours, and the brain they were put in (a new brain means they are gone). */
-    private record Attachment(Villager villager, Brain<Villager> brain, Behavior<Villager> behaviour) {
+    /** One villager's added behaviours by name, and the brain they were put in (a new brain means they are gone). */
+    private record Attachment(Villager villager, Brain<Villager> brain, Map<String, Behavior<Villager>> behaviours) {
     }
 
     public VillagerBrains() throws ReflectiveOperationException {
         table = Brain.class.getDeclaredField("availableBehaviorsByPriority");
         table.setAccessible(true);
+        for (BrainBehaviours.Spec spec : BrainBehaviours.ALL) {
+            if (MAKERS.containsKey(spec.name())) {
+                specs.put(spec.name(), spec);
+                meters.put(spec.name(), new BehaviourMeter(spec.budgetMicros()));
+            }
+        }
     }
 
     @Override
-    public void attach(org.bukkit.entity.Villager bukkit) {
+    public List<String> known() {
+        return List.copyOf(specs.keySet());
+    }
+
+    @Override
+    public void attach(org.bukkit.entity.Villager bukkit, Set<String> wanted) {
+        UUID id = bukkit.getUniqueId();
         Villager villager = ((CraftVillager) bukkit).getHandle();
         Brain<Villager> brain = villager.getBrain();
-        Attachment old = attached.get(bukkit.getUniqueId());
-        if (old != null && old.brain() == brain && old.villager() == villager) {
-            return; // already there
+        Attachment a = attached.get(id);
+        if (a != null && (a.brain() != brain || a.villager() != villager)) {
+            takeAllOff(a); // a rebuilt brain lost them already; the same brain under a new entity object still has them
+            attached.remove(id);
+            a = null;
         }
-        if (old != null && old.brain() == brain) {
-            remove(old); // (the same brain under a new entity object: take ours out before putting them back)
+        if (wanted.isEmpty()) {
+            if (a != null) {
+                takeAllOff(a);
+                attached.remove(id);
+            }
+            return;
         }
-        Behavior<Villager> behaviour = new AttentionBehaviour(this, bukkit.getUniqueId());
-        behaviours(brain).computeIfAbsent(PRIORITY, p -> new HashMap<>())
-                .computeIfAbsent(Activity.CORE, a -> new LinkedHashSet<>()).add(behaviour);
-        attached.put(bukkit.getUniqueId(), new Attachment(villager, brain, behaviour));
+        if (a == null) {
+            a = new Attachment(villager, brain, new LinkedHashMap<>());
+        }
+        for (Iterator<Map.Entry<String, Behavior<Villager>>> it = a.behaviours().entrySet().iterator(); it.hasNext();) {
+            Map.Entry<String, Behavior<Villager>> entry = it.next();
+            if (!wanted.contains(entry.getKey())) {
+                takeOff(a, entry.getValue());
+                it.remove();
+            }
+        }
+        for (String name : wanted) {
+            BrainBehaviours.Spec spec = specs.get(name);
+            if (spec != null && !a.behaviours().containsKey(name)) {
+                Behavior<Villager> behaviour = MAKERS.get(name).make(this, id, spec);
+                behaviours(brain).computeIfAbsent(PRIORITY, p -> new HashMap<>())
+                        .computeIfAbsent(Activity.CORE, x -> new LinkedHashSet<>()).add(behaviour);
+                a.behaviours().put(name, behaviour);
+            }
+        }
+        if (a.behaviours().isEmpty()) {
+            attached.remove(id);
+        } else {
+            attached.put(id, a);
+        }
     }
 
     @Override
     public void detach(org.bukkit.entity.Villager bukkit) {
         Attachment a = attached.remove(bukkit.getUniqueId());
         if (a != null) {
-            remove(a);
+            takeAllOff(a);
         }
     }
 
@@ -80,18 +143,38 @@ public final class VillagerBrains implements BrainModule {
     @Override
     public void detachAll() {
         for (Attachment a : attached.values()) {
-            remove(a);
+            takeAllOff(a);
         }
         attached.clear();
     }
 
-    /** Stops our behaviour if it is running (so it cleans up after itself) and takes it out of the brain's table. */
-    private void remove(Attachment a) {
+    @Override
+    public void detachEverywhere(String name) {
+        for (Iterator<Attachment> it = attached.values().iterator(); it.hasNext();) {
+            Attachment a = it.next();
+            Behavior<Villager> behaviour = a.behaviours().remove(name);
+            if (behaviour != null) {
+                takeOff(a, behaviour);
+            }
+            if (a.behaviours().isEmpty()) {
+                it.remove();
+            }
+        }
+    }
+
+    private void takeAllOff(Attachment a) {
+        for (Behavior<Villager> behaviour : a.behaviours().values()) {
+            takeOff(a, behaviour);
+        }
+    }
+
+    /** Stops one of our behaviours if it is running (so it cleans up after itself) and takes it out of the brain's table. */
+    private void takeOff(Attachment a, Behavior<Villager> behaviour) {
         if (a.villager().getBrain() != a.brain()) {
             return; // the game rebuilt the brain: ours went with the old one
         }
-        if (a.behaviour().getStatus() == Behavior.Status.RUNNING && a.villager().level() instanceof ServerLevel level) {
-            a.behaviour().doStop(level, a.villager(), level.getGameTime());
+        if (behaviour.getStatus() == Behavior.Status.RUNNING && a.villager().level() instanceof ServerLevel level) {
+            behaviour.doStop(level, a.villager(), level.getGameTime());
         }
         Map<Integer, Map<Activity, Set<BehaviorControl<? super Villager>>>> byPriority = behaviours(a.brain());
         Map<Activity, Set<BehaviorControl<? super Villager>>> byActivity = byPriority.get(PRIORITY);
@@ -100,7 +183,7 @@ public final class VillagerBrains implements BrainModule {
         }
         Set<BehaviorControl<? super Villager>> set = byActivity.get(Activity.CORE);
         if (set != null) {
-            set.remove(a.behaviour());
+            set.remove(behaviour);
             if (set.isEmpty()) {
                 byActivity.remove(Activity.CORE); // only if nothing of vanilla's is in it
             }
@@ -124,8 +207,34 @@ public final class VillagerBrains implements BrainModule {
         this.active = active;
     }
 
-    boolean active() {
-        return active;
+    /** Whether a behaviour may act: the module is on and the behaviour is not standing aside over its budget. */
+    boolean active(String name) {
+        return active && !aside.contains(name);
+    }
+
+    @Override
+    public void setRunning(String name, boolean running) {
+        if (running) {
+            BehaviourMeter meter = meters.get(name);
+            if (aside.remove(name) && meter != null) {
+                meter.reset(); // only one that stood aside starts afresh: switching on what already runs keeps its figures
+            }
+        } else {
+            aside.add(name);
+        }
+    }
+
+    @Override
+    public void setBudget(String name, int micros) {
+        BehaviourMeter meter = meters.get(name);
+        if (meter != null) {
+            meter.setBudgetMicros(micros);
+        }
+    }
+
+    @Override
+    public void onOverBudget(BiConsumer<String, String> handler) {
+        overBudget = handler;
     }
 
     @Override
@@ -149,13 +258,50 @@ public final class VillagerBrains implements BrainModule {
     }
 
     @Override
-    public io.github.skyeberhard.hamletfolk.core.BrainStats stats() {
+    public int attached(String name) {
+        int count = 0;
+        for (Attachment a : attached.values()) {
+            count += a.behaviours().containsKey(name) ? 1 : 0;
+        }
+        return count;
+    }
+
+    @Override
+    public Set<UUID> villagers() {
+        return Set.copyOf(attached.keySet());
+    }
+
+    @Override
+    public boolean has(UUID villager) {
+        return attached.containsKey(villager);
+    }
+
+    @Override
+    public BrainStats stats() {
         return stats;
     }
 
-    /** Records one call of an added behaviour: the game tick it ran in and the nanoseconds it took. */
-    void record(long gameTick, long nanos) {
-        stats.record(gameTick, nanos);
+    @Override
+    public BrainStats stats(String name) {
+        BehaviourMeter meter = meters.get(name);
+        return meter == null ? new BrainStats() : meter.stats();
+    }
+
+    /**
+     * Records one call of a behaviour: the server tick it ran in and the nanoseconds it took. If that tips the behaviour over its
+     * budget, it stands aside now and the plugin is told (it takes it off every villager, between ticks).
+     */
+    void record(String name, long serverTick, long nanos) {
+        stats.record(serverTick, nanos);
+        BehaviourMeter meter = meters.get(name);
+        if (meter != null && meter.record(serverTick, nanos)) {
+            aside.add(name);
+            try {
+                overBudget.accept(name, meter.figures());
+            } catch (Throwable ignored) {
+                // it already stands aside; a failing report must not escape into the villager's tick
+            }
+        }
     }
 
     @Override
@@ -173,9 +319,9 @@ public final class VillagerBrains implements BrainModule {
     }
 
     /** A behaviour made a decision. Only call when {@link #debugging()}; a failing handler is ignored (it is only a log). */
-    void decided(UUID villager, String text) {
+    void decided(UUID villager, String debugName, String text) {
         try {
-            decisions.accept(villager, text);
+            decisions.accept(villager, debugName + ": " + text);
         } catch (Throwable ignored) {
             // debug output must never break a villager's tick
         }
@@ -229,8 +375,12 @@ public final class VillagerBrains implements BrainModule {
                 running.add(b.debugString());
             }
             Attachment ours = attached.get(bukkit.getUniqueId());
-            java.util.List<String> added = ours != null && ours.brain() == brain ? java.util.List.of(ours.behaviour().debugString())
-                    : java.util.List.of();
+            java.util.List<String> added = new java.util.ArrayList<>();
+            if (ours != null && ours.brain() == brain) {
+                for (Map.Entry<String, Behavior<Villager>> b : ours.behaviours().entrySet()) {
+                    added.add(b.getValue().debugString() + (aside.contains(b.getKey()) ? " (standing aside: over its budget)" : ""));
+                }
+            }
             return new Snapshot("activity: " + main + " (active: " + String.join(", ", active) + ")", memories, running, added);
         } catch (Throwable e) {
             return new Snapshot("could not read its brain: " + e, java.util.List.of(), java.util.List.of(), java.util.List.of());

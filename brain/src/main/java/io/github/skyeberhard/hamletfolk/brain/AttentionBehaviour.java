@@ -1,5 +1,6 @@
 package io.github.skyeberhard.hamletfolk.brain;
 
+import io.github.skyeberhard.hamletfolk.core.BrainBehaviours;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.server.level.ServerLevel;
@@ -27,20 +28,25 @@ final class AttentionBehaviour extends Behavior<Villager> {
 
     private final VillagerBrains module;
     private final UUID id;
+    /** R9.4: its name in the config and its debug name ("hamletfolk:stewards/attention"). */
+    private final String name;
+    private final String debugName;
     private Player watching;
     private long restUntil;
 
-    AttentionBehaviour(VillagerBrains module, UUID id) {
+    AttentionBehaviour(VillagerBrains module, UUID id, BrainBehaviours.Spec spec) {
         super(Map.of(), 40, 100);
         this.module = module;
         this.id = id;
+        this.name = spec.name();
+        this.debugName = spec.debugName();
     }
 
     @Override
     protected boolean checkExtraStartConditions(ServerLevel level, Villager villager) {
         long t = System.nanoTime();
         try {
-            if (!module.active() || villager.isSleeping() || villager.isTrading() || level.getGameTime() < restUntil
+            if (!module.active(name) || villager.isSleeping() || villager.isTrading() || level.getGameTime() < restUntil
                     || !villager.getBrain().getActiveNonCoreActivity().map(ORDINARY::contains).orElse(false)) {
                 return false;
             }
@@ -50,7 +56,7 @@ final class AttentionBehaviour extends Behavior<Villager> {
             }
             watching = near;
             if (module.debugging()) {
-                module.decided(id, "noticed " + near.getScoreboardName() + " " + Math.round(Math.sqrt(villager.distanceToSqr(near)) * 10) / 10.0
+                module.decided(id, debugName, "noticed " + near.getScoreboardName() + " " + Math.round(Math.sqrt(villager.distanceToSqr(near)) * 10) / 10.0
                         + " blocks away: will look at them");
             }
             return true;
@@ -87,7 +93,7 @@ final class AttentionBehaviour extends Behavior<Villager> {
     /** Timing must never be what throws into a villager's tick. */
     private void recordSafely(ServerLevel level, long startedAt) {
         try {
-            module.record(level.getServer().getTickCount(), System.nanoTime() - startedAt);
+            module.record(name, level.getServer().getTickCount(), System.nanoTime() - startedAt);
         } catch (Throwable e) {
             module.fault(id, e);
         }
@@ -96,7 +102,7 @@ final class AttentionBehaviour extends Behavior<Villager> {
     @Override
     protected boolean canStillUse(ServerLevel level, Villager villager, long gameTime) {
         try {
-            return module.active() && watching != null && watching.isAlive() && !watching.isRemoved() && !villager.isTrading()
+            return module.active(name) && watching != null && watching.isAlive() && !watching.isRemoved() && !villager.isTrading()
                     && !villager.isSleeping() && watching.level() == villager.level()
                     && villager.distanceToSqr(watching) < LOSE_INTEREST * LOSE_INTEREST
                     && villager.getBrain().getActiveNonCoreActivity().map(ORDINARY::contains).orElse(false);
@@ -117,7 +123,7 @@ final class AttentionBehaviour extends Behavior<Villager> {
         } finally {
             try {
                 if (module.debugging()) {
-                    module.decided(id, "stopped looking at " + (watching == null ? "nobody" : watching.getScoreboardName())
+                    module.decided(id, debugName, "stopped looking at " + (watching == null ? "nobody" : watching.getScoreboardName())
                             + ": will not stop for anyone for " + REST_TICKS / 20 + " seconds");
                 }
             } catch (Throwable ignored) {
@@ -130,6 +136,6 @@ final class AttentionBehaviour extends Behavior<Villager> {
 
     @Override
     public String debugString() {
-        return "hamletfolk:attention";
+        return debugName;
     }
 }

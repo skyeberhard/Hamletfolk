@@ -29,25 +29,34 @@ public final class BrainStats {
     private long openTick = Long.MIN_VALUE;
     private long openNanos;
 
-    /** Records one call of an added behaviour, in game tick {@code tick}, that took {@code spent} nanoseconds. */
-    public void record(long tick, long spent) {
+    /**
+     * Records one call of an added behaviour, in tick {@code tick}, that took {@code spent} nanoseconds. Returns the total of the
+     * tick this call closed (the first call of a new tick closes the one before), or -1 if it closed none (R9.4: the budget is
+     * judged on whole ticks).
+     */
+    public long record(long tick, long spent) {
         long took = Math.max(0, spent);
+        long closed = -1;
         if (tick != openTick) {
-            closeTick();
+            closed = closeTick();
             openTick = tick;
         }
         openNanos += took;
         calls++;
         nanos += took;
         worstCall = Math.max(worstCall, took);
+        return closed;
     }
 
-    private void closeTick() {
+    private long closeTick() {
+        long closed = -1;
         if (openTick != Long.MIN_VALUE) {
             ticks++;
             worstTick = Math.max(worstTick, openNanos);
+            closed = openNanos;
         }
         openNanos = 0;
+        return closed;
     }
 
     /** The figures so far. */

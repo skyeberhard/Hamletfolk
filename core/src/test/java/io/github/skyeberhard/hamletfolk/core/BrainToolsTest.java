@@ -139,7 +139,8 @@ class BrainToolsTest {
         BrainStats stats = new BrainStats();
         stats.record(10, 3_000);
         return new BrainReport.Input("0.1.0-SNAPSHOT", "Paper 26.2 build 130", "2026-10-09 17:30", state, reason, false, true, 8,
-                stats.summary(), missing, List.of(view(1)), List.of("[tick 10] Mira Oakes: noticed Skye"), 41);
+                stats.summary(), missing, List.of(view(1)), List.of("[tick 10] Mira Oakes: noticed Skye"), 41,
+                List.of("hamletfolk:stewards/attention: on, budget 500 microseconds a tick; on 8 villagers"));
     }
 
     @Test
@@ -147,7 +148,8 @@ class BrainToolsTest {
         String text = BrainReport.report(input(BrainSwitch.State.ON, "", List.of()));
         for (String wanted : new String[] {"Hamletfolk brain module report", "Written: 2026-10-09 17:30", "Plugin: 0.1.0-SNAPSHOT",
                 "Server: Paper 26.2 build 130", "State: on", "brain.enabled in the config: false", "debug logging: on",
-                "Villagers with the added behaviours: 8", "Cost: 1 calls in 1 ticks", "Self-check: everything the module needs is in this server.",
+                "Villagers with the added behaviours: 8", "Cost: 1 calls in 1 ticks", "Behaviours (R9.4):",
+                "  hamletfolk:stewards/attention: on, budget 500 microseconds a tick; on 8 villagers", "Self-check: everything the module needs is in this server.",
                 "Villagers (1 shown):", "  Mira Oakes (farmer of Oakvale)", "Last decisions (1 of 41", "  [tick 10] Mira Oakes: noticed Skye"}) {
             assertTrue(text.contains(wanted), "has '" + wanted + "' in:\n" + text);
         }
@@ -165,7 +167,7 @@ class BrainToolsTest {
                 List.of(), List.of());
         BrainStats stats = new BrainStats();
         String text = BrainReport.report(new BrainReport.Input("v", "s", "now", BrainSwitch.State.ON, "", false, false, 1, stats.summary(),
-                List.of(), List.of(v), List.of("[tick 5] Mira Oakes: noticed Skye 2.0 blocks away: will look at them"), 1));
+                List.of(), List.of(v), List.of("[tick 5] Mira Oakes: noticed Skye 2.0 blocks away: will look at them"), 1, List.of()));
         assertFalse(text.contains(id), text);
         assertTrue(text.contains("Mira Oakes (farmer of Oakvale, <id>)"), "the name stays: " + text);
         assertTrue(text.contains("Player['Skye'/7, uuid='<id>'"), text);

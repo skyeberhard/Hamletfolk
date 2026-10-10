@@ -131,3 +131,21 @@ construction:
 # Off (the default) until it has been played. /settlement brain on|off switches it live until the next restart.
 brain:
   enabled: false
+  # R9.4: a village's villagers get the added behaviours only while a player is within this many blocks of them (and keep them
+  # until 16 blocks further, so they do not flicker on and off at the edge); the rest stay simulation-only.
+  watch-distance: 48
+  # Whole families of behaviours: guards, work, pathing, builders, stewards. /settlement brain family <family> on|off switches
+  # one live until the next restart, and takes its behaviours off every villager at once.
+  families:
+    guards: true
+    work: true
+    pathing: true
+    builders: true
+    stewards: true
+  # Each behaviour: on or off (/settlement brain behaviour <name> on|off), and the most all its calls in one tick may take, in
+  # microseconds (a tick is 50,000). One that goes over it in 10 of the last 100 ticks it ran in (not counting its first 100,
+  # while the server warms it up) switches itself off and says so in the log; the others carry on. 0 means no budget.
+  behaviours:
+    attention:
+      enabled: true
+      budget-microseconds: 500

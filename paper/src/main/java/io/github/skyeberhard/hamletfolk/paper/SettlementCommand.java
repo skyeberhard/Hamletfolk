@@ -110,12 +110,19 @@ final class SettlementCommand implements TabExecutor {
             return admin.complete(sender, args);
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("brain") && sender.hasPermission(BrainService.PERMISSION)) {
-            return List.of("on", "off", "status", "inspect", "debug", "report").stream()
+            return List.of("on", "off", "status", "inspect", "debug", "report", "behaviour", "family").stream()
                     .filter(o -> o.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("brain") && args[1].equalsIgnoreCase("debug")
                 && sender.hasPermission(BrainService.PERMISSION)) {
             return List.of("on", "off").stream().filter(o -> o.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
+        }
+        if (args.length >= 3 && args.length <= 4 && args[0].equalsIgnoreCase("brain") && sender.hasPermission(BrainService.PERMISSION)
+                && (args[1].equalsIgnoreCase("behaviour") || args[1].equalsIgnoreCase("family"))) {
+            BrainService brain = service.plugin().brain();
+            List<String> options = args.length == 4 ? List.of("on", "off")
+                    : args[1].equalsIgnoreCase("family") ? BrainService.families() : brain == null ? List.of() : brain.behaviourNames();
+            return options.stream().filter(o -> o.startsWith(args[args.length - 1].toLowerCase(Locale.ROOT))).toList();
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("donate")) {
             return "all".startsWith(args[1].toLowerCase(Locale.ROOT)) ? List.of("all") : List.of();
@@ -138,7 +145,7 @@ final class SettlementCommand implements TabExecutor {
     /**
      * R9.1: /settlement brain on|off|status switches the brain module (the behaviours added to villagers through the server's
      * internals) live, until the next restart; {@code brain.enabled} in the config says what it starts as. Admins only; works
-     * from the console.
+     * from the console. R9.4: behaviour and family switch one behaviour or a family the same way.
      */
     private void brain(CommandSender sender, String[] args) {
         if (!sender.hasPermission(BrainService.PERMISSION)) {
@@ -164,7 +171,20 @@ final class SettlementCommand implements TabExecutor {
                 }
             }
             case "report" -> brain.report(sender);
-            default -> sender.sendMessage("Usage: /settlement brain on|off|status|inspect|debug on|off|report");
+            case "behaviour", "family" -> {
+                String mode = args.length > 3 ? args[3].toLowerCase(Locale.ROOT) : "";
+                if (args.length > 2 && (mode.equals("on") || mode.equals("off"))) {
+                    if (args[1].equalsIgnoreCase("family")) {
+                        brain.family(sender, args[2], mode.equals("on"));
+                    } else {
+                        brain.behaviour(sender, args[2], mode.equals("on"));
+                    }
+                } else {
+                    sender.sendMessage("Usage: /settlement brain " + args[1].toLowerCase(Locale.ROOT) + " <"
+                            + args[1].toLowerCase(Locale.ROOT) + "> on|off (see /settlement brain status)");
+                }
+            }
+            default -> sender.sendMessage("Usage: /settlement brain on|off|status|inspect|debug on|off|report|behaviour <name> on|off|family <family> on|off");
         }
     }
 
