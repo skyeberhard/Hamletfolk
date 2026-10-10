@@ -154,3 +154,8 @@ brain:
     journey:
       enabled: true
       budget-microseconds: 2000
+    # R9.3: guards fight (family guards). A resident the village has made a guard, while the stores hold tools, stands its
+    # ground against zombies, husks and raiders near it instead of running, strikes them, and retreats when badly hurt.
+    guard:
+      enabled: true
+      budget-microseconds: 1500

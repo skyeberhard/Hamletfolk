@@ -3,6 +3,7 @@ package io.github.skyeberhard.hamletfolk.brain;
 import io.github.skyeberhard.hamletfolk.core.BehaviourMeter;
 import io.github.skyeberhard.hamletfolk.core.BrainBehaviours;
 import io.github.skyeberhard.hamletfolk.core.BrainStats;
+import io.github.skyeberhard.hamletfolk.core.GuardDuty;
 import io.github.skyeberhard.hamletfolk.paper.BrainModule;
 import java.lang.reflect.Field;
 import java.util.HashMap;
@@ -40,6 +41,11 @@ public final class VillagerBrains implements BrainModule {
     /** Priority of the added behaviours in CORE. If vanilla uses it too, the set is shared and only ours is ever taken out. */
     static final int PRIORITY = 2;
 
+    /** Where a behaviour goes in CORE: {@link #PRIORITY}, except the guard's, which must come before vanilla's panic trigger. */
+    static int priority(Behavior<Villager> behaviour) {
+        return behaviour instanceof GuardBehaviour ? GuardBehaviour.PRIORITY : PRIORITY;
+    }
+
     /** Makes one villager's instance of a behaviour. */
     @FunctionalInterface
     interface Maker {
@@ -49,7 +55,8 @@ public final class VillagerBrains implements BrainModule {
     /** Every behaviour the module can make. Keep in step with {@link BrainBehaviours#ALL}. */
     private static final Map<String, Maker> MAKERS = Map.of(
             "attention", AttentionBehaviour::new,
-            "journey", JourneyBehaviour::new);
+            "journey", JourneyBehaviour::new,
+            GuardDuty.BEHAVIOUR, GuardBehaviour::new);
 
     private final Field table;
     private final Map<UUID, Attachment> attached = new HashMap<>();
@@ -116,7 +123,7 @@ public final class VillagerBrains implements BrainModule {
             BrainBehaviours.Spec spec = specs.get(name);
             if (spec != null && !a.behaviours().containsKey(name)) {
                 Behavior<Villager> behaviour = MAKERS.get(name).make(this, id, spec);
-                behaviours(brain).computeIfAbsent(PRIORITY, p -> new HashMap<>())
+                behaviours(brain).computeIfAbsent(priority(behaviour), p -> new HashMap<>())
                         .computeIfAbsent(Activity.CORE, x -> new LinkedHashSet<>()).add(behaviour);
                 a.behaviours().put(name, behaviour);
             }
@@ -196,11 +203,15 @@ public final class VillagerBrains implements BrainModule {
         if (a.villager().getBrain() != a.brain()) {
             return; // the game rebuilt the brain: ours went with the old one
         }
+        if (behaviour instanceof GuardBehaviour guard) {
+            guard.release(a.villager()); // it never runs, so doStop would not clean up after it
+        }
         if (behaviour.getStatus() == Behavior.Status.RUNNING && a.villager().level() instanceof ServerLevel level) {
             behaviour.doStop(level, a.villager(), level.getGameTime());
         }
         Map<Integer, Map<Activity, Set<BehaviorControl<? super Villager>>>> byPriority = behaviours(a.brain());
-        Map<Activity, Set<BehaviorControl<? super Villager>>> byActivity = byPriority.get(PRIORITY);
+        int priority = priority(behaviour);
+        Map<Activity, Set<BehaviorControl<? super Villager>>> byActivity = byPriority.get(priority);
         if (byActivity == null) {
             return;
         }
@@ -212,7 +223,7 @@ public final class VillagerBrains implements BrainModule {
             }
         }
         if (byActivity.isEmpty()) {
-            byPriority.remove(PRIORITY);
+            byPriority.remove(priority);
         }
     }
 
@@ -401,7 +412,8 @@ public final class VillagerBrains implements BrainModule {
             java.util.List<String> added = new java.util.ArrayList<>();
             if (ours != null && ours.brain() == brain) {
                 for (Map.Entry<String, Behavior<Villager>> b : ours.behaviours().entrySet()) {
-                    String doing = b.getValue() instanceof JourneyBehaviour journey ? journey.describe() : "";
+                    String doing = b.getValue() instanceof JourneyBehaviour journey ? journey.describe()
+                            : b.getValue() instanceof GuardBehaviour guard ? guard.describe() : "";
                     added.add(b.getValue().debugString() + (aside.contains(b.getKey()) ? " (standing aside: over its budget)" : "")
                             + (doing.isEmpty() ? "" : " (" + doing + ")"));
                 }

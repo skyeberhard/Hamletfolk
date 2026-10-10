@@ -89,6 +89,9 @@ public final class BrainSelfCheck {
     private static final String ENTITY = "net.minecraft.world.entity.Entity";
     private static final String BLOCK_POS = "net.minecraft.core.BlockPos";
     private static final String LIVING = "net.minecraft.world.entity.LivingEntity";
+    private static final String HAND = "net.minecraft.world.InteractionHand";
+    private static final String AABB = "net.minecraft.world.phys.AABB";
+    private static final String DAMAGE_SOURCE = "net.minecraft.world.damagesource.DamageSource";
 
     /** Everything the brain module touches, Paper 26.2. Keep in step with the module's code. */
     public static final List<Requirement> REQUIRED = List.of(
@@ -165,6 +168,43 @@ public final class BrainSelfCheck {
             Requirement.method(VILLAGER, "boolean", "randomTeleport", "double", "double", "double", "boolean"),
             Requirement.method(BEHAVIOR, "boolean", "timedOut", "long"),
             Requirement.field(MEMORY, "CANT_REACH_WALK_TARGET_SINCE", MEMORY),
+            // R9.3: the guard
+            Requirement.type(LIVING),
+            Requirement.type(LEVEL),
+            Requirement.type("net.minecraft.world.damagesource.DamageSources"),
+            Requirement.type(DAMAGE_SOURCE),
+            Requirement.type("net.minecraft.world.entity.EntityType"),
+            Requirement.field(MEMORY, "NEAREST_HOSTILE", MEMORY),
+            Requirement.field(MEMORY, "HURT_BY", MEMORY),
+            Requirement.constructor(WALK, ENTITY, "float", "int"),
+            Requirement.method(LIVING, "float", "getHealth"),
+            Requirement.method(LIVING, "float", "getMaxHealth"),
+            Requirement.method(LIVING, "boolean", "hurtServer", SERVER_LEVEL, DAMAGE_SOURCE, "float"),
+            Requirement.method(LIVING, "void", "swing", HAND),
+            Requirement.type(HAND),
+            Requirement.field(HAND, "MAIN_HAND", HAND),
+            Requirement.method(ENTITY, "boolean", "isAlive"),
+            Requirement.method(ENTITY, "boolean", "isRemoved"),
+            Requirement.method(ENTITY, LEVEL, "level"),
+            Requirement.method(ENTITY, "int", "getId"),
+            Requirement.method(ENTITY, "double", "getX"),
+            Requirement.method(ENTITY, "double", "getY"),
+            Requirement.method(ENTITY, "double", "getZ"),
+            Requirement.method(ENTITY, AABB, "getBoundingBox"),
+            Requirement.method(ENTITY, "net.minecraft.world.entity.EntityType", "getType"),
+            Requirement.method("net.minecraft.world.entity.EntityType", "java.lang.String", "toShortString"),
+            Requirement.type(AABB),
+            Requirement.method(AABB, AABB, "inflate", "double"),
+            Requirement.method(LEVEL, "java.util.List", "getEntitiesOfClass", "java.lang.Class", AABB, "java.util.function.Predicate"),
+            Requirement.method(LEVEL, "net.minecraft.world.damagesource.DamageSources", "damageSources"),
+            Requirement.method("net.minecraft.world.damagesource.DamageSources", DAMAGE_SOURCE, "mobAttack", LIVING),
+            Requirement.type("net.minecraft.world.entity.monster.zombie.Zombie"),
+            Requirement.type("net.minecraft.world.entity.monster.zombie.ZombifiedPiglin"),
+            Requirement.type("net.minecraft.world.entity.raid.Raider"),
+            Requirement.type("net.minecraft.world.entity.monster.zombie.ZombieVillager"),
+            Requirement.field(MEMORY, "HURT_BY_ENTITY", MEMORY),
+            Requirement.method(LIVING, "void", "heal", "float"),
+            Requirement.method(LIVING, "boolean", "hasLineOfSight", ENTITY),
             Requirement.method(WALK, "net.minecraft.world.entity.ai.behavior.PositionTracker", "getTarget"),
             Requirement.method(WALK, "float", "getSpeedModifier"),
             Requirement.method(WALK, "int", "getCloseEnoughDist"),

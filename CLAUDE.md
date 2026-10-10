@@ -186,7 +186,12 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   `BrainModule.travel`), never sets WALK_TARGET itself; `Journey` (core) holds the fallback rules and is tested with a fake
   `Mover`, `JourneyBehaviour` is the only mover. The result callback runs inside a brain tick (or from a take-off), so it only logs or
   notes. `standingNear` must never load a chunk. A position in a log line is written `x=.. y=.. z=..` (`Journey.Point.toString`) so
-  `BrainReport.redact` takes it out.
+  `BrainReport.redact` takes it out. R9.3: `GuardBehaviour` sits at priority -1 in CORE (`VillagerBrains.priority`), before
+  vanilla's panic trigger (priority 0), and does everything in `checkExtraStartConditions` (it never "runs"): for a guard fit to
+  fight it erases NEAREST_HOSTILE and HURT_BY (only when they are a monster it fights: never a zombie villager or zombified
+  piglin) so the villager does not panic, and a badly hurt one leaves them, so vanilla panic is its retreat. Villagers never heal
+  by themselves, so a guard heals slowly out of a fight (`GuardDuty.heals`), or a retreat would last for ever. Chasing a moving monster is the one place a behaviour sets WALK_TARGET itself. The plugin gives it only to a guard
+  on duty (`GuardDuty.onDuty`: a GUARD with tools in the stores; `GuardDuty.fit`), checked each second; the rules are in core.
 - **`SettlementService.track()` returns null** for a world excluded by `worlds.allow/deny`
   (R1.10); callers must handle it.
 - **Line endings:** working copies are CRLF (autocrlf) while the repo stores LF, so git warns

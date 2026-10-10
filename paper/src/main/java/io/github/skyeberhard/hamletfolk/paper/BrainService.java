@@ -454,7 +454,7 @@ final class BrainService implements Listener {
         }
         try {
             boolean near = isResident(id) && behaviours.keepWatching(module.has(id), nearestPlayer(villager, players));
-            module.attach(villager, near ? running : Set.of());
+            module.attach(villager, near ? io.github.skyeberhard.hamletfolk.core.GuardDuty.fit(running, onDuty(id)) : Set.of());
             return module.has(id);
         } catch (RuntimeException | LinkageError e) {
             fault(id, e);
@@ -472,6 +472,12 @@ final class BrainService implements Listener {
             best = Math.min(best, p.distanceSquared(at));
         }
         return Math.sqrt(best);
+    }
+
+    /** R9.3: the simulation's guard, in a village with tools in its stores (checked each second, so it stops when they run out). */
+    private boolean onDuty(UUID id) {
+        Optional<Settlement> home = settlements.registry().settlementOf(id);
+        return home.flatMap(s -> s.resident(id)).map(r -> io.github.skyeberhard.hamletfolk.core.GuardDuty.onDuty(home.get(), r)).orElse(false);
     }
 
     private boolean isResident(UUID id) {

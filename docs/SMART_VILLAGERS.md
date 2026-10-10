@@ -41,7 +41,7 @@ switch under `brain.behaviours`, on top of the master switch (R9.4):
 
 | Family | Behaviour | Roadmap |
 |---|---|---|
-| guards | fight hostile monsters near the village while the stores hold tools | R9.3 |
+| guards | fight hostile monsters near the village while the stores hold tools (stand their ground instead of panicking, retreat when badly hurt); built | R9.3 |
 | work | walk to the workplace and work there while a player is near | R4.17 |
 | builders | walk to a project site and build it over time | R4.7, R4.8 |
 | stewards | elders and stewards meet people, stand at the counter, walk the village | R6.4, R6.6 |
