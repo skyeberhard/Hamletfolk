@@ -345,6 +345,59 @@ final class BrainService implements Listener {
 
     private static final int REPORT_VILLAGERS = 10;
 
+    // ----- R9.5: the pathing service -----
+
+    /**
+     * {@code /settlement brain walk <villager> <x> <y> <z> [teleport]}: sends a villager (a selector, e.g.
+     * {@code @e[type=villager,sort=nearest,limit=1]}) somewhere with the pathing service, by road when its village has a plan,
+     * and says how it went. For testing the service before the behaviours that use it.
+     */
+    void walk(CommandSender who, String selector, int x, int y, int z, boolean mayTeleport) {
+        if (module == null || !brainSwitch.on()) {
+            who.sendMessage("The brain module is not on" + (brainSwitch.reason().isEmpty() ? "" : " (" + brainSwitch.reason() + ")") + ".");
+            return;
+        }
+        Villager villager;
+        try {
+            villager = Bukkit.selectEntities(who, selector).stream().filter(Villager.class::isInstance).map(Villager.class::cast)
+                    .findFirst().orElse(null);
+        } catch (IllegalArgumentException e) {
+            who.sendMessage("Not a selector: " + selector + " (" + e.getMessage() + ")");
+            return;
+        }
+        if (villager == null) {
+            who.sendMessage("No villager matches " + selector + ".");
+            return;
+        }
+        UUID id = villager.getUniqueId();
+        String name = describe(id);
+        if (!behaviours.runs(JOURNEY)) {
+            who.sendMessage("The pathing service is off: " + behaviours.whyNot(JOURNEY) + ".");
+            return;
+        }
+        if (!module.has(id)) {
+            who.sendMessage(name + " has none of the added behaviours: " + (isResident(id) ? "no player is within "
+                    + behaviours.watchDistance() + " blocks of it" : "it is not a resident of a village") + ".");
+            return;
+        }
+        Location at = villager.getLocation();
+        io.github.skyeberhard.hamletfolk.core.Journey.Point from = new io.github.skyeberhard.hamletfolk.core.Journey.Point(
+                at.getBlockX(), at.getBlockY(), at.getBlockZ());
+        io.github.skyeberhard.hamletfolk.core.Journey.Point goal = new io.github.skyeberhard.hamletfolk.core.Journey.Point(x, y, z);
+        io.github.skyeberhard.hamletfolk.core.VillagePlan plan = settlements.registry().settlementOf(id).map(Settlement::plan).orElse(null);
+        List<io.github.skyeberhard.hamletfolk.core.Journey.Point> route = io.github.skyeberhard.hamletfolk.core.RoadRoute.route(plan, from, goal);
+        boolean started = module.travel(villager, goal, route, mayTeleport, 1, result -> {
+            String line = name + ": " + result.describe();
+            plugin.getLogger().info("[brain] " + line);
+            who.sendMessage(line);
+        });
+        who.sendMessage(started ? name + " sets off, " + Math.round(from.horizontalDistance(goal)) + " blocks"
+                + (route.size() > 1 ? " by road (" + (route.size() - 1) + " waypoints)" : "") + (mayTeleport ? "; it may be teleported" : "")
+                + ". Turn on /settlement brain debug on to follow each step." : name + " could not be sent: it has no pathing behaviour.");
+    }
+
+    static final String JOURNEY = "journey";
+
     private List<String> withWatch(List<String> lines) {
         List<String> out = new ArrayList<>();
         out.add("watch distance: " + behaviours.watchDistance() + " blocks (kept to " + (behaviours.watchDistance() + BrainBehaviours.WATCH_MARGIN) + ")");

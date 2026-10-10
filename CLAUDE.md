@@ -182,7 +182,11 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   judges). `BrainModule.attach(villager, names)` gives exactly that set; the plugin decides the set (`BrainService.fit`: the
   running ones near a player, none otherwise). The budget is not judged for the first `BehaviourMeter.WARM_UP` (100) measured
   ticks after a start or a switch-on. An over-budget trip arrives inside a brain tick, so the plugin only queues the
-  `detachEverywhere` for the timer.
+  `detachEverywhere` for the timer. R9.5: a behaviour that needs a villager somewhere calls `VillagerBrains.travel` (the plugin:
+  `BrainModule.travel`), never sets WALK_TARGET itself; `Journey` (core) holds the fallback rules and is tested with a fake
+  `Mover`, `JourneyBehaviour` is the only mover. The result callback runs inside a brain tick (or from a take-off), so it only logs or
+  notes. `standingNear` must never load a chunk. A position in a log line is written `x=.. y=.. z=..` (`Journey.Point.toString`) so
+  `BrainReport.redact` takes it out.
 - **`SettlementService.track()` returns null** for a world excluded by `worlds.allow/deny`
   (R1.10); callers must handle it.
 - **Line endings:** working copies are CRLF (autocrlf) while the repo stores LF, so git warns

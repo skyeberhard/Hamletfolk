@@ -45,7 +45,7 @@ switch under `brain.behaviours`, on top of the master switch (R9.4):
 | work | walk to the workplace and work there while a player is near | R4.17 |
 | builders | walk to a project site and build it over time | R4.7, R4.8 |
 | stewards | elders and stewards meet people, stand at the counter, walk the village | R6.4, R6.6 |
-| pathing | one shared service all of them use, with fallbacks; later roads | R9.5, R8.3 |
+| pathing | one shared service all of them use, with fallbacks (path, short hops, teleport or give up) and road waypoints; built | R9.5, R8.3 |
 
 Two rules apply to all of them: they only act while a player is near the villager (far villagers are
 simulation only, which also keeps the cost down), and they show what the simulation decided, never change it.

@@ -36,6 +36,16 @@ public interface BrainModule {
     /** Takes them off every villager they are on. */
     void detachAll();
 
+    /**
+     * R9.5: sends a villager to {@code goal} through the {@code route} waypoints (the road route, may be empty) with the shared
+     * pathing service, which falls back to short hops and then (if {@code mayTeleport}) a teleport. {@code done} is called once
+     * with how it ended, from inside a brain tick (so it must only log or note), or from the call that takes the behaviour off.
+     * False (and nothing happens) if the villager does not have the pathing behaviour: no player near, pathing off, module off.
+     */
+    boolean travel(Villager villager, io.github.skyeberhard.hamletfolk.core.Journey.Point goal,
+            List<io.github.skyeberhard.hamletfolk.core.Journey.Point> route, boolean mayTeleport, int closeEnough,
+            java.util.function.Consumer<io.github.skyeberhard.hamletfolk.core.Journey.Result> done);
+
     /** R9.4: takes one behaviour off every villager it is on (it, or its family, was switched off, or it went over its budget). */
     void detachEverywhere(String behaviour);
 

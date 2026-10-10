@@ -110,7 +110,7 @@ final class SettlementCommand implements TabExecutor {
             return admin.complete(sender, args);
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("brain") && sender.hasPermission(BrainService.PERMISSION)) {
-            return List.of("on", "off", "status", "inspect", "debug", "report", "behaviour", "family").stream()
+            return List.of("on", "off", "status", "inspect", "debug", "report", "behaviour", "family", "walk").stream()
                     .filter(o -> o.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("brain") && args[1].equalsIgnoreCase("debug")
@@ -171,6 +171,18 @@ final class SettlementCommand implements TabExecutor {
                 }
             }
             case "report" -> brain.report(sender);
+            case "walk" -> {
+                if (args.length < 6) {
+                    sender.sendMessage("Usage: /settlement brain walk <villager selector, no spaces> <x> <y> <z> [teleport]");
+                    break;
+                }
+                try {
+                    brain.walk(sender, args[2], Integer.parseInt(args[3]), Integer.parseInt(args[4]), Integer.parseInt(args[5]),
+                            args.length > 6 && args[6].equalsIgnoreCase("teleport"));
+                } catch (NumberFormatException e) {
+                    sender.sendMessage("x, y and z must be whole numbers.");
+                }
+            }
             case "behaviour", "family" -> {
                 String mode = args.length > 3 ? args[3].toLowerCase(Locale.ROOT) : "";
                 if (args.length > 2 && (mode.equals("on") || mode.equals("off"))) {
@@ -184,7 +196,7 @@ final class SettlementCommand implements TabExecutor {
                             + args[1].toLowerCase(Locale.ROOT) + "> on|off (see /settlement brain status)");
                 }
             }
-            default -> sender.sendMessage("Usage: /settlement brain on|off|status|inspect|debug on|off|report|behaviour <name> on|off|family <family> on|off");
+            default -> sender.sendMessage("Usage: /settlement brain on|off|status|inspect|debug on|off|report|behaviour <name> on|off|family <family> on|off|walk <villager> <x> <y> <z> [teleport]");
         }
     }
 

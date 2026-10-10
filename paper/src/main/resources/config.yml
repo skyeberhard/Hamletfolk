@@ -149,3 +149,8 @@ brain:
     attention:
       enabled: true
       budget-microseconds: 500
+    # R9.5: the shared pathing service (family pathing): walks a villager somewhere for the behaviours that need it, falling
+    # back to short hops and then a teleport when the brain keeps cancelling the path. Off, nothing that needs it can walk.
+    journey:
+      enabled: true
+      budget-microseconds: 2000

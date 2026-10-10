@@ -87,6 +87,7 @@ public final class BrainSelfCheck {
     private static final String SERVER_LEVEL = "net.minecraft.server.level.ServerLevel";
     private static final String LEVEL = "net.minecraft.world.level.Level";
     private static final String ENTITY = "net.minecraft.world.entity.Entity";
+    private static final String BLOCK_POS = "net.minecraft.core.BlockPos";
     private static final String LIVING = "net.minecraft.world.entity.LivingEntity";
 
     /** Everything the brain module touches, Paper 26.2. Keep in step with the module's code. */
@@ -153,6 +154,17 @@ public final class BrainSelfCheck {
             Requirement.type("net.minecraft.server.MinecraftServer"),
             Requirement.method("net.minecraft.server.MinecraftServer", "int", "getTickCount"),
             Requirement.type(WALK),
+            Requirement.constructor(WALK, BLOCK_POS, "float", "int"),
+            Requirement.method(BRAIN, "java.util.Optional", "getMemory", MEMORY),
+            Requirement.type(BLOCK_POS),
+            Requirement.constructor(BLOCK_POS, "int", "int", "int"),
+            Requirement.method(BLOCK_POS, "int", "getX"),
+            Requirement.method(BLOCK_POS, "int", "getY"),
+            Requirement.method(BLOCK_POS, "int", "getZ"),
+            Requirement.method(VILLAGER, BLOCK_POS, "blockPosition"),
+            Requirement.method(VILLAGER, "boolean", "randomTeleport", "double", "double", "double", "boolean"),
+            Requirement.method(BEHAVIOR, "boolean", "timedOut", "long"),
+            Requirement.field(MEMORY, "CANT_REACH_WALK_TARGET_SINCE", MEMORY),
             Requirement.method(WALK, "net.minecraft.world.entity.ai.behavior.PositionTracker", "getTarget"),
             Requirement.method(WALK, "float", "getSpeedModifier"),
             Requirement.method(WALK, "int", "getCloseEnoughDist"),

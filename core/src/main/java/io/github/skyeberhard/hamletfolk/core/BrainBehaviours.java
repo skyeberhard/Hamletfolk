@@ -28,7 +28,10 @@ public final class BrainBehaviours {
     public static final List<Spec> ALL = List.of(
             // the test behaviour (R9.1): a villager stops and looks at a player within three blocks. About 2.5 microseconds a call
             // on the test server, so 500 (1% of a tick) is some two hundred villagers near players at once.
-            new Spec("attention", BrainFamily.STEWARDS, 500));
+            new Spec("attention", BrainFamily.STEWARDS, 500),
+            // R9.5: the shared pathing service, driving a villager's journey (Journey) each tick it has one. Idle it is a few
+            // microseconds; a hop looks at a dozen blocks. 2000 (4% of a tick) is generous until something walks for real.
+            new Spec("journey", BrainFamily.PATHING, 2000));
 
     /** Default distance (blocks) from a player within which villagers get their behaviours. */
     public static final int DEFAULT_WATCH = 48;

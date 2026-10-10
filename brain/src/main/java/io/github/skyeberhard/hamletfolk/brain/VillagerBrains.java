@@ -48,7 +48,8 @@ public final class VillagerBrains implements BrainModule {
 
     /** Every behaviour the module can make. Keep in step with {@link BrainBehaviours#ALL}. */
     private static final Map<String, Maker> MAKERS = Map.of(
-            "attention", AttentionBehaviour::new);
+            "attention", AttentionBehaviour::new,
+            "journey", JourneyBehaviour::new);
 
     private final Field table;
     private final Map<UUID, Attachment> attached = new HashMap<>();
@@ -137,7 +138,26 @@ public final class VillagerBrains implements BrainModule {
 
     @Override
     public void forget(UUID villager) {
-        attached.remove(villager); // its brain went with it
+        Attachment a = attached.remove(villager); // its brain went with it
+        if (a != null) {
+            for (Behavior<Villager> behaviour : a.behaviours().values()) {
+                if (behaviour instanceof JourneyBehaviour journey) {
+                    journey.abandon("the villager left the world");
+                }
+            }
+        }
+    }
+
+    @Override
+    public boolean travel(org.bukkit.entity.Villager bukkit, io.github.skyeberhard.hamletfolk.core.Journey.Point goal,
+            List<io.github.skyeberhard.hamletfolk.core.Journey.Point> route, boolean mayTeleport, int closeEnough,
+            java.util.function.Consumer<io.github.skyeberhard.hamletfolk.core.Journey.Result> done) {
+        Attachment a = attached.get(bukkit.getUniqueId());
+        if (a == null || a.villager().getBrain() != a.brain() || !(a.behaviours().get("journey") instanceof JourneyBehaviour journey)) {
+            return false;
+        }
+        journey.begin(bukkit, new io.github.skyeberhard.hamletfolk.core.Journey(goal, route, mayTeleport, closeEnough, journey::log), done);
+        return true;
     }
 
     @Override
@@ -170,6 +190,9 @@ public final class VillagerBrains implements BrainModule {
 
     /** Stops one of our behaviours if it is running (so it cleans up after itself) and takes it out of the brain's table. */
     private void takeOff(Attachment a, Behavior<Villager> behaviour) {
+        if (behaviour instanceof JourneyBehaviour journey) {
+            journey.abandon("the pathing behaviour was taken off this villager"); // whoever asked is told, brain rebuilt or not
+        }
         if (a.villager().getBrain() != a.brain()) {
             return; // the game rebuilt the brain: ours went with the old one
         }
@@ -378,7 +401,9 @@ public final class VillagerBrains implements BrainModule {
             java.util.List<String> added = new java.util.ArrayList<>();
             if (ours != null && ours.brain() == brain) {
                 for (Map.Entry<String, Behavior<Villager>> b : ours.behaviours().entrySet()) {
-                    added.add(b.getValue().debugString() + (aside.contains(b.getKey()) ? " (standing aside: over its budget)" : ""));
+                    String doing = b.getValue() instanceof JourneyBehaviour journey ? journey.describe() : "";
+                    added.add(b.getValue().debugString() + (aside.contains(b.getKey()) ? " (standing aside: over its budget)" : "")
+                            + (doing.isEmpty() ? "" : " (" + doing + ")"));
                 }
             }
             return new Snapshot("activity: " + main + " (active: " + String.join(", ", active) + ")", memories, running, added);
