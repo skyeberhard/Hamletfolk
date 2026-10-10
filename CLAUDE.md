@@ -26,7 +26,7 @@ without Bukkit types (e.g. `SaveSequence`, `SaveBackups`) belongs in `core` with
 ```
 
 The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
-`docs/TESTING.md` has setup, useful in-game commands, and playtest scenarios T1–T16.
+`docs/TESTING.md` has setup, useful in-game commands, and playtest scenarios T1–T81.
 
 ## Workflow rules
 
@@ -189,16 +189,15 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   about "LF will be replaced by CRLF". Harmless.
 - The Paper module compiles on the local machine and has been run (playtest 2026-10-01: the server
   loads the plugin, a format-4 save migrated to 8, `/settlement`, talking, requests and donation
-  payouts work). Most of it is still unplaytested: see docs/TESTING.md T1-T29.
+  payouts work). Most of it is still unplaytested: see docs/TESTING.md T1–T81 and the "coded, not yet played" notes in CHANGELOG.md.
 
 ## Where things stand
 
-- Done: M0; M1 items R1.2, R1.3, R1.4, R1.5, R1.6, R1.8, R1.9, R1.10, R1.13, R1.14, R1.16, R1.17,
-  R1.18, R1.19, R1.20, R1.21, R1.22, R1.23, R1.28, R1.29, R1.30; M2 items R2.1, R2.2, R2.3, R2.5, R2.6, R2.7; M3 items R3.1, R3.2, R3.3, R3.4, R3.5, R3.6, R3.7, R3.9, R3.10, R3.11, R3.12, R3.13, R3.14; M5 items R5.1, R5.5; M8 items R8.1, R8.2, R8.3, R8.4; M4 items R4.1, R4.2, R4.3, R4.4, R4.5, R4.9, R4.10, R4.14, R4.15, R4.16.
-  Save format is 26 (R5.10 added the RAMPART work and a project's plan stage; R8.12 added the SAWMILL, FORGE and GRANARY building types; R4.29 added residents' days worked in their trade; R3.16 made the stores hold commodities; R5.6 added the works STREET_LIGHTS and PALISADE as project types; R4.21 added the buildings a builder has finished; R4.7 and R4.8 added construction projects, their turn and grading and the builder occupation; R8.3 added the village plan; R8.1 added the planner's decision log; R5.5 added the days of recent attacks; R5.1 added the guard occupation; R2.6 kept room for existing treasuries; R4.2 added the departure history kind; R3.5 added resident wealth; R3.4 added per-player reputation; R2.2 added bed counts; R2.1 added buildings; R3.3 added requests; R1.21 added event count/actor, R3.7 added flow, R4.14 added gender, R4.15 added departed ids; 7 dropped the nonbinary gender).
-- **Next, highest value:** R1.1 (first playtest — the Paper layer has never run; scenarios
-  T1–T48 in docs/TESTING.md, of which T17 (admin), T18 (worlds), T19 (backups), T26 (appearance), T27 (requests) and T28 (donation values) and T29 (tool requests) and T30 (trade prices) and T31 (donation room), T32 (building signs) and T33 (housing) T34 (miners), T35 (reputation), T36 (trades) and T37 (trade stock), T38 (wealth) and T39 (migration) and T40 (membership) T41 (shops) and T42 (treasury) T43 (bank counter) T44 (guards) T45 (planner) T46 (survey) and T47 (plan and lots) and T48 (exempt signs) are
-  Paper-only). After that R1.24 (needs a decision), R1.7 and R1.12, then M2 buildings.
+- Done (from ROADMAP.md, which is the source of truth): M0: R0.1, R0.2, R0.3, R0.4, R0.5, R0.6, R0.7; M1: 25 items, R1.2 to R1.30; M2: R2.1, R2.2, R2.3, R2.5, R2.6, R2.7; M3: 14 items, R3.1 to R3.14; M4: 10 items, R4.1 to R4.16; M5: R5.1, R5.5; M8: R8.1, R8.2, R8.3, R8.4. In progress: R1.7. Many other items are coded and still `Planned` because no one has played them yet.
+  Save format is 28 (R5.10 added the RAMPART work and a project's plan stage; R8.12 added the SAWMILL, FORGE and GRANARY building types; R4.29 added residents' days worked in their trade; R3.16 made the stores hold commodities; R5.6 added the works STREET_LIGHTS and PALISADE as project types; R4.21 added the buildings a builder has finished; R4.7 and R4.8 added construction projects, their turn and grading and the builder occupation; R8.3 added the village plan; R8.1 added the planner's decision log; R5.5 added the days of recent attacks; R5.1 added the guard occupation; R2.6 kept room for existing treasuries; R4.2 added the departure history kind; R3.5 added resident wealth; R3.4 added per-player reputation; R2.2 added bed counts; R2.1 added buildings; R3.3 added requests; R1.21 added event count/actor, R3.7 added flow, R4.14 added gender, R4.15 added departed ids; 7 dropped the nonbinary gender).
+- **Next, highest value:** R1.1 (finish the playtest — the Paper layer has run only in part; scenarios
+  T1–T81 in docs/TESTING.md, of which T17 (admin), T18 (worlds), T19 (backups), T26 (appearance), T27 (requests) and T28 (donation values) and T29 (tool requests) and T30 (trade prices) and T31 (donation room), T32 (building signs) and T33 (housing) T34 (miners), T35 (reputation), T36 (trades) and T37 (trade stock), T38 (wealth) and T39 (migration) and T40 (membership) T41 (shops) and T42 (treasury) T43 (bank counter) T44 (guards) T45 (planner) T46 (survey) and T47 (plan and lots) and T48 (exempt signs) are
+  Paper-only). After that R1.7 and R1.12, then R1.27 (split villages). R1.24 is decided (foraging is intended).
 - On a local machine, much of R1.1 can be driven from the server console (`/summon`, `/time add`,
   restarts, reading `plugins/Hamletfolk/settlements.json`); player-only steps (sneak +
   right-click, `/settlement` as a player, donate, the history book, Bedrock) need a person in game.

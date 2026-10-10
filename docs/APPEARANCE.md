@@ -11,7 +11,7 @@ differently by itself. There are two kinds of hook, and it matters which reaches
 This page is that contract. Changing a value here breaks packs built against it, so it only
 changes with a note in the CHANGELOG.
 
-> **Status: not yet playtested.** The Paper layer has never run on a server (R1.1). Everything
+> **Status: not yet playtested.** The Paper layer has only been run in part (R1.1). Everything
 > below marked *unverified* is an assumption to check there. Scenario T26 in `docs/TESTING.md`
 > records the answers.
 
