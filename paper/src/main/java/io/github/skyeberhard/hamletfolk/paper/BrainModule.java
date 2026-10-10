@@ -34,6 +34,19 @@ public interface BrainModule {
     /** How many villagers have the behaviours. */
     int attached();
 
-    /** What the behaviours have cost so far, for {@code /settlement brain status}. */
-    String cost();
+    /** What the behaviours have cost so far (R9.2): per call and per tick. */
+    io.github.skyeberhard.hamletfolk.core.BrainStats stats();
+
+    /** R9.2: a villager's brain as plain text. Never throws: a brain that cannot be read says so in {@code activity}. */
+    Snapshot inspect(Villager villager);
+
+    /** R9.2: whether the behaviours report each decision to the handler given to {@link #onDecision}. Off by default. */
+    void setDebug(boolean on);
+
+    /** R9.2: called (inside a brain tick, so it must only log) with the villager and a line about what a behaviour decided. */
+    void onDecision(BiConsumer<UUID, String> handler);
+
+    /** A villager's brain as plain text: its activity, what it remembers, what is running, and what the plugin added. */
+    record Snapshot(String activity, java.util.List<String> memories, java.util.List<String> running, java.util.List<String> added) {
+    }
 }

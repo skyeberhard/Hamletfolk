@@ -47,6 +47,11 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
 
 ## Gotchas
 
+- **`SimulationPerformanceTest` is a timing test** (median day for 50 villages of 50 under 5 ms) and was the cause of an unexplained
+  one-in-forty build failure: it had crept to 4.0 to 5.0 ms as features were added, so any load on the machine tipped it over. If it
+  fails, profile before touching the budget: `core/build/classes` plus a small harness with `-XX:StartFlightRecording`, then
+  `jfr print --events jdk.ExecutionSample`. Anything called for every resident every day (`Trades.worked`, `Ledger.get`,
+  `Commodity.of`) must not build a stream, a copy or a string. After the R9.2 clean-up it sits at 3 to 4 ms.
 - **Single-day output tests flake.** A worker's daily output is
   `floor(base × diligence + random)`, which can legitimately be 0. Assert on accumulated output
   over several days (see `smithsIdleWithoutMetalAndResumeWhenSupplied`). Stress-test new
@@ -168,7 +173,9 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   plugin jar. `paper` talks to it only through `BrainModule` (no internal types) and loads `VillagerBrains` by name after
   `BrainSelfCheck` passes; every internal class, field or method the module uses must be on `BrainSelfCheck.REQUIRED`. Behaviours
   go into the brain's private `availableBehaviorsByPriority` table (not `Brain.addActivity`, which replaces requirements), and that
-  table may only be changed between ticks, never from inside a behaviour. Read internals from the jar with javap, never from memory
+  table may only be changed between ticks, never from inside a behaviour. R9.2 tools: `BrainStats` (per call and per tick, fed by
+  `VillagerBrains.record(gameTick, nanos)` from every behaviour), `DecisionLog` (filled only while debug is on, through
+  `VillagerBrains.decided`, which a behaviour calls only when `debugging()`), `BrainReport` (the text), and `BrainService.inspect/debug/report`. Read internals from the jar with javap, never from memory
   (the villager class moved to `npc.villager` in 26.x).
 - **`SettlementService.track()` returns null** for a world excluded by `worlds.allow/deny`
   (R1.10); callers must handle it.

@@ -32,6 +32,8 @@ final class BrainService implements Listener {
     private final HamletfolkPlugin plugin;
     private final SettlementService settlements;
     private final BrainSwitch brainSwitch = new BrainSwitch();
+    private final io.github.skyeberhard.hamletfolk.core.DecisionLog decisions = new io.github.skyeberhard.hamletfolk.core.DecisionLog(200);
+    private boolean debug;
     private BrainModule module;
     private boolean checked;
     /** What a fault left to do, run by the once-a-second timer (never from inside a brain tick). */
@@ -117,11 +119,94 @@ final class BrainService implements Listener {
         who.sendMessage("Brain module: " + brainSwitch.state().name().toLowerCase(java.util.Locale.ROOT)
                 + (brainSwitch.reason().isEmpty() ? "" : " (" + brainSwitch.reason() + ")") + ".");
         if (module != null) {
-            who.sendMessage("Behaviours on " + module.attached() + " villagers. " + module.cost());
+            who.sendMessage("Behaviours on " + module.attached() + " villagers. " + module.stats().summary().describe());
         }
-        who.sendMessage("Config brain.enabled: " + plugin.getConfig().getBoolean("brain.enabled", false)
-                + ". /settlement brain on|off switches it until the next restart.");
+        who.sendMessage("Debug logging " + (debug ? "on" : "off") + ". Config brain.enabled: " + plugin.getConfig().getBoolean("brain.enabled", false)
+                + ". /settlement brain on|off switches it until the next restart; inspect, debug and report help find out why a villager does what it does.");
     }
+
+    // ----- R9.2: looking inside -----
+
+    /** {@code /settlement brain inspect}: the villager you are looking at, as the brain sees it. */
+    void inspect(CommandSender who) {
+        if (!(who instanceof org.bukkit.entity.Player player)) {
+            who.sendMessage("Look at a villager in game to use this.");
+            return;
+        }
+        if (module == null) {
+            who.sendMessage("The brain module is not available" + (brainSwitch.reason().isEmpty() ? "" : " (" + brainSwitch.reason() + ")") + ".");
+            return;
+        }
+        if (!(player.getTargetEntity(8) instanceof Villager villager)) {
+            who.sendMessage("Look at a villager (within 8 blocks) first.");
+            return;
+        }
+        for (String line : io.github.skyeberhard.hamletfolk.core.BrainReport.inspect(view(villager))) {
+            who.sendMessage(line);
+        }
+    }
+
+    private io.github.skyeberhard.hamletfolk.core.BrainReport.VillagerView view(Villager villager) {
+        BrainModule.Snapshot s = module.inspect(villager);
+        return new io.github.skyeberhard.hamletfolk.core.BrainReport.VillagerView(describe(villager.getUniqueId()), s.activity(),
+                s.memories(), s.running(), s.added());
+    }
+
+    /** {@code /settlement brain debug on|off}: log each decision the added behaviours make, and keep the last 200 for the report. */
+    void debug(CommandSender who, boolean on) {
+        debug = on;
+        if (module != null) {
+            module.setDebug(on);
+        }
+        who.sendMessage("Brain debug logging " + (on ? "on: each decision goes to the log and the last 200 are kept for /settlement brain report."
+                : "off.") + (module == null ? " (The module is not available, so there is nothing to log.)" : ""));
+    }
+
+    /** Called from inside a brain tick by the module (debug on only): log it, keep it. Only logs. */
+    private void decided(UUID villager, String text) {
+        String who;
+        try {
+            who = describe(villager);
+        } catch (RuntimeException e) {
+            who = "villager " + villager;
+        }
+        decisions.add(Bukkit.getCurrentTick(), who, text); // (the server's tick count, as the timing uses)
+        plugin.getLogger().info("[brain] " + who + ": " + text);
+    }
+
+    /** {@code /settlement brain report}: writes plugins/Hamletfolk/brain-report.txt for a bug report. */
+    void report(CommandSender who) {
+        List<String> missing = BrainSelfCheck.missing(BrainSelfCheck.REQUIRED, new ServerProbe(plugin.getClass().getClassLoader()));
+        List<io.github.skyeberhard.hamletfolk.core.BrainReport.VillagerView> shown = new java.util.ArrayList<>();
+        if (module != null) {
+            for (Settlement settlement : settlements.registry().settlements()) {
+                for (Resident resident : List.copyOf(settlement.residents())) {
+                    if (shown.size() < REPORT_VILLAGERS && Bukkit.getEntity(resident.id()) instanceof Villager villager
+                            && villager.isValid()) {
+                        shown.add(view(villager));
+                    }
+                }
+            }
+        }
+        io.github.skyeberhard.hamletfolk.core.BrainStats.Summary stats = module == null
+                ? new io.github.skyeberhard.hamletfolk.core.BrainStats().summary() : module.stats().summary();
+        String text = io.github.skyeberhard.hamletfolk.core.BrainReport.report(new io.github.skyeberhard.hamletfolk.core.BrainReport.Input(
+                plugin.getPluginMeta().getVersion(), Bukkit.getVersion(),
+                java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
+                brainSwitch.state(), brainSwitch.reason(), plugin.getConfig().getBoolean("brain.enabled", false), debug,
+                module == null ? 0 : module.attached(), stats, missing, shown, decisions.last(100), decisions.total()));
+        java.nio.file.Path file = plugin.getDataFolder().toPath().resolve("brain-report.txt");
+        try {
+            java.nio.file.Files.createDirectories(file.getParent());
+            java.nio.file.Files.writeString(file, text, java.nio.charset.StandardCharsets.UTF_8);
+            who.sendMessage("Wrote " + file + " (" + shown.size() + " villagers, " + decisions.size() + " decisions). Attach it to a bug report: "
+                    + "it has villagers' and players' names, but the unique ids and the positions have been taken out.");
+        } catch (java.io.IOException e) {
+            who.sendMessage("Could not write the report: " + e.getMessage());
+        }
+    }
+
+    private static final int REPORT_VILLAGERS = 10;
 
     // ----- which villagers, and when -----
 
@@ -220,6 +305,7 @@ final class BrainService implements Listener {
             Class<?> type = Class.forName(BrainModule.IMPLEMENTATION, true, plugin.getClass().getClassLoader());
             BrainModule loaded = (BrainModule) type.getDeclaredConstructor().newInstance();
             loaded.onFault(this::fault);
+            loaded.onDecision(this::decided);
             return loaded;
         } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
             plugin.getLogger().log(Level.WARNING, "Could not load the brain module", e);

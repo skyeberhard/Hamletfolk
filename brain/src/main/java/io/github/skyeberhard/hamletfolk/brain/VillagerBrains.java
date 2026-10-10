@@ -12,6 +12,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.behavior.Behavior;
 import net.minecraft.world.entity.ai.behavior.BehaviorControl;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.ai.memory.WalkTarget;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.schedule.Activity;
 import org.bukkit.craftbukkit.entity.CraftVillager;
@@ -32,7 +34,9 @@ public final class VillagerBrains implements BrainModule {
     private final Map<UUID, Attachment> attached = new HashMap<>();
     private volatile boolean active;
     private BiConsumer<UUID, Throwable> faults = (id, e) -> { };
-    final Cost cost = new Cost();
+    final io.github.skyeberhard.hamletfolk.core.BrainStats stats = new io.github.skyeberhard.hamletfolk.core.BrainStats();
+    private volatile boolean debug;
+    private BiConsumer<UUID, String> decisions = (id, text) -> { };
 
     /** One villager's added behaviours, and the brain they were put in (a new brain means they are gone). */
     private record Attachment(Villager villager, Brain<Villager> brain, Behavior<Villager> behaviour) {
@@ -145,28 +149,91 @@ public final class VillagerBrains implements BrainModule {
     }
 
     @Override
-    public String cost() {
-        return cost.describe();
+    public io.github.skyeberhard.hamletfolk.core.BrainStats stats() {
+        return stats;
     }
 
-    /** What the added behaviours have cost: calls and the time spent in them, from System.nanoTime. */
-    static final class Cost {
-        private long calls;
-        private long nanos;
-        private long worst;
+    /** Records one call of an added behaviour: the game tick it ran in and the nanoseconds it took. */
+    void record(long gameTick, long nanos) {
+        stats.record(gameTick, nanos);
+    }
 
-        void add(long spent) {
-            calls++;
-            nanos += spent;
-            worst = Math.max(worst, spent);
+    @Override
+    public void setDebug(boolean on) {
+        debug = on;
+    }
+
+    boolean debugging() {
+        return debug;
+    }
+
+    @Override
+    public void onDecision(BiConsumer<UUID, String> handler) {
+        decisions = handler;
+    }
+
+    /** A behaviour made a decision. Only call when {@link #debugging()}; a failing handler is ignored (it is only a log). */
+    void decided(UUID villager, String text) {
+        try {
+            decisions.accept(villager, text);
+        } catch (Throwable ignored) {
+            // debug output must never break a villager's tick
         }
+    }
 
-        String describe() {
-            if (calls == 0) {
-                return "The behaviours have not run yet.";
+    /** A memory's value as one short line; where a villager is walking to is worth spelling out (it has no toString of its own). */
+    private static String show(Object value) {
+        if (value instanceof WalkTarget walk) {
+            try {
+                var at = walk.getTarget().currentPosition();
+                return String.format(java.util.Locale.ROOT, "walk to x=%.1f y=%.1f z=%.1f (speed %.2f, close enough at %d)", at.x(), at.y(), at.z(),
+                        walk.getSpeedModifier(), walk.getCloseEnoughDist());
+            } catch (Throwable e) {
+                return "a walk target that could not be read: " + e;
             }
-            return String.format(java.util.Locale.ROOT, "They have run %d times: %.1f microseconds on average, %.1f at worst, %.1f ms in all.",
-                    calls, nanos / 1000.0 / calls, worst / 1000.0, nanos / 1_000_000.0);
+        }
+        return io.github.skyeberhard.hamletfolk.core.BrainReport.shorten(value, 90);
+    }
+
+    @Override
+    public Snapshot inspect(org.bukkit.entity.Villager bukkit) {
+        try {
+            Villager villager = ((CraftVillager) bukkit).getHandle();
+            Brain<Villager> brain = villager.getBrain();
+            java.util.List<String> active = new java.util.ArrayList<>();
+            for (Activity a : brain.getActiveActivities()) {
+                active.add(a.getName());
+            }
+            java.util.Collections.sort(active);
+            String main = brain.getActiveNonCoreActivity().map(Activity::getName).orElse("core only");
+            java.util.List<String> memories = new java.util.ArrayList<>();
+            brain.forEach(new Brain.Visitor() {
+                @Override
+                public <U> void acceptEmpty(MemoryModuleType<U> type) {
+                    // a memory with nothing in it is not shown
+                }
+
+                @Override
+                public <U> void accept(MemoryModuleType<U> type, U value) {
+                    memories.add(type + " = " + show(value));
+                }
+
+                @Override
+                public <U> void accept(MemoryModuleType<U> type, U value, long ticksToLive) {
+                    memories.add(type + " = " + show(value) + " (forgotten in " + ticksToLive + " ticks)");
+                }
+            });
+            java.util.Collections.sort(memories);
+            java.util.List<String> running = new java.util.ArrayList<>();
+            for (BehaviorControl<? super Villager> b : brain.getRunningBehaviors()) {
+                running.add(b.debugString());
+            }
+            Attachment ours = attached.get(bukkit.getUniqueId());
+            java.util.List<String> added = ours != null && ours.brain() == brain ? java.util.List.of(ours.behaviour().debugString())
+                    : java.util.List.of();
+            return new Snapshot("activity: " + main + " (active: " + String.join(", ", active) + ")", memories, running, added);
+        } catch (Throwable e) {
+            return new Snapshot("could not read its brain: " + e, java.util.List.of(), java.util.List.of(), java.util.List.of());
         }
     }
 }

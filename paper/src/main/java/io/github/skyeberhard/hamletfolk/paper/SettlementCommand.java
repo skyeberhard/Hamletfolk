@@ -110,7 +110,12 @@ final class SettlementCommand implements TabExecutor {
             return admin.complete(sender, args);
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("brain") && sender.hasPermission(BrainService.PERMISSION)) {
-            return List.of("on", "off", "status").stream().filter(o -> o.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
+            return List.of("on", "off", "status", "inspect", "debug", "report").stream()
+                    .filter(o -> o.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("brain") && args[1].equalsIgnoreCase("debug")
+                && sender.hasPermission(BrainService.PERMISSION)) {
+            return List.of("on", "off").stream().filter(o -> o.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("donate")) {
             return "all".startsWith(args[1].toLowerCase(Locale.ROOT)) ? List.of("all") : List.of();
@@ -149,7 +154,17 @@ final class SettlementCommand implements TabExecutor {
             case "on" -> brain.switchOn(sender);
             case "off" -> brain.switchOff(sender);
             case "status" -> brain.status(sender);
-            default -> sender.sendMessage("Usage: /settlement brain on|off|status");
+            case "inspect" -> brain.inspect(sender);
+            case "debug" -> {
+                String mode = args.length > 2 ? args[2].toLowerCase(Locale.ROOT) : "";
+                if (mode.equals("on") || mode.equals("off")) {
+                    brain.debug(sender, mode.equals("on"));
+                } else {
+                    sender.sendMessage("Usage: /settlement brain debug on|off");
+                }
+            }
+            case "report" -> brain.report(sender);
+            default -> sender.sendMessage("Usage: /settlement brain on|off|status|inspect|debug on|off|report");
         }
     }
 

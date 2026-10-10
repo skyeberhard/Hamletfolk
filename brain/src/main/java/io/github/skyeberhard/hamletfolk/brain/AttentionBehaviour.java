@@ -49,26 +49,30 @@ final class AttentionBehaviour extends Behavior<Villager> {
                 return false;
             }
             watching = near;
+            if (module.debugging()) {
+                module.decided(id, "noticed " + near.getScoreboardName() + " " + Math.round(Math.sqrt(villager.distanceToSqr(near)) * 10) / 10.0
+                        + " blocks away: will look at them");
+            }
             return true;
         } catch (Throwable e) {
             module.fault(id, e);
             return false;
         } finally {
-            module.cost.add(System.nanoTime() - t);
+            recordSafely(level, t); // (the server's tick count: each world has its own game time)
         }
     }
 
     @Override
     protected void start(ServerLevel level, Villager villager, long gameTime) {
-        face(villager);
+        face(level, villager);
     }
 
     @Override
     protected void tick(ServerLevel level, Villager villager, long gameTime) {
-        face(villager);
+        face(level, villager);
     }
 
-    private void face(Villager villager) {
+    private void face(ServerLevel level, Villager villager) {
         long t = System.nanoTime();
         try {
             villager.getBrain().setMemory(MemoryModuleType.LOOK_TARGET, new EntityTracker(watching, true));
@@ -76,7 +80,16 @@ final class AttentionBehaviour extends Behavior<Villager> {
         } catch (Throwable e) {
             module.fault(id, e);
         } finally {
-            module.cost.add(System.nanoTime() - t);
+            recordSafely(level, t);
+        }
+    }
+
+    /** Timing must never be what throws into a villager's tick. */
+    private void recordSafely(ServerLevel level, long startedAt) {
+        try {
+            module.record(level.getServer().getTickCount(), System.nanoTime() - startedAt);
+        } catch (Throwable e) {
+            module.fault(id, e);
         }
     }
 
@@ -102,6 +115,14 @@ final class AttentionBehaviour extends Behavior<Villager> {
         } catch (Throwable e) {
             module.fault(id, e);
         } finally {
+            try {
+                if (module.debugging()) {
+                    module.decided(id, "stopped looking at " + (watching == null ? "nobody" : watching.getScoreboardName())
+                            + ": will not stop for anyone for " + REST_TICKS / 20 + " seconds");
+                }
+            } catch (Throwable ignored) {
+                // a debug line must never cost the villager its tick
+            }
             watching = null;
             restUntil = gameTime + REST_TICKS;
         }

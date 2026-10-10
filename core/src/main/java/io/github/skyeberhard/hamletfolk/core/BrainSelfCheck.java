@@ -73,6 +73,9 @@ public final class BrainSelfCheck {
     }
 
     private static final String BRAIN = "net.minecraft.world.entity.ai.Brain";
+    private static final String WALK = "net.minecraft.world.entity.ai.memory.WalkTarget";
+    private static final String CONTROL = "net.minecraft.world.entity.ai.behavior.BehaviorControl";
+    private static final String VISITOR = "net.minecraft.world.entity.ai.Brain$Visitor";
     private static final String BEHAVIOR = "net.minecraft.world.entity.ai.behavior.Behavior";
     private static final String STATUS = "net.minecraft.world.entity.ai.behavior.Behavior$Status";
     private static final String VILLAGER = "net.minecraft.world.entity.npc.villager.Villager";
@@ -104,6 +107,18 @@ public final class BrainSelfCheck {
             Requirement.method(BRAIN, "void", "eraseMemory", MEMORY),
             Requirement.method(BRAIN, "boolean", "hasMemoryValue", MEMORY),
             Requirement.method(BRAIN, "java.util.Optional", "getActiveNonCoreActivity"),
+            Requirement.method(BRAIN, "java.util.Set", "getActiveActivities"),
+            Requirement.method(BRAIN, "java.util.List", "getRunningBehaviors"),
+            Requirement.method(BRAIN, "void", "forEach", VISITOR),
+            Requirement.type(VISITOR),
+            Requirement.method(VISITOR, "void", "accept", MEMORY, "java.lang.Object"),
+            Requirement.method(VISITOR, "void", "accept", MEMORY, "java.lang.Object", "long"),
+            Requirement.method(VISITOR, "void", "acceptEmpty", MEMORY),
+            Requirement.type(CONTROL),
+            Requirement.method(CONTROL, "java.lang.String", "debugString"),
+            Requirement.method(ACTIVITY, "java.lang.String", "getName"),
+            Requirement.type(ENTITY),
+            Requirement.method(ENTITY, "java.lang.String", "getScoreboardName"),
             Requirement.type(BEHAVIOR),
             Requirement.constructor(BEHAVIOR, "java.util.Map", "int", "int"),
             Requirement.method(BEHAVIOR, "boolean", "checkExtraStartConditions", SERVER_LEVEL, LIVING),
@@ -133,7 +148,20 @@ public final class BrainSelfCheck {
             Requirement.method(PLAYER, LEVEL, "level"),
             Requirement.type(SERVER_LEVEL),
             Requirement.method(SERVER_LEVEL, PLAYER, "getNearestPlayer", ENTITY, "double"),
-            Requirement.method(SERVER_LEVEL, "long", "getGameTime"));
+            Requirement.method(SERVER_LEVEL, "long", "getGameTime"),
+            Requirement.method(SERVER_LEVEL, "net.minecraft.server.MinecraftServer", "getServer"),
+            Requirement.type("net.minecraft.server.MinecraftServer"),
+            Requirement.method("net.minecraft.server.MinecraftServer", "int", "getTickCount"),
+            Requirement.type(WALK),
+            Requirement.method(WALK, "net.minecraft.world.entity.ai.behavior.PositionTracker", "getTarget"),
+            Requirement.method(WALK, "float", "getSpeedModifier"),
+            Requirement.method(WALK, "int", "getCloseEnoughDist"),
+            Requirement.type("net.minecraft.world.entity.ai.behavior.PositionTracker"),
+            Requirement.method("net.minecraft.world.entity.ai.behavior.PositionTracker", "net.minecraft.world.phys.Vec3", "currentPosition"),
+            Requirement.type("net.minecraft.world.phys.Vec3"),
+            Requirement.method("net.minecraft.world.phys.Vec3", "double", "x"),
+            Requirement.method("net.minecraft.world.phys.Vec3", "double", "y"),
+            Requirement.method("net.minecraft.world.phys.Vec3", "double", "z"));
 
     /** What is missing, described for the log; empty if everything is there. A probe that throws counts as missing. */
     public static List<String> missing(List<Requirement> required, Probe probe) {
