@@ -48,13 +48,25 @@ public final class Trades {
         return RULES.stream().map(Rule::trade).toList();
     }
 
+    /** The building that holds each trade's workstation (the first rule for a trade: an armoury holds two). */
+    private static final java.util.Map<Occupation, BuildingType> BUILDING_FOR = new java.util.EnumMap<>(Occupation.class);
+
+    static {
+        for (Rule rule : RULES) {
+            BUILDING_FOR.putIfAbsent(rule.trade(), rule.building());
+        }
+    }
+
     /** The building that holds a land trade's workstation, if the trade is one of these. */
     public static Optional<BuildingType> buildingFor(Occupation trade) {
-        return RULES.stream().filter(r -> r.trade() == trade).map(Rule::building).findFirst();
+        return Optional.ofNullable(BUILDING_FOR.get(trade));
     }
 
     /** True if the land within reach and the village's size open this trade (the building is a separate matter). */
     public static boolean opens(Settlement settlement, Occupation trade) {
+        if (!LandCounts.surveyed(settlement) && !WORKSHOP_TRADES.contains(trade)) {
+            return false; // nothing counted yet, so no land trade is open (and no lookup is made for it)
+        }
         Optional<Rule> rule = RULES.stream().filter(r -> r.trade() == trade).findFirst();
         if (rule.isEmpty() || settlement.population() < rule.get().minPopulation()) {
             return false;
@@ -110,9 +122,14 @@ public final class Trades {
         return noted;
     }
 
+    /** The trades that open on something other than the land counts (a smithy, a mine, an attack, a town). */
+    private static final java.util.Set<Occupation> WORKSHOP_TRADES = java.util.EnumSet.of(Occupation.MASON, Occupation.WEAPONSMITH,
+            Occupation.ARMORER, Occupation.CLERIC);
+
     /** True if the trade is open and the village has the building that holds its workstation. */
     public static boolean worked(Settlement settlement, Occupation trade) {
-        return buildingFor(trade).filter(b -> settlement.buildingCount(b) > 0).isPresent();
+        BuildingType building = BUILDING_FOR.get(trade); // (called for every worker every day: no stream, no Optional)
+        return building != null && settlement.buildingCount(building) > 0;
     }
 
     /** The trade buildings the village could use now: the trade is open and it has none. In a stable order. */

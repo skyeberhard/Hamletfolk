@@ -80,6 +80,8 @@ public enum Commodity {
 
     private static final Map<ResourceType, Commodity> PLAIN = new EnumMap<>(ResourceType.class);
     private static final Map<ResourceType, List<Commodity>> BY_CATEGORY = new EnumMap<>(ResourceType.class);
+    /** The same lists, unmodifiable, made once: the ledger asks for them every time it is read or written. */
+    private static final Map<ResourceType, List<Commodity>> FIXED = new EnumMap<>(ResourceType.class);
 
     static {
         for (Commodity c : values()) {
@@ -92,6 +94,7 @@ public enum Commodity {
             if (!PLAIN.containsKey(type)) {
                 throw new IllegalStateException("no plain commodity for " + type);
             }
+            FIXED.put(type, List.copyOf(BY_CATEGORY.get(type)));
         }
     }
 
@@ -102,7 +105,7 @@ public enum Commodity {
 
     /** A category's commodities, in the order they are taken. */
     public static List<Commodity> of(ResourceType category) {
-        return List.copyOf(BY_CATEGORY.get(category));
+        return FIXED.get(category);
     }
 
     /** The commodity named in a save ("RAW_IRON"), or the plain one of a category named in an older save ("METAL"). */

@@ -15,12 +15,14 @@ public final class LandCounts {
         /** R8.15: exposed gravel (flint) and exposed stone, counted as surface blocks. */
         GRAVEL, STONE;
 
+        /** The condition this count is kept under (built once: these are read in the simulation's hot paths). */
+        private final String key = "landCount:" + name();
+
         public String label() {
             return name().toLowerCase(Locale.ROOT).replace('_', ' ');
         }
     }
 
-    private static final String PREFIX = "landCount:";
     private static final String SURVEYED = "landSurveyed";
 
     private LandCounts() {
@@ -28,7 +30,7 @@ public final class LandCounts {
 
     /** How many of a feature the survey found (0 if never surveyed). */
     public static int get(Settlement settlement, Feature feature) {
-        return (int) Math.min(Integer.MAX_VALUE, settlement.conditions().getOrDefault(PREFIX + feature.name(), 0L));
+        return (int) Math.min(Integer.MAX_VALUE, settlement.conditions().getOrDefault(feature.key, 0L));
     }
 
     /** True once a survey has been recorded. */
@@ -45,9 +47,8 @@ public final class LandCounts {
     public static void record(Settlement settlement, Map<Feature, Integer> found, long day) {
         for (Feature feature : Feature.values()) {
             long now = Math.max(0, found.getOrDefault(feature, 0));
-            String key = PREFIX + feature.name();
-            if (now > settlement.conditions().getOrDefault(key, 0L)) {
-                settlement.conditions().put(key, now);
+            if (now > settlement.conditions().getOrDefault(feature.key, 0L)) {
+                settlement.conditions().put(feature.key, now);
             }
         }
         settlement.conditions().put(SURVEYED, day);

@@ -643,9 +643,12 @@ public final class SettlementSimulator {
      * goes first, so when there isn't enough for everyone the shortfall rotates round-robin
      * instead of always landing on the most recently enrolled. Stable, so it stays deterministic.
      */
+    private static final Comparator<Resident> MOST_RECENTLY_BLOCKED_FIRST =
+            (a, b) -> Long.compare(b.lastBlockedDay(), a.lastBlockedDay());
+
     static List<Resident> workOrder(Settlement settlement) {
         List<Resident> order = new ArrayList<>(settlement.residents());
-        order.sort(Comparator.comparingLong(Resident::lastBlockedDay).reversed());
+        order.sort(MOST_RECENTLY_BLOCKED_FIRST);
         return order;
     }
 
@@ -744,9 +747,17 @@ public final class SettlementSimulator {
      */
     static void process(Settlement settlement, long day) {
         Ledger ledger = settlement.ledger();
-        long farmers = countAdults(settlement, r -> r.occupation() == Occupation.FARMER);
-        long smiths = countAdults(settlement, r -> r.occupation().isSmith());
-        long lumberjacks = countAdults(settlement, r -> r.occupation() == Occupation.LUMBERJACK);
+        long farmers = 0;
+        long smiths = 0;
+        long lumberjacks = 0;
+        for (Resident r : settlement.residents()) { // one pass for the three counts
+            if (r.adult()) {
+                Occupation job = r.occupation();
+                farmers += job == Occupation.FARMER ? 1 : 0;
+                smiths += job.isSmith() ? 1 : 0;
+                lumberjacks += job == Occupation.LUMBERJACK ? 1 : 0;
+            }
+        }
 
         int baked = ledger.take(Commodity.GRAIN, (int) Math.min(Integer.MAX_VALUE, BAKE_PER_FARMER * farmers));
         ledger.add(Commodity.BREAD, baked);
@@ -791,10 +802,6 @@ public final class SettlementSimulator {
     /** Raw ore and the metal it smelts into, iron first. */
     private static final Commodity[][] SMELTS = {
             {Commodity.RAW_IRON, Commodity.IRON}, {Commodity.RAW_COPPER, Commodity.COPPER}, {Commodity.RAW_GOLD, Commodity.GOLD}};
-
-    private static long countAdults(Settlement settlement, Predicate<Resident> which) {
-        return settlement.residents().stream().filter(r -> r.adult() && which.test(r)).count();
-    }
 
     /**
      * R3.17: what a unit of a miner's second output is, out of a hundred: mostly coal and raw iron, some copper, a little
