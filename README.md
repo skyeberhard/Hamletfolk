@@ -12,7 +12,7 @@ Everything is server-side. Players need no mods, and it works for Bedrock player
 joining through Geyser, because all interaction uses vanilla tools: chat, books, signs,
 and the villager's own trade screen.
 
-> **Status.** The simulation is built and unit tested (about 360 tests). The Paper layer that
+> **Status.** The simulation is built and unit tested (about 690 tests). The Paper layer that
 > connects it to the game has been playtested in part (the plugin loads, saves migrate, signs,
 > donations, requests, trades, newcomers, beds and reputation work); a good share of the newest
 > features are tested only in code so far. [docs/TESTING.md](docs/TESTING.md) lists every scenario and
