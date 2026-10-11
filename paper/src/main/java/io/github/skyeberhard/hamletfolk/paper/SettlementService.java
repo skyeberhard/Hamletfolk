@@ -15,6 +15,7 @@ import io.github.skyeberhard.hamletfolk.core.Migration;
 import io.github.skyeberhard.hamletfolk.core.PlanGenerator;
 import io.github.skyeberhard.hamletfolk.core.Births;
 import io.github.skyeberhard.hamletfolk.core.FastForward;
+import io.github.skyeberhard.hamletfolk.core.Resettlement;
 import io.github.skyeberhard.hamletfolk.core.Golems;
 import io.github.skyeberhard.hamletfolk.core.Leaning;
 import io.github.skyeberhard.hamletfolk.core.SiteSurvey;
@@ -1178,6 +1179,151 @@ final class SettlementService {
         }
         plugin.requestSave();
         return new Founding(settlement, null, nameProblem);
+    }
+
+    // ----- R4.34: resettling a village that has lost its people -----
+
+    /** The villages travellers are on their way to (so a second command does not send a second group). */
+    private final java.util.Set<UUID> resettling = new java.util.HashSet<>();
+    /** How many times (ten ticks apart) the ground is looked at before the travellers give up waiting for it. */
+    private static final int RESETTLE_LOOKS = 30;
+
+    /**
+     * R4.34: sends travellers to a village that has lost its people. They are spawned round its centre once that is loaded (the
+     * ground is held loaded for a few seconds if nobody is near), and enrolled like any villager; the rules for the kit and for
+     * clearing a lost village's old danger are in core ({@link Resettlement}). Returns what to tell the admin now; {@code done}
+     * is told how it ended.
+     */
+    String resettle(Settlement settlement, int asked, java.util.function.Consumer<String> done) {
+        World world = Bukkit.getWorld(settlement.world());
+        if (world == null || !inScope(world)) {
+            return settlement.name() + " is in a world Hamletfolk is not active in.";
+        }
+        java.util.Optional<String> refusal = Resettlement.refusal(settlement);
+        if (refusal.isPresent()) {
+            return refusal.get();
+        }
+        if (!resettling.add(settlement.id())) {
+            return "Travellers are already on their way to " + settlement.name() + ".";
+        }
+        int settlers = Resettlement.settlers(asked);
+        boolean lost = Resettlement.isLost(settlement);
+        int x = settlement.centerX();
+        int z = settlement.centerZ();
+        String key = "r" + settlement.id();
+        if (!world.isChunkLoaded(x >> 4, z >> 4) && holds != null) {
+            holds.holdKey(world, key, io.github.skyeberhard.hamletfolk.core.ChunkRegion.covering(x, z, 16, 16));
+        }
+        arriveWhenLoaded(settlement, world, settlers, lost, key, 0, done);
+        int freeBeds = settlement.freeBeds();
+        return settlers + (settlers == 1 ? " traveller is" : " travellers are") + " on the way to " + settlement.name()
+                + (freeBeds < settlers ? " (it has " + freeBeds + " free " + (freeBeds == 1 ? "bed" : "beds") + ", so they will need houses)" : "")
+                + ". They arrive in a few seconds, once its ground has loaded, with food, wood and stone.";
+    }
+
+    private void arriveWhenLoaded(Settlement settlement, World world, int settlers, boolean lost, String key, int looks,
+            java.util.function.Consumer<String> done) {
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            boolean waiting = false;
+            String message;
+            try {
+                int x = settlement.centerX();
+                int z = settlement.centerZ();
+                if (!registry.settlements().contains(settlement) || Bukkit.getWorld(world.getName()) != world) {
+                    message = settlement.name() + " is gone, so the travellers turned back.";
+                } else if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+                    if (looks < RESETTLE_LOOKS) {
+                        waiting = true;
+                        arriveWhenLoaded(settlement, world, settlers, lost, key, looks + 1, done);
+                        message = null;
+                    } else {
+                        message = "The ground round " + settlement.name() + " would not load, so the travellers turned back.";
+                    }
+                } else {
+                    int spawned = 0;
+                    for (int i = 0; i < settlers; i++) {
+                        Location spot = settlerSpot(world, x, z, i, settlers);
+                        if (spot == null) {
+                            continue;
+                        }
+                        Villager villager = world.spawn(spot, Villager.class);
+                        Resident resident = villager.isValid() ? track(villager) : null;
+                        if (resident == null) {
+                            continue;
+                        }
+                        if (registry.settlementOf(resident.id()).filter(s -> s == settlement).isEmpty()) {
+                            // another village's centre was nearer to that spot: they belong to it now, and are not ours to count
+                            plugin.getLogger().warning(resident.fullName() + " settled in another village than " + settlement.name()
+                                    + " (two villages are very close).");
+                            continue;
+                        }
+                        spawned++;
+                    }
+                    if (spawned > 0) {
+                        Resettlement.arrive(settlement, settlement.effectiveDay(day(world)), spawned, lost);
+                        try {
+                            ensurePlan(settlement); // (a village that never had a plan gets one now that someone lives there)
+                        } catch (RuntimeException e) {
+                            plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not plan the layout of " + settlement.name(), e);
+                        }
+                        plugin.requestSave();
+                        message = spawned + (spawned == 1 ? " traveller has" : " travellers have") + " settled in " + settlement.name()
+                                + ": it now has " + settlement.population() + " residents and " + settlement.ledger().get(ResourceType.FOOD)
+                                + " food.";
+                    } else {
+                        message = "No traveller could be placed in " + settlement.name()
+                                + " (no open ground round its centre, an exempt zone, or the spawn was refused).";
+                    }
+                }
+            } catch (RuntimeException e) {
+                plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not resettle " + settlement.name(), e);
+                message = "Resettling " + settlement.name() + " failed (see the log).";
+            } finally {
+                if (!waiting) {
+                    finishResettling(settlement, key);
+                }
+            }
+            if (!waiting) {
+                done.accept(message);
+            }
+        }, 10);
+    }
+
+    /**
+     * A place for traveller {@code i} of {@code n} round the point (x, z): solid ground that is not water, with room to stand, no
+     * higher or lower than the centre's by more than four blocks (so not on a roof or at the bottom of a pit), outside any exempt zone.
+     * The centre of a game village is its well, so the spots are tried in rings of 3, 5, 7 and 9 blocks. Null if there is none.
+     */
+    private Location settlerSpot(World world, int x, int z, int i, int n) {
+        int centreY = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES);
+        for (int ring = 0; ring < 4; ring++) {
+            int radius = 3 + 2 * ring;
+            for (int k = 0; k < 8; k++) {
+                double angle = 2 * Math.PI * (i * 8 + k) / (n * 8.0);
+                int vx = x + (int) Math.round(Math.cos(angle) * radius);
+                int vz = z + (int) Math.round(Math.sin(angle) * radius);
+                if (!world.isChunkLoaded(vx >> 4, vz >> 4)) {
+                    continue;
+                }
+                int vy = world.getHighestBlockYAt(vx, vz, HeightMap.MOTION_BLOCKING_NO_LEAVES);
+                org.bukkit.block.Block ground = world.getBlockAt(vx, vy, vz);
+                if (!ground.getType().isSolid() || ground.isLiquid() || Math.abs(vy - centreY) > 4
+                        || !world.getBlockAt(vx, vy + 1, vz).isPassable() || world.getBlockAt(vx, vy + 1, vz).isLiquid()
+                        || !world.getBlockAt(vx, vy + 2, vz).isPassable() || world.getBlockAt(vx, vy + 2, vz).isLiquid()
+                        || zonesOf(world).covers(vx, vy + 1, vz)) {
+                    continue;
+                }
+                return new Location(world, vx + 0.5, vy + 1, vz + 0.5);
+            }
+        }
+        return null;
+    }
+
+    private void finishResettling(Settlement settlement, String key) {
+        resettling.remove(settlement.id());
+        if (holds != null) {
+            holds.releaseKey(key);
+        }
     }
 
     /** R8.10: forgets a village's plan and any building in progress, and plans it again from the ground as it is now. */

@@ -195,6 +195,10 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   R9.6: `PatrolBehaviour` (priority -1, after the guard at -2, same "never runs" style) walks `PatrolRoute` spots through `JourneyBehaviour.begin` and
   gives way when `GuardBehaviour.busy()`; `BrainService.routeFor` feeds `setPatrol` each second. A night-watch guard is woken with `stopSleeping` and
   walks without pausing (a villager with no walk target goes to bed); the guards on duty take the nights in turns (`PatrolRoute.watchesNight`).
+  R4.34: `/settlement admin resettle` (`SettlementService.resettle`, rules in core `Resettlement`) spawns settlers at a village's centre once the chunk
+  is loaded (holding it under key "r"+id if not), enrols them with `track`, and adds a kit; a lost village (empty or abandoned) also has its threat,
+  `abandoned` and `emptySince` cleared at once (the sim only clears them on the village's next day). Newcomers are spawned from nothing; migration moves
+  real villagers; neither can revive a village with nobody in it.
   R8.18: `SettlementService.ensurePlan` holds the ground a plan needs (`ChunkRegion.covering`, key "g"+village id, through
   `ConstructionService.holdKey`) when `construction.unattended` is on, retries every 40 ticks for 30 s, and lets go once planned; it used to wait for a
   player to load it, so a village nobody visited never had a plan.

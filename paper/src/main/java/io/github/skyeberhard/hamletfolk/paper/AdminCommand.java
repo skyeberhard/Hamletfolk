@@ -15,8 +15,8 @@ import org.bukkit.entity.Player;
  */
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
-    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | replan [name] | warp [name] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
+    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | replan [name] | warp [name] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
 
     private final SettlementService service;
     private final TemplateCommand templates;
@@ -51,6 +51,7 @@ final class AdminCommand {
             case "build" -> templates.build(sender, args);
             case "cancelproject" -> cancelProject(sender, args);
             case "found" -> found(sender, args);
+            case "resettle" -> resettle(sender, args);
             case "replan" -> replan(sender, args);
             case "warp" -> warp(sender, args);
             case "job" -> job(sender, args);
@@ -69,7 +70,8 @@ final class AdminCommand {
             String prefix = args[1].toLowerCase(Locale.ROOT);
             return SUBCOMMANDS.stream().filter(s -> s.startsWith(prefix)).toList();
         }
-        if (args.length == 3 && (args[1].equalsIgnoreCase("inspect") || args[1].equalsIgnoreCase("rename"))) {
+        if (args.length == 3 && (args[1].equalsIgnoreCase("inspect") || args[1].equalsIgnoreCase("rename")
+                || args[1].equalsIgnoreCase("resettle"))) {
             String prefix = args[2].toLowerCase(Locale.ROOT);
             return service.registry().settlements().stream().map(Settlement::name)
                     .filter(n -> n.toLowerCase(Locale.ROOT).startsWith(prefix)).toList();
@@ -90,6 +92,27 @@ final class AdminCommand {
         sender.sendMessage(service.toggleIgnoreTag(villager)
                 ? "That villager is now left alone: not in any village, not re-priced, not moved."
                 : "That villager is no longer exempt (it may still be inside an [Exempt] sign's area).");
+    }
+
+    /**
+     * R4.34: {@code resettle <village> [travellers]}: sends travellers to a village that has lost its people (3 by default, 1 to
+     * 6). From the console the village is named; a player may leave the name out to mean the village they are standing in.
+     */
+    private void resettle(CommandSender sender, String[] args) {
+        int to = args.length;
+        int travellers = io.github.skyeberhard.hamletfolk.core.Resettlement.DEFAULT_SETTLERS;
+        if (to > 3 && !args[to - 1].isEmpty() && args[to - 1].chars().allMatch(Character::isDigit)) {
+            travellers = args[to - 1].length() > 3 ? 999 : Integer.parseInt(args[to - 1]);
+            to--;
+        } else if (to == 3 && !args[2].isEmpty() && args[2].chars().allMatch(Character::isDigit) && sender instanceof Player) {
+            travellers = args[2].length() > 3 ? 999 : Integer.parseInt(args[2]); // (a player: "resettle 4" means here)
+            to--;
+        }
+        Optional<Settlement> target = to > 2 ? lookup(sender, words(args, 2, to)) : here(sender);
+        if (target.isEmpty()) {
+            return;
+        }
+        sender.sendMessage(service.resettle(target.get(), travellers, sender::sendMessage));
     }
 
     /** R8.10: /settlement admin found [name] [residents]: a new village where the admin stands. */

@@ -231,10 +231,10 @@ final class ConstructionService {
         for (Map.Entry<String, Held> entry : new ArrayList<>(held.entrySet())) {
             String key = entry.getKey();
             if (!key.startsWith("d") && !key.startsWith("p")) {
-                if (!unattended()) {
+                if (!unattended() && !key.startsWith("r")) {
                     release(key); // another service's hold (R4.25): only while unattended building is on
                 }
-                continue;
+                continue; // ("r": travellers on their way, R4.34, which let go of it themselves in a few seconds, unattended or not)
             }
             boolean stale = key.startsWith("d") ? now - entry.getValue().since() > STALE_DECISION_MS : !active.contains(key);
             if (stale || !unattended()) {
