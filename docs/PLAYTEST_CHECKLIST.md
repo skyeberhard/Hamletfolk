@@ -109,6 +109,15 @@ turns out to need a player, just do it in game.
 | T79 | Brain module attaches and detaches | P | |
 | T80 | `brain inspect` and the decision log | P | |
 | T81 | Behaviour switches and budget trip | P | |
+| T82 | Pathing: `brain walk` along the streets, into a closed building, with `teleport`, then `family pathing off` (run on a console test server only) | P | |
+| T83 | Guards fight zombies, skeletons, spiders and raiders; leave piglins, zombie villagers and wither skeletons; retreat when hurt; stop with no tools | P | |
+| T84 | Guards patrol by day and the night watch walks in turns (needs a guard and a village plan) | P | |
+| T85 | Guards are veterans (kept levels, called up first) and carry swords that match the tools; none left after a restart | P | |
+| T86 | Unattended planning: a planless village (Foxhaven) plans itself, one at a time; a village on a well is not refused | C | |
+| T87 | `settlement admin resettle` Mossmoor and Hollowgate; Testford refused | C | |
+
+Rows T82 to T87 were run on a console-only test server (a copy of the live world for T86 and T87) and are recorded in
+`CHANGELOG.md`; none has been played with a person yet, so their Result stays blank until one of you does.
 
 ## Also report
 
