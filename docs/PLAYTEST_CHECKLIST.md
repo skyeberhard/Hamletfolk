@@ -19,14 +19,14 @@ turns out to need a player, just do it in game.
 
 | T | Goal | Mode | Result |
 |---|---|---|---|
-| T1 | Starts clean, `Tracking 0 settlements.`, no errors | C | |
+| T1 | Starts clean, `Tracking 0 settlements.`, no errors | C | pass (passive, 2026-10-11): five clean starts today, none with an error; not a fresh world, so it said `Tracking 10` |
 | T17 | `/settlement admin list`, `inspect`, `rename`, `save` | C | |
 | T2 | Villager shows a name on hover | P | |
 | T3 | `/settlement` shows the village summary | P | |
 | T4, T5 | Talking works; the greeting warms up after six talks | P | |
 | T6, T6b | A smith with no metal says so (after the famine line, once food is donated) | P | |
-| T11 | Names and history survive a restart | C | |
-| T13 | Three restarts in a row without losing anything | C | |
+| T11 | Names and history survive a restart | C | pass (passive, 2026-10-11): every village and its history in each startup backup is in the live save |
+| T13 | Three restarts in a row without losing anything | C | pass (passive, 2026-10-11): five restarts today, nothing lost |
 
 ## 2. Founding, plan and land (the city rules)
 
@@ -66,7 +66,7 @@ turns out to need a player, just do it in game.
 | T52 | A builder works, and building creates work | P | |
 | T54 | Ground is graded: holes, bumps, streams | P | |
 | T76 | Street grading on slopes | P | |
-| T53, T59 | Unattended building, `warp`, `fastforward` | C | |
+| T53, T59 | Unattended building, `warp`, `fastforward` | C | partial: `fastforward all` ran at 20x and villages finished projects with nobody near (Foxhaven 11, Stonehollow 13); `warp` not used |
 | T69 | Gatehouse and tower captures | P | |
 
 ## 5. Defense
@@ -74,7 +74,7 @@ turns out to need a player, just do it in game.
 | T | Goal | Mode | Result |
 |---|---|---|---|
 | T8, T10 | Deaths and a won raid land in the history | P | |
-| T44 | Attacks call up guards | P | |
+| T44 | Attacks call up guards | P | partial: Testford and Hollowstead have guards called up and stood down in their history; a person has not watched it |
 | T55 | Defence spending after an attack | P | |
 | T57 | Lights and fence after an attack | P | |
 | T67 | Rampart | P | |
@@ -98,7 +98,7 @@ turns out to need a player, just do it in game.
 | T | Goal | Mode | Result |
 |---|---|---|---|
 | T16 | Hard kill right after a donation loses nothing | P | |
-| T19 | Backups rotate | C | |
+| T19 | Backups rotate | C | pass (passive, 2026-10-11): `keep: 5` and exactly five backups are in the folder; older ones were pruned |
 | T26 | Appearance data on villagers | P | |
 
 ## 8. Villagers (after the city rules pass)
@@ -106,17 +106,19 @@ turns out to need a player, just do it in game.
 | T | Goal | Mode | Result |
 |---|---|---|---|
 | T68, T73, T75 | Voices: different tones, trade talk, land and mood talk | P | |
-| T79 | Brain module attaches and detaches | P | |
+| T79 | Brain module attaches and detaches | P | partial: the module started with its self-check on all five starts, and a player was near villages for about 75 minutes (14:17 on) with no brain error; attach counts were not recorded |
 | T80 | `brain inspect` and the decision log | P | |
 | T81 | Behaviour switches and budget trip | P | |
 | T82 | Pathing: `brain walk` along the streets, into a closed building, with `teleport`, then `family pathing off` (run on a console test server only) | P | |
 | T83 | Guards fight zombies, skeletons, spiders and raiders; leave piglins, zombie villagers and wither skeletons; retreat when hurt; stop with no tools | P | |
 | T84 | Guards patrol by day and the night watch walks in turns (needs a guard and a village plan) | P | |
 | T85 | Guards are veterans (kept levels, called up first) and carry swords that match the tools; none left after a restart | P | |
-| T86 | Unattended planning: a planless village (Foxhaven) plans itself, one at a time; a village on a well is not refused | C | |
-| T87 | `settlement admin resettle` Mossmoor and Hollowgate; Testford refused | C | |
+| T86 | Unattended planning: a planless village (Foxhaven) plans itself, one at a time; a village on a well is not refused | C | pass (passive, 2026-10-11) on the live server: Foxhaven was planned at 14:13:57 before anyone was near it, and has a plan and 11 finished projects |
+| T87 | `settlement admin resettle` Mossmoor and Hollowgate; Testford refused | C | partial: resettle was run three times on the live server (14:23, 14:28, 14:55) and Hollowgate, Mossmoor and Hollowstead each have a resettle entry; the Testford refusal was not seen |
 | T88 | The palisade follows slopes and shallow water; `settlement admin regrade` mends a standing wall (needs a free builder) | P | |
 | T89 | A hungry village with a free farm place and no jobless moves a worker onto it; a village with metal and a smithy gets a toolsmith | P | |
+
+Results marked passive were read from the server logs and the saved villages after the server had been left running, not played; a person may still want to look at them.
 
 Rows T82 to T88 were run on a console-only test server (a copy of the live world for T86 and T87) and are recorded in
 `CHANGELOG.md`; none has been played with a person yet, so their Result stays blank until one of you does.
