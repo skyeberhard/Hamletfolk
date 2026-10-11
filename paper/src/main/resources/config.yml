@@ -114,7 +114,8 @@ construction:
   # R4.22: build with nobody near. Off (the default), a village only builds while a player is within 128 blocks.
   # On, the chunks a village needs are loaded just while it decides what to build (once a game day) and while a
   # project is open, then let go, and the builder works with no player in range. The server must keep running with
-  # nobody online: pause-when-empty-seconds in server.properties must be -1.
+  # nobody online: pause-when-empty-seconds in server.properties must be -1. R8.18: it also loads the ground a village needs to
+  # be planned (and have its plan lengthened), which otherwise only happens while a player stands near it.
   unattended: false
   # R4.22: a multiplier on how many blocks a builder places each second (1 is four a second for a new builder,
   # up to ten for a master). Raise it to test, or on a quiet server.

@@ -81,6 +81,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
         // Structures are only loadable once the server has finished starting.
         getServer().getScheduler().runTask(this, templates::verifyVanilla);
         construction = new ConstructionService(this, service);
+        service.setHolds(construction); // R8.18: planning may hold chunks too
         construction.start();
         new WorldMarksService(this, service, construction).start(); // R4.25
         brain = new BrainService(this, service); // R9.1: off unless brain.enabled

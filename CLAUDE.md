@@ -195,6 +195,9 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   R9.6: `PatrolBehaviour` (priority -1, after the guard at -2, same "never runs" style) walks `PatrolRoute` spots through `JourneyBehaviour.begin` and
   gives way when `GuardBehaviour.busy()`; `BrainService.routeFor` feeds `setPatrol` each second. A night-watch guard is woken with `stopSleeping` and
   walks without pausing (a villager with no walk target goes to bed); the guards on duty take the nights in turns (`PatrolRoute.watchesNight`).
+  R8.18: `SettlementService.ensurePlan` holds the ground a plan needs (`ChunkRegion.covering`, key "g"+village id, through
+  `ConstructionService.holdKey`) when `construction.unattended` is on, retries every 40 ticks for 30 s, and lets go once planned; it used to wait for a
+  player to load it, so a village nobody visited never had a plan.
   R9.7: a guard's experience is `Resident.guardXp` (kept apart from `xp`/`xpTrade`, so no other trade resets it, and it resets no other);
   `xp()` of a GUARD reads it. `paper/GuardArms` holds the sword (tagged with a persistent-data byte, drop chance 0): only an on-duty guard near a
   player has one, `BrainService.fit` sets or clears it each second, and every place that detaches the behaviours also calls `arms.clearAll()`.

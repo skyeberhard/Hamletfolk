@@ -191,12 +191,14 @@ final class SettlementService {
     void ensurePlan(Settlement settlement) {
         World world = Bukkit.getWorld(settlement.world());
         if (world == null || !inScope(world) || settlement.isAbandoned() || settlement.population() == 0) {
+            releasePlanGround(settlement);
             return;
         }
         VillagePlan plan = settlement.plan();
         // R8.14: up to four stages, at 25, 50 and 100 residents; one at a time, each only once the ground it needs is loaded
         int wantedStage = plan == null ? 1 : PlanGenerator.stageFor(settlement.population());
         if (plan != null && plan.stage() >= wantedStage) {
+            releasePlanGround(settlement);
             return;
         }
         int needStage = plan == null ? 1 : plan.stage() + 1;
@@ -208,9 +210,14 @@ final class SettlementService {
         int reachX = strip && !alongX ? 96 : reach;
         int reachZ = strip && alongX ? 96 : reach;
         if (!groundLoaded(world, settlement.centerX(), settlement.centerZ(), reachX, reachZ)) {
+            holdGroundForPlan(settlement, world, reachX, reachZ);
             return;
         }
+        boolean waited = releasePlanGround(settlement);
         if (plan == null && !PlanGenerator.siteUsable(terrainOf(world), settlement.centerX(), settlement.centerZ())) {
+            if (waited) {
+                planCooldown.put(settlement.id(), System.currentTimeMillis() + PLAN_COOLDOWN_MS); // (water: do not load it all again in five seconds)
+            }
             return; // the centre is water or unmeasured: nothing to plan on
         }
         if (plan == null) {
@@ -227,6 +234,101 @@ final class SettlementService {
             }
             plugin.requestSave();
         }
+    }
+
+    // ----- R8.18: planning with nobody near -----
+
+    /** The construction service, which holds chunks loaded for unattended building and lends that to planning. */
+    private ConstructionService holds;
+    /** The villages waiting for the ground to load so they can be planned, and when (milliseconds) they started waiting. */
+    private final Map<UUID, Long> planning = new java.util.HashMap<>();
+    /** How long the ground is held for a plan before giving up until the next village day. */
+    private static final long PLAN_WAIT_MS = 30_000;
+    /** How often the plan is looked at again while the ground loads. */
+    private static final long PLAN_RETRY_TICKS = 40;
+    /**
+     * How long a village is left alone after the ground held for its plan did not load in time, or turned out to be no place to
+     * plan: ensurePlan is asked every five seconds (not once a day), so without this a village by a lake would load all its
+     * chunks again and again.
+     */
+    private static final long PLAN_COOLDOWN_MS = 5 * 60_000;
+    private final Map<UUID, Long> planCooldown = new java.util.HashMap<>();
+
+    void setHolds(ConstructionService holds) {
+        this.holds = holds;
+    }
+
+    private static String planKey(Settlement settlement) {
+        return "g" + settlement.id();
+    }
+
+    /**
+     * R8.18: with unattended building on (R4.22), the ground a plan needs is held loaded for up to {@link #PLAN_WAIT_MS}, so a
+     * village nobody stands next to can still be planned (and lengthened). Off, nothing is loaded and the village waits for a
+     * player to come. The plan is tried again as the chunks arrive, and the hold is let go as soon as it is made or the wait ends.
+     * Only one village at a time, so a server with several unplanned villages does not load all their ground in one tick; the
+     * others take their turn (this is asked every five seconds), and a village that could not be planned waits
+     * {@link #PLAN_COOLDOWN_MS} before it is tried again.
+     */
+    private void holdGroundForPlan(Settlement settlement, World world, int reachX, int reachZ) {
+        if (holds == null || !holds.unattended() || !planning.isEmpty()
+                || System.currentTimeMillis() < planCooldown.getOrDefault(settlement.id(), 0L)) {
+            return; // off, someone is being planned (this one is next), or it was tried a moment ago
+        }
+        try {
+            holds.holdKey(world, planKey(settlement),
+                    io.github.skyeberhard.hamletfolk.core.ChunkRegion.covering(settlement.centerX(), settlement.centerZ(), reachX, reachZ));
+            planning.put(settlement.id(), System.currentTimeMillis());
+        } catch (RuntimeException e) {
+            holds.releaseKey(planKey(settlement));
+            planCooldown.put(settlement.id(), System.currentTimeMillis() + PLAN_COOLDOWN_MS);
+            plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not load the ground round " + settlement.name() + " to plan it", e);
+            return;
+        }
+        plugin.getLogger().info("Loading the ground round " + settlement.name() + " to plan it.");
+        schedulePlanLook(settlement);
+    }
+
+    private void schedulePlanLook(Settlement settlement) {
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            Long since = planning.get(settlement.id());
+            if (since == null) {
+                return;
+            }
+            try {
+                ensurePlan(settlement); // plans it and lets go if the ground has arrived
+            } catch (RuntimeException e) {
+                plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not plan the layout of " + settlement.name(), e);
+                releasePlanGround(settlement);
+                return;
+            }
+            if (!planning.containsKey(settlement.id())) {
+                return; // planned, or no longer needed
+            }
+            if (holds == null || !holds.unattended() || !holds.holding(planKey(settlement))) {
+                releasePlanGround(settlement); // unattended building was switched off: the hold is already gone
+            } else if (System.currentTimeMillis() - since >= PLAN_WAIT_MS) {
+                plugin.getLogger().info("The ground round " + settlement.name() + " did not load in time to plan it; it will be tried again in a few minutes.");
+                releasePlanGround(settlement);
+                planCooldown.put(settlement.id(), System.currentTimeMillis() + PLAN_COOLDOWN_MS);
+            } else {
+                schedulePlanLook(settlement);
+            }
+        }, PLAN_RETRY_TICKS);
+    }
+
+    /** R8.18: lets go of the ground held for planning a village (it has been planned, or the wait is over). */
+    private boolean releasePlanGround(Settlement settlement) {
+        if (holds != null && holds.holding(planKey(settlement))) {
+            holds.releaseKey(planKey(settlement));
+            plugin.getLogger().info("Let go of the ground round " + settlement.name() + ".");
+        }
+        return planning.remove(settlement.id()) != null; // (whether it had been waiting)
+    }
+
+    /** Whether a village is waiting for the ground to load so it can be planned (for the replan reply). */
+    boolean planningNow(Settlement settlement) {
+        return planning.containsKey(settlement.id());
     }
 
     /**
@@ -1096,7 +1198,11 @@ final class SettlementService {
         ensurePlan(settlement);
         plugin.requestSave();
         return settlement.plan() == null
-                ? "Could not plan yet: the ground around the centre has to be loaded (stay nearby) and not water."
+                ? (planningNow(settlement)
+                        ? "Loading the ground round " + settlement.name() + " to plan it: it will be planned by itself in a few seconds."
+                        : holds != null && holds.unattended()
+                                ? "Could not plan yet: the ground around the centre could not be loaded, or it is water. It is tried again in a few minutes."
+                                : "Could not plan yet: the ground around the centre has to be loaded (stay nearby, or turn on construction.unattended) and not water.")
                 : "Planned " + settlement.name() + " again: " + settlement.plan().reservedCount() + " lots reserved.";
     }
 
