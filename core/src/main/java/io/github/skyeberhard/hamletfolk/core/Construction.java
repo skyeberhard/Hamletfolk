@@ -237,6 +237,34 @@ public final class Construction {
         return BLOCKS_PER_PASS[builderLevel(built)];
     }
 
+    /**
+     * R5.12: queues a project to mend the village's finished palisade, so the posts it lacks (stacked where the ground is uneven,
+     * or put back where one was lost) are added; what already stands is left as it is. Empty if it was queued, else why not.
+     */
+    public static Optional<String> reopenPalisade(Settlement settlement, long day) {
+        if (settlement.plan() == null) {
+            return Optional.of(settlement.name() + " has no plan, so no palisade to mend.");
+        }
+        if (settlement.openProject().isPresent()) {
+            return Optional.of(settlement.name() + " is busy with its " + settlement.openProject().get().type().label().toLowerCase(Locale.ROOT)
+                    + " project: try again when that is done.");
+        }
+        Optional<ConstructionProject> latest = settlement.projects().stream()
+                .filter(p -> p.type() == BuildingType.PALISADE && p.status() == ConstructionProject.Status.DONE)
+                .max(java.util.Comparator.comparingInt(ConstructionProject::id));
+        if (latest.isEmpty()) {
+            return Optional.of(settlement.name() + " has no finished palisade to mend.");
+        }
+        // a new project for the same ring (not an upgrade, so no old ring is taken down, and a queue day of today), which the
+        // normal staffing gives a builder; it places only the posts that are missing
+        ConstructionProject repair = new ConstructionProject(settlement.nextProjectId(), BuildingType.PALISADE, latest.get().tier(), 0,
+                latest.get().biomeSet(), settlement.plan().centerX(), 0, settlement.plan().centerZ(), -1, day);
+        repair.setStage(latest.get().stage());
+        settlement.addProject(repair);
+        settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " set out to mend its palisade.");
+        return Optional.empty();
+    }
+
     /** The project is given up (the site was built on, or the village is gone); the lot is left alone. */
     public static void cancel(Settlement settlement, ConstructionProject project, long day, String reason) {
         cancel(settlement, project, day, reason, true);

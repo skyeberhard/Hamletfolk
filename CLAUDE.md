@@ -195,6 +195,12 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   R9.6: `PatrolBehaviour` (priority -1, after the guard at -2, same "never runs" style) walks `PatrolRoute` spots through `JourneyBehaviour.begin` and
   gives way when `GuardBehaviour.busy()`; `BrainService.routeFor` feeds `setPatrol` each second. A night-watch guard is woken with `stopSleeping` and
   walks without pausing (a villager with no walk target goes to bed); the guards on duty take the nights in turns (`PatrolRoute.watchesNight`).
+  R5.12: the palisade's posts are stacked (`Works.stacks`, `ConstructionService.wallOf`) so the wall has no step of more than a block, carried
+  through water up to 3 deep (posts from the bed up), and allowed on plain paving; the ground is never changed and the answer is computed looking
+  down through the posts already standing, so an old wall is mended by adding to it (`/settlement admin regrade` = `Construction.reopenPalisade`,
+  which queues a NEW palisade project, not an upgrade, so no old ring is taken down; staffed like any project: an idle or
+  jobless builder, else a worker drafted after `DRAFT_AFTER_DAYS`). A wet column that already holds posts is still read as wet from the
+  water beside it, and a floor that cannot take a post (a roof, a wall top) makes its cell a gap rather than raising its neighbours.
   R4.34: `/settlement admin resettle` (`SettlementService.resettle`, rules in core `Resettlement`) spawns settlers at a village's centre once the chunk
   is loaded (holding it under key "r"+id if not), enrols them with `track`, and adds a kit; a lost village (empty or abandoned) also has its threat,
   `abandoned` and `emptySince` cleared at once (the sim only clears them on the village's next day). Newcomers are spawned from nothing; migration moves

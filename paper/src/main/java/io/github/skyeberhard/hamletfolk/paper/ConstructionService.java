@@ -526,6 +526,7 @@ final class ConstructionService {
             return;
         }
         boolean lights = project.type() == BuildingType.STREET_LIGHTS;
+        boolean palisade = project.type() == BuildingType.PALISADE;
         boolean unattended = unattended();
         if (unattended) {
             Set<Long> chunks = new HashSet<>();
@@ -542,13 +543,69 @@ final class ConstructionService {
         int placed = 0;
         int left = 0;
         boolean dry = false;
-        for (Works.Spot spot : spots) {
+        // R5.12: on uneven ground the posts of the palisade are stacked so the wall has no step of more than a block
+        Wall wall = palisade ? wallOf(world, spots) : null;
+        for (int index = 0; index < spots.size(); index++) {
+            Works.Spot spot = spots.get(index);
             long key = ((long) spot.x() << 32) ^ (spot.z() & 0xffffffffL);
             if (given.contains(key) || standing.contains(key)) {
                 continue;
             }
             if (!world.isChunkLoaded(spot.x() >> 4, spot.z() >> 4)) {
                 left++; // not loaded yet: it waits for a player to come near, or for the chunks to be held
+                continue;
+            }
+            if (palisade) {
+                PostColumn column = wall.columns()[index];
+                if (column == null) {
+                    given.add(key); // deep water, lava or nothing to stand on: a gap, not a wait
+                    continue;
+                }
+                int ground = column.floor();
+                if (!world.isChunkLoaded(spots.get((index + 1) % spots.size()).x() >> 4, spots.get((index + 1) % spots.size()).z() >> 4)
+                        || !world.isChunkLoaded(spots.get((index + spots.size() - 1) % spots.size()).x() >> 4,
+                                spots.get((index + spots.size() - 1) % spots.size()).z() >> 4)) {
+                    left++; // a neighbour's ground is not loaded, so how tall this cell must be is not known yet: it waits
+                    continue;
+                }
+                int want = 1 + wall.extras()[index];
+                int have = 0;
+                while (have < want && Tag.FENCES.isTagged(world.getBlockAt(spot.x(), ground + 1 + have, spot.z()).getType())) {
+                    have++;
+                }
+                if (have >= want) {
+                    standing.add(key);
+                    continue;
+                }
+                Block next = world.getBlockAt(spot.x(), ground + 1 + have, spot.z());
+                if (!(growthOnly(next) || next.getType() == Material.WATER || WATER_PLANTS.contains(next.getType())) || exemptNear(next.getLocation())) {
+                    given.add(key);
+                    continue;
+                }
+                if (dry || placed >= perPass) {
+                    left++;
+                    continue;
+                }
+                if (!Construction.charge(settlement, project, "OAK_FENCE", day)) {
+                    dry = true; // the stores ran dry: wait for wood
+                    left++;
+                    continue;
+                }
+                if (WATER_PLANTS.contains(next.getType())) {
+                    // a plant of the pond bed is replaced by the water it grew in, and not left to pop (and drop) when the post goes in
+                    Block above = next.getRelative(0, 1, 0);
+                    next.setType(Material.WATER, false);
+                    if (WATER_PLANTS.contains(above.getType())) {
+                        above.setType(Material.WATER, false);
+                    }
+                }
+                next.setType(Material.OAK_FENCE, true); // with physics, so it joins the posts beside it
+                placed++;
+                if (have + 1 >= want) {
+                    standing.add(key);
+                } else {
+                    left++; // more to stack on this one
+                }
                 continue;
             }
             // A fence blocks movement, so once a post is up it is the surface block itself.
@@ -606,6 +663,96 @@ final class ConstructionService {
         } else if (placed > 0) {
             plugin.requestSave();
         }
+    }
+
+    /** Plants that grow on the bed of a pond: the wall is carried through them, as through the water. */
+    private static final Set<Material> WATER_PLANTS = java.util.EnumSet.of(Material.SEAGRASS, Material.TALL_SEAGRASS, Material.KELP,
+            Material.KELP_PLANT);
+
+    /** The blocks a post may stand on besides terrain: the plain paving of a village's streets (the game's own villages are paved). */
+    private static final Set<Material> PAVING = java.util.EnumSet.of(Material.SMOOTH_SANDSTONE, Material.CUT_SANDSTONE,
+            Material.SMOOTH_RED_SANDSTONE, Material.CUT_RED_SANDSTONE, Material.COBBLESTONE, Material.MOSSY_COBBLESTONE,
+            Material.STONE_BRICKS, Material.SMOOTH_STONE);
+
+    /**
+     * One column of the palisade: the block its first post stands on (the bed, in shallow water), and for a wet column the
+     * height of the water's surface, which the wall must rise above.
+     */
+    private record PostColumn(int floor, int waterTop) {
+        boolean wet() {
+            return waterTop != Construction.UNKNOWN_GROUND;
+        }
+    }
+
+    /** What the palisade's cells need this pass: their columns (null where no post can stand) and the posts to stack on each first one. */
+    private record Wall(PostColumn[] columns, int[] extras) {
+    }
+
+    /**
+     * R5.12: the palisade's cells as the ground is now, looking down through the posts already standing (so the answer is the
+     * same before and after they go up), and how many posts each needs on top of its first: for the slope, and in shallow water
+     * (up to {@link Works#MAX_WATER_DEPTH} deep) to stand on the bed and come up above the surface.
+     */
+    private static Wall wallOf(World world, List<Works.Spot> spots) {
+        PostColumn[] columns = new PostColumn[spots.size()];
+        int[] base = new int[columns.length];
+        int[] minTop = new int[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            columns[i] = postColumn(world, spots.get(i).x(), spots.get(i).z());
+            base[i] = columns[i] == null ? Works.NO_GROUND : columns[i].floor() + 1;
+            minTop[i] = columns[i] == null || !columns[i].wet() ? Works.NO_GROUND : columns[i].waterTop() + 1;
+        }
+        return new Wall(columns, Works.stacks(spots, base, minTop, Works.MAX_EXTRA));
+    }
+
+    /**
+     * The palisade column at x, z: its floor looking down through fence posts and the water they stand in, and the water's surface
+     * if the column is wet. Null if unloaded, lava, deeper than the wall is carried, or with no floor.
+     */
+    private static PostColumn postColumn(World world, int x, int z) {
+        int y = surfaceY(world, x, z);
+        if (y == Construction.UNKNOWN_GROUND) {
+            return null;
+        }
+        int waterTop = Construction.UNKNOWN_GROUND;
+        Block top = world.getBlockAt(x, y, z);
+        if (top.isLiquid()) {
+            if (top.getType() != Material.WATER) {
+                return null;
+            }
+            waterTop = y;
+        }
+        int floor = y;
+        while (floor > world.getMinHeight()) {
+            Material m = world.getBlockAt(x, floor, z).getType();
+            if (!Tag.FENCES.isTagged(m) && m != Material.WATER && !WATER_PLANTS.contains(m)) {
+                break;
+            }
+            floor--;
+        }
+        Block bed = world.getBlockAt(x, floor, z);
+        if (bed.isLiquid()) {
+            return null;
+        }
+        if (waterTop == Construction.UNKNOWN_GROUND && Tag.FENCES.isTagged(world.getBlockAt(x, floor + 1, z).getType())) {
+            // posts already stand here: if they stand in water (water beside them at their height), the wall must still rise above it
+            for (int h = floor + 1; h <= y; h++) {
+                for (int[] d : new int[][] {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                    if (world.getBlockAt(x + d[0], h, z + d[1]).getType() == Material.WATER) {
+                        waterTop = Math.max(waterTop, h);
+                    }
+                }
+            }
+        }
+        if (waterTop != Construction.UNKNOWN_GROUND && waterTop - floor > Works.MAX_WATER_DEPTH) {
+            return null;
+        }
+        // a floor a post may stand on: terrain, or plain paving laid on terrain (not a roof, nor the top of a wall); anything else is a gap
+        boolean paved = PAVING.contains(bed.getType()) && clearable(bed.getRelative(0, -1, 0), true);
+        if (!bed.getType().isSolid() || !(clearable(bed, true) || paved)) {
+            return null;
+        }
+        return new PostColumn(floor, waterTop);
     }
 
     /** The block under a rampart column: the surface, looking down through the blocks this column's own pieces are made of. */
@@ -923,14 +1070,22 @@ final class ConstructionService {
             // Only a post of the old line: oak fence with a post of the line beside it, and no torch on it (a light).
             boolean onLine = false;
             for (int[] d : new int[][] {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
-                onLine |= at.getRelative(d[0], 0, d[1]).getType() == Material.OAK_FENCE;
+                for (int dy = 0; dy >= -Works.MAX_EXTRA - Works.MAX_WATER_DEPTH; dy--) { // (its neighbour may stand lower, on a slope)
+                    onLine |= at.getRelative(d[0], dy, d[1]).getType() == Material.OAK_FENCE;
+                }
             }
             // (and never the rail on top of a rampart: that stands on the wall, not on the ground)
             Material below = at.getRelative(0, -1, 0).getType();
             if (at.getType() == Material.OAK_FENCE && onLine && at.getRelative(0, 1, 0).getType() != Material.TORCH
                     && below != Material.OAK_PLANKS && below != Material.STONE_BRICKS) {
-                at.setType(Material.AIR, true);
-                taken++;
+                // R5.12: the whole stack of posts in the cell, down to the ground (or the bed of a pond), not just the top one
+                Block post = at;
+                for (int guard = 0; guard < 2 * (Works.MAX_EXTRA + Works.MAX_WATER_DEPTH) && post.getType() == Material.OAK_FENCE
+                        && post.getY() > world.getMinHeight(); guard++) {
+                    post.setType(Material.AIR, true);
+                    taken++;
+                    post = post.getRelative(0, -1, 0);
+                }
             }
         }
         int wood = Works.refund(taken);

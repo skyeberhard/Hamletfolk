@@ -15,8 +15,8 @@ import org.bukkit.entity.Player;
  */
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
-    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | replan [name] | warp [name] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
+    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "regrade", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | regrade [name] | replan [name] | warp [name] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
 
     private final SettlementService service;
     private final TemplateCommand templates;
@@ -52,6 +52,7 @@ final class AdminCommand {
             case "cancelproject" -> cancelProject(sender, args);
             case "found" -> found(sender, args);
             case "resettle" -> resettle(sender, args);
+            case "regrade" -> regrade(sender, args);
             case "replan" -> replan(sender, args);
             case "warp" -> warp(sender, args);
             case "job" -> job(sender, args);
@@ -71,7 +72,7 @@ final class AdminCommand {
             return SUBCOMMANDS.stream().filter(s -> s.startsWith(prefix)).toList();
         }
         if (args.length == 3 && (args[1].equalsIgnoreCase("inspect") || args[1].equalsIgnoreCase("rename")
-                || args[1].equalsIgnoreCase("resettle"))) {
+                || args[1].equalsIgnoreCase("resettle") || args[1].equalsIgnoreCase("regrade"))) {
             String prefix = args[2].toLowerCase(Locale.ROOT);
             return service.registry().settlements().stream().map(Settlement::name)
                     .filter(n -> n.toLowerCase(Locale.ROOT).startsWith(prefix)).toList();
@@ -92,6 +93,25 @@ final class AdminCommand {
         sender.sendMessage(service.toggleIgnoreTag(villager)
                 ? "That villager is now left alone: not in any village, not re-priced, not moved."
                 : "That villager is no longer exempt (it may still be inside an [Exempt] sign's area).");
+    }
+
+    /**
+     * R5.12: {@code regrade [village]}: queues a project to mend the village's finished palisade, adding the posts that a step in
+     * the ground or shallow water calls for (what stands is left alone). For a palisade put up before the wall followed the ground.
+     */
+    private void regrade(CommandSender sender, String[] args) {
+        Optional<Settlement> target = args.length >= 3 ? lookup(sender, words(args, 2, args.length)) : here(sender);
+        if (target.isEmpty()) {
+            return;
+        }
+        Optional<String> why = io.github.skyeberhard.hamletfolk.core.Construction.reopenPalisade(target.get(), target.get().lastSimulatedDay());
+        if (why.isPresent()) {
+            sender.sendMessage(why.get());
+            return;
+        }
+        service.plugin().requestSave();
+        sender.sendMessage(target.get().name() + " will mend its palisade: its builder adds posts where the ground steps and across shallow water, and "
+                + "what stands is left alone. (A village with nobody out of work drafts someone after a few days.)");
     }
 
     /**

@@ -240,6 +240,86 @@ public final class Works {
         return false;
     }
 
+    /** No ground height known for a cell (not loaded, water, or nothing to stand on). */
+    public static final int NO_GROUND = Integer.MIN_VALUE;
+    /** The most posts stacked on a cell's first one: a cliff steeper than that is left as the barrier it already is. */
+    public static final int MAX_EXTRA = 3;
+    /** The deepest water the palisade is carried through, posts standing on the bed: a deeper pond or river stays a gap. */
+    public static final int MAX_WATER_DEPTH = 3;
+
+    /**
+     * R5.12: how many posts to stack on top of the first one in each cell of the palisade, so that on uneven ground the wall
+     * has no step of more than one block between neighbouring cells. A post sits on the ground at its own cell, so on a slope
+     * the posts step up and down and do not join, and a mob on the high side can walk over the low one's top. Each cell's
+     * top is raised to within one of its neighbours' (the way a hill's height falls away from its peak), by stacking posts,
+     * up to {@link #MAX_EXTRA}; the ground is not touched, so a palisade already standing is mended by adding to it.
+     * Cells are neighbours when they are next to each other in the ring (the last and the first included); an unknown cell
+     * ({@link #NO_GROUND}) or a gap in the ring joins nothing. Pure, and the same answer for the same ground.
+     *
+     * @param spots the cells in ring order
+     * @param base  the height of the first post in each, ground height plus one, or {@link #NO_GROUND}
+     */
+    public static int[] stacks(List<Spot> spots, int[] base, int maxExtra) {
+        return stacks(spots, base, null, maxExtra);
+    }
+
+    /**
+     * As {@link #stacks(List, int[], int)}, with the height each cell's wall must reach at least ({@code minTop}, or
+     * {@link #NO_GROUND} for none; null for none anywhere): a post in shallow water stands on the bed and must come up above the
+     * surface, so its cell needs the posts from the bed to there as well as whatever the slope asks for. Those posts do not count
+     * against {@code maxExtra}, which is what the slope may add.
+     */
+    public static int[] stacks(List<Spot> spots, int[] base, int[] minTop, int maxExtra) {
+        int n = spots.size();
+        int[] top = base.clone();
+        int[] cap = new int[n]; // the most a cell's wall may reach: its first post, what water needs, and what the slope may add
+        for (int i = 0; i < n; i++) {
+            if (base[i] == NO_GROUND) {
+                continue;
+            }
+            int required = minTop == null || minTop[i] == NO_GROUND ? 0 : Math.max(0, minTop[i] - base[i]);
+            top[i] = Math.max(base[i], base[i] + required);
+            cap[i] = base[i] + required + maxExtra;
+        }
+        boolean[] linked = new boolean[n]; // cell i with cell i + 1 (round the ring)
+        for (int i = 0; i < n; i++) {
+            Spot a = spots.get(i);
+            Spot b = spots.get((i + 1) % n);
+            linked[i] = n > 1 && base[i] != NO_GROUND && base[(i + 1) % n] != NO_GROUND
+                    && Math.abs(a.x() - b.x()) + Math.abs(a.z() - b.z()) == 1;
+        }
+        for (int sweep = 0, limit = 2 * n + 2; sweep < limit; sweep++) {
+            boolean changed = false;
+            for (int i = 0; i < n; i++) {
+                if (!linked[i]) {
+                    continue;
+                }
+                int j = (i + 1) % n;
+                int raised = Math.min(cap[j], top[i] - 1); // a cell is raised towards its neighbour, but never past its own cap
+                if (top[j] < raised) {
+                    top[j] = raised;
+                    changed = true;
+                }
+                raised = Math.min(cap[i], top[j] - 1);
+                if (top[i] < raised) {
+                    top[i] = raised;
+                    changed = true;
+                }
+            }
+            if (!changed) {
+                break;
+            }
+        }
+        int[] extra = new int[n];
+        for (int i = 0; i < n; i++) {
+            if (base[i] == NO_GROUND) {
+                continue;
+            }
+            extra[i] = Math.max(0, top[i] - base[i]);
+        }
+        return extra;
+    }
+
     /** What a post of the fence costs, in half-units: the lights and the palisade are both built of fence posts. */
     static final String POST = "OAK_FENCE";
 

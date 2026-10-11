@@ -115,8 +115,9 @@ turns out to need a player, just do it in game.
 | T85 | Guards are veterans (kept levels, called up first) and carry swords that match the tools; none left after a restart | P | |
 | T86 | Unattended planning: a planless village (Foxhaven) plans itself, one at a time; a village on a well is not refused | C | |
 | T87 | `settlement admin resettle` Mossmoor and Hollowgate; Testford refused | C | |
+| T88 | The palisade follows slopes and shallow water; `settlement admin regrade` mends a standing wall (needs a free builder) | P | |
 
-Rows T82 to T87 were run on a console-only test server (a copy of the live world for T86 and T87) and are recorded in
+Rows T82 to T88 were run on a console-only test server (a copy of the live world for T86 and T87) and are recorded in
 `CHANGELOG.md`; none has been played with a person yet, so their Result stays blank until one of you does.
 
 ## Also report

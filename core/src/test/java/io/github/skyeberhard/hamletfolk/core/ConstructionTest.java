@@ -57,6 +57,30 @@ class ConstructionTest {
         return Construction.propose(s, day, "plains", 200, catalog, this::blueprints, (x, z) -> 64);
     }
 
+    /** R5.12: mending a finished palisade queues a project the village's builder works, and the village decides nothing else meanwhile. */
+    @Test
+    void aFinishedPalisadeCanBeMendedByTheVillagesBuilder() {
+        Settlement s = village();
+        Resident builder = person(Occupation.BUILDER);
+        s.addResident(builder);
+        ConstructionProject done = new ConstructionProject(1, BuildingType.PALISADE, 1, 0, "plains", 0, 0, 0, -1, 5);
+        done.finish(10);
+        s.addProject(done);
+        assertTrue(Construction.reopenPalisade(s, 20).isEmpty());
+        ConstructionProject repair = s.openProject().orElseThrow();
+        assertTrue(repair != done && repair.id() > done.id(), "a new project, not the old one revived");
+        assertEquals(BuildingType.PALISADE, repair.type());
+        assertEquals(done.tier(), repair.tier());
+        assertFalse(repair.isUpgrade(), "so the old ring is not taken down again");
+        assertEquals(20, repair.queuedDay(), "queued today");
+        assertEquals(ConstructionProject.Status.DONE, done.status(), "the finished one stays on record");
+        assertTrue(Construction.reopenPalisade(s, 20).isPresent(), "a second one is refused while one is open");
+        assertTrue(propose(s, 21).isEmpty(), "the village decides nothing else while it waits");
+        Construction.staffBuilders(s, 21, false);
+        assertEquals(ConstructionProject.Status.ACTIVE, repair.status());
+        assertEquals(builder.id(), repair.builder());
+    }
+
     @Test
     void matchesIgnoresNamespaceCaseAndPropertiesTheBlueprintDoesNotName() {
         assertTrue(Construction.matches("minecraft:oak_planks", "OAK_PLANKS"));
