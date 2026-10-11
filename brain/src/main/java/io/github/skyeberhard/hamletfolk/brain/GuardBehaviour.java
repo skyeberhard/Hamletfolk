@@ -14,6 +14,9 @@ import net.minecraft.world.entity.ai.behavior.Behavior;
 import net.minecraft.world.entity.ai.behavior.EntityTracker;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.ai.memory.WalkTarget;
+import net.minecraft.world.entity.monster.skeleton.AbstractSkeleton;
+import net.minecraft.world.entity.monster.skeleton.WitherSkeleton;
+import net.minecraft.world.entity.monster.spider.Spider;
 import net.minecraft.world.entity.monster.zombie.Zombie;
 import net.minecraft.world.entity.monster.zombie.ZombieVillager;
 import net.minecraft.world.entity.monster.zombie.ZombifiedPiglin;
@@ -196,12 +199,13 @@ final class GuardBehaviour extends Behavior<Villager> {
     }
 
     /**
-     * Zombies, husks and drowned, and raiders. Never a zombified piglin (it leaves villagers alone) or a zombie villager (a player
+     * Zombies, husks and drowned, skeletons (strays, bogged, parched), spiders (cave spiders) and raiders. Never a wither
+     * skeleton (too strong for a guard, and from the Nether), a zombified piglin (it leaves villagers alone) or a zombie villager (a player
      * may be curing it, and it may be one of the village's own, kept on record to come back).
      */
     private static boolean hostile(LivingEntity e) {
         return e.isAlive() && ((e instanceof Zombie && !(e instanceof ZombifiedPiglin) && !(e instanceof ZombieVillager))
-                || e instanceof Raider);
+                || (e instanceof AbstractSkeleton && !(e instanceof WitherSkeleton)) || e instanceof Spider || e instanceof Raider);
     }
 
     /** Stops fighting: takes off the walk target it set (only its own), and forgets the foe. */
