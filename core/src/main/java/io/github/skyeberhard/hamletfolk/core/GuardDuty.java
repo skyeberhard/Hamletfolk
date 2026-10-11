@@ -50,13 +50,19 @@ public final class GuardDuty {
         return resident.adult() && resident.occupation() == Occupation.GUARD && settlement.ledger().get(ResourceType.TOOLS) > 0;
     }
 
+    /** R9.6: the patrol behaviour's name. */
+    public static final String PATROL = "patrol";
+
+    /** The behaviours only a guard on duty has. */
+    public static final Set<String> GUARD_ONLY = Set.of(BEHAVIOUR, PATROL);
+
     /** The behaviours a resident near a player gets: those that run, less the guard's unless it is on duty. */
     public static Set<String> fit(Set<String> running, boolean onDuty) {
-        if (onDuty || !running.contains(BEHAVIOUR)) {
+        if (onDuty || running.stream().noneMatch(GUARD_ONLY::contains)) {
             return running;
         }
         Set<String> out = new HashSet<>(running);
-        out.remove(BEHAVIOUR);
+        out.removeAll(GUARD_ONLY);
         return out;
     }
 

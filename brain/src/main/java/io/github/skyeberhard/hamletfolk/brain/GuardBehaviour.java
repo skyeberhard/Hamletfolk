@@ -39,8 +39,8 @@ import net.minecraft.world.entity.raid.Raider;
  * Every call is timed (less its strikes: a kill runs the monster's death and everyone's listeners) and every error caught.
  */
 final class GuardBehaviour extends Behavior<Villager> {
-    /** Before vanilla's panic trigger (priority 0 in CORE). */
-    static final int PRIORITY = -1;
+    /** Before the patrol (-1) and vanilla's panic trigger (priority 0 in CORE). */
+    static final int PRIORITY = -2;
     /** Run at, a little faster than a villager's ordinary walk (0.5) and its walk to work (0.6). */
     private static final float SPEED = 0.75f;
     /** Ticks between looks around for monsters. */
@@ -230,6 +230,11 @@ final class GuardBehaviour extends Behavior<Villager> {
         } catch (Throwable e) {
             module.fault(id, e);
         }
+    }
+
+    /** Whether it is fighting, or retreating: the patrol gives way. */
+    boolean busy() {
+        return foe != null || retreating;
     }
 
     /** Where it is, for inspect. */

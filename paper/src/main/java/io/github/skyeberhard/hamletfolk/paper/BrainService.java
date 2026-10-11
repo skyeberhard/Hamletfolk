@@ -417,6 +417,8 @@ final class BrainService implements Listener {
             return 0;
         }
         Set<String> running = behaviours.running();
+        routes.clear();
+        guardsOnDuty.clear();
         Map<World, List<Location>> players = new HashMap<>();
         Set<UUID> residents = new HashSet<>();
         int count = 0;
@@ -454,7 +456,11 @@ final class BrainService implements Listener {
         }
         try {
             boolean near = isResident(id) && behaviours.keepWatching(module.has(id), nearestPlayer(villager, players));
-            module.attach(villager, near ? io.github.skyeberhard.hamletfolk.core.GuardDuty.fit(running, onDuty(id)) : Set.of());
+            boolean duty = near && onDuty(id);
+            module.attach(villager, near ? io.github.skyeberhard.hamletfolk.core.GuardDuty.fit(running, duty) : Set.of());
+            if (duty && module.has(id) && running.contains(io.github.skyeberhard.hamletfolk.core.GuardDuty.PATROL)) {
+                routeFor(id);
+            }
             return module.has(id);
         } catch (RuntimeException | LinkageError e) {
             fault(id, e);
@@ -472,6 +478,55 @@ final class BrainService implements Listener {
             best = Math.min(best, p.distanceSquared(at));
         }
         return Math.sqrt(best);
+    }
+
+    /** R9.6: a village's patrol loop, kept while its plan is the same (the plan is rebuilt only when it grows or is replaced). */
+    private record Patrol(Object plan, int stage, int roads, List<io.github.skyeberhard.hamletfolk.core.PatrolRoute.Spot> spots) {
+    }
+
+    private final Map<UUID, Patrol> loops = new HashMap<>();
+    /** The route with the ground height at each spot, and the guards on duty, for each village: rebuilt once a pass. */
+    private final Map<UUID, List<io.github.skyeberhard.hamletfolk.core.PatrolRoute.Spot>> routes = new HashMap<>();
+    private final Map<UUID, List<UUID>> guardsOnDuty = new HashMap<>();
+
+    /** R9.6: gives a guard on duty its village's patrol loop, and its shift (the guards take the nights in turns). */
+    private void routeFor(UUID guard) {
+        Optional<Settlement> home = settlements.registry().settlementOf(guard);
+        if (home.isEmpty()) {
+            return;
+        }
+        Settlement s = home.get();
+        var route = routes.computeIfAbsent(s.id(), k -> groundedRoute(s));
+        // the night watch is shared among the guards that are loaded (one that is not cannot walk it)
+        var duty = guardsOnDuty.computeIfAbsent(s.id(), k -> s.residents().stream()
+                .filter(r -> io.github.skyeberhard.hamletfolk.core.GuardDuty.onDuty(s, r) && Bukkit.getEntity(r.id()) != null)
+                .map(Resident::id).toList());
+        module.setPatrol(guard, route, io.github.skyeberhard.hamletfolk.core.PatrolRoute.watchesNight(duty, guard));
+    }
+
+    /** The loop through the plan (kept while the plan is the same), with the height of the ground at each spot that is loaded. */
+    private List<io.github.skyeberhard.hamletfolk.core.PatrolRoute.Spot> groundedRoute(Settlement s) {
+        var plan = s.plan();
+        int stage = plan == null ? 0 : plan.stage();
+        int roads = plan == null ? 0 : plan.roads().size();
+        Patrol known = loops.get(s.id());
+        if (known == null || known.plan() != plan || known.stage() != stage || known.roads() != roads) {
+            known = new Patrol(plan, stage, roads,
+                    io.github.skyeberhard.hamletfolk.core.PatrolRoute.route(plan, s.centerX(), s.centerZ()));
+            loops.put(s.id(), known);
+        }
+        World world = Bukkit.getWorld(s.world());
+        if (world == null) {
+            return known.spots();
+        }
+        List<io.github.skyeberhard.hamletfolk.core.PatrolRoute.Spot> out = new ArrayList<>(known.spots().size());
+        for (var spot : known.spots()) {
+            // a spot on a hill is at the ground there, not at the height the guard happens to stand: only a loaded chunk is asked
+            out.add(world.isChunkLoaded(spot.x() >> 4, spot.z() >> 4)
+                    ? spot.withGround(world.getHighestBlockYAt(spot.x(), spot.z(), org.bukkit.HeightMap.MOTION_BLOCKING_NO_LEAVES) + 1)
+                    : spot);
+        }
+        return out;
     }
 
     /** R9.3: the simulation's guard, in a village with tools in its stores (checked each second, so it stops when they run out). */

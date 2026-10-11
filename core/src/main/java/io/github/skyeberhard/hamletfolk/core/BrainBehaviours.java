@@ -34,7 +34,10 @@ public final class BrainBehaviours {
             new Spec("journey", BrainFamily.PATHING, 2000),
             // R9.3: a guard on duty stands its ground and fights (GuardDuty). Called every tick for each guard near a player; a look
             // around for monsters (twice a second) is the dear part. 1500 (3% of a tick) until it has been measured in play.
-            new Spec(GuardDuty.BEHAVIOUR, BrainFamily.GUARDS, 1500));
+            new Spec(GuardDuty.BEHAVIOUR, BrainFamily.GUARDS, 1500),
+            // R9.6: a guard on duty walks the village's streets between fights (PatrolRoute), through the pathing service. Idle it
+            // is a few microseconds; the dear moment is starting a journey, once every few seconds.
+            new Spec(GuardDuty.PATROL, BrainFamily.GUARDS, 1000));
 
     /** Default distance (blocks) from a player within which villagers get their behaviours. */
     public static final int DEFAULT_WATCH = 48;

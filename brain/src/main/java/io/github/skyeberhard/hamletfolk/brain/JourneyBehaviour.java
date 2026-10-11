@@ -70,6 +70,11 @@ final class JourneyBehaviour extends Behavior<Villager> {
         }
     }
 
+    /** Whether a journey is under way. */
+    boolean busy() {
+        return journey != null;
+    }
+
     /** Where it is going, for inspect; empty if it is not going anywhere. */
     String describe() {
         return journey == null ? "" : "on a journey to " + journey.goal();
@@ -97,15 +102,15 @@ final class JourneyBehaviour extends Behavior<Villager> {
 
     @Override
     protected void start(ServerLevel level, Villager villager, long gameTime) {
-        step(level, villager);
+        step(level, villager, gameTime);
     }
 
     @Override
     protected void tick(ServerLevel level, Villager villager, long gameTime) {
-        step(level, villager);
+        step(level, villager, gameTime);
     }
 
-    private void step(ServerLevel level, Villager villager) {
+    private void step(ServerLevel level, Villager villager, long gameTime) {
         long t = System.nanoTime();
         try {
             if (journey != null) {
@@ -214,6 +219,12 @@ final class JourneyBehaviour extends Behavior<Villager> {
         public void walkTo(Journey.Point target, int closeEnough) {
             ours = new WalkTarget(new BlockPos(target.x(), target.y(), target.z()), SPEED, closeEnough);
             villager.getBrain().setMemory(MemoryModuleType.WALK_TARGET, ours);
+        }
+
+        @Override
+        public boolean steered() {
+            Optional<WalkTarget> now = villager.getBrain().getMemory(MemoryModuleType.WALK_TARGET);
+            return now.isPresent() && now.get() != ours;
         }
 
         @Override

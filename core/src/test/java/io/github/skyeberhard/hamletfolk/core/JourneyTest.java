@@ -22,6 +22,9 @@ class JourneyTest {
         double speed = 0.25;
         /** The brain drops any walk target further than this from the villager (it "keeps cancelling the path"). */
         double dropBeyond = Double.MAX_VALUE;
+        /** Whether a drop is something else taking over the walk target (true) or the brain finding no route (false). */
+        boolean steerOnDrop;
+        boolean steered;
         /** Ticks at which the brain drops whatever it is walking to. */
         List<Integer> dropAt = new ArrayList<>();
         /** Blocks the villager cannot stand in. */
@@ -48,6 +51,11 @@ class JourneyTest {
             target = t;
             walking = true;
             targets.add(t);
+        }
+
+        @Override
+        public boolean steered() {
+            return steered;
         }
 
         @Override
@@ -79,6 +87,7 @@ class JourneyTest {
             tick++;
             if (walking && (dropAt.contains(tick) || Math.hypot(target.x() + 0.5 - x, target.z() + 0.5 - z) > dropBeyond)) {
                 walking = false;
+                steered = steerOnDrop;
             }
             if (!walking) {
                 return;
@@ -139,6 +148,28 @@ class JourneyTest {
         assertTrue(log.stream().anyMatch(l -> l.startsWith("the brain dropped the path (1 of 3): trying the path again")), log.toString());
         assertTrue(log.stream().anyMatch(l -> l.startsWith("the brain dropped the path (2 of 3)")), log.toString());
         assertEquals(3, m.targets.size());
+    }
+
+    @Test
+    void aPathReplacedAtOnceIsRetriedAfterAWaitNotThreeTimesInASecond() {
+        FakeMover m = new FakeMover(0.5, 0.5);
+        m.dropAt = List.of(2, 3, 4); // something else steers the villager for a moment, and the brain drops the path
+        m.steerOnDrop = true;
+        Journey.Result r = run(journey(at(40, 0), false), m);
+        assertEquals(Journey.Outcome.WALKED, r.outcome(), log.toString());
+        assertTrue(log.stream().anyMatch(l -> l.contains("at once (1 of 3): something else is steering it, waiting 2 seconds")), log.toString());
+        assertFalse(log.stream().anyMatch(l -> l.startsWith("falling back to short hops")), "no hops: the wait was enough: " + log);
+        assertEquals(2, m.targets.size(), "one path, one more after the wait");
+    }
+
+    @Test
+    void aPathWithNoRouteIsRetriedAtOnceNotAfterAWait() {
+        FakeMover m = new FakeMover(0.5, 0.5);
+        m.dropAt = List.of(2, 4); // no route: the brain clears the target and nothing else sets one
+        Journey.Result r = run(journey(at(40, 0), false), m);
+        assertEquals(Journey.Outcome.WALKED, r.outcome(), log.toString());
+        assertFalse(log.stream().anyMatch(l -> l.contains("something else is steering it")), log.toString());
+        assertTrue(log.stream().anyMatch(l -> l.contains("at once") || l.contains("trying the path again")), log.toString());
     }
 
     @Test

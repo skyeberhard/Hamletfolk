@@ -41,9 +41,13 @@ public final class VillagerBrains implements BrainModule {
     /** Priority of the added behaviours in CORE. If vanilla uses it too, the set is shared and only ours is ever taken out. */
     static final int PRIORITY = 2;
 
-    /** Where a behaviour goes in CORE: {@link #PRIORITY}, except the guard's, which must come before vanilla's panic trigger. */
+    /**
+     * Where a behaviour goes in CORE: {@link #PRIORITY}, except the guard's (-2) and the patrol's (-1), which must come before
+     * vanilla's panic trigger and walks (0 and up), the guard first.
+     */
     static int priority(Behavior<Villager> behaviour) {
-        return behaviour instanceof GuardBehaviour ? GuardBehaviour.PRIORITY : PRIORITY;
+        return behaviour instanceof GuardBehaviour ? GuardBehaviour.PRIORITY
+                : behaviour instanceof PatrolBehaviour ? PatrolBehaviour.PRIORITY : PRIORITY;
     }
 
     /** Makes one villager's instance of a behaviour. */
@@ -56,7 +60,8 @@ public final class VillagerBrains implements BrainModule {
     private static final Map<String, Maker> MAKERS = Map.of(
             "attention", AttentionBehaviour::new,
             "journey", JourneyBehaviour::new,
-            GuardDuty.BEHAVIOUR, GuardBehaviour::new);
+            GuardDuty.BEHAVIOUR, GuardBehaviour::new,
+            GuardDuty.PATROL, PatrolBehaviour::new);
 
     private final Field table;
     private final Map<UUID, Attachment> attached = new HashMap<>();
@@ -167,6 +172,26 @@ public final class VillagerBrains implements BrainModule {
         return true;
     }
 
+    /** The guard behaviour on a villager, if it has one (main thread; the patrol asks). */
+    GuardBehaviour guard(UUID villager) {
+        Attachment a = attached.get(villager);
+        return a != null && a.behaviours().get(GuardDuty.BEHAVIOUR) instanceof GuardBehaviour g ? g : null;
+    }
+
+    /** The pathing behaviour on a villager, if it has one. */
+    JourneyBehaviour journey(UUID villager) {
+        Attachment a = attached.get(villager);
+        return a != null && a.behaviours().get("journey") instanceof JourneyBehaviour j ? j : null;
+    }
+
+    @Override
+    public void setPatrol(UUID villager, List<io.github.skyeberhard.hamletfolk.core.PatrolRoute.Spot> route, boolean watchesNight) {
+        Attachment a = attached.get(villager);
+        if (a != null && a.behaviours().get(GuardDuty.PATROL) instanceof PatrolBehaviour patrol) {
+            patrol.set(route, watchesNight);
+        }
+    }
+
     @Override
     public void detachAll() {
         for (Attachment a : attached.values()) {
@@ -205,6 +230,9 @@ public final class VillagerBrains implements BrainModule {
         }
         if (behaviour instanceof GuardBehaviour guard) {
             guard.release(a.villager()); // it never runs, so doStop would not clean up after it
+        }
+        if (behaviour instanceof PatrolBehaviour patrol) {
+            patrol.release();
         }
         if (behaviour.getStatus() == Behavior.Status.RUNNING && a.villager().level() instanceof ServerLevel level) {
             behaviour.doStop(level, a.villager(), level.getGameTime());
@@ -413,7 +441,8 @@ public final class VillagerBrains implements BrainModule {
             if (ours != null && ours.brain() == brain) {
                 for (Map.Entry<String, Behavior<Villager>> b : ours.behaviours().entrySet()) {
                     String doing = b.getValue() instanceof JourneyBehaviour journey ? journey.describe()
-                            : b.getValue() instanceof GuardBehaviour guard ? guard.describe() : "";
+                            : b.getValue() instanceof GuardBehaviour guard ? guard.describe()
+                            : b.getValue() instanceof PatrolBehaviour patrol ? patrol.describe() : "";
                     added.add(b.getValue().debugString() + (aside.contains(b.getKey()) ? " (standing aside: over its budget)" : "")
                             + (doing.isEmpty() ? "" : " (" + doing + ")"));
                 }

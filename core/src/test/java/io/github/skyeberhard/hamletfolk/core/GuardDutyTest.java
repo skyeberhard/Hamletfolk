@@ -90,7 +90,7 @@ class GuardDutyTest {
 
     @Test
     void onlyAGuardOnDutyGetsTheGuardBehaviour() {
-        java.util.Set<String> running = java.util.Set.of("attention", "journey", GuardDuty.BEHAVIOUR);
+        java.util.Set<String> running = java.util.Set.of("attention", "journey", GuardDuty.BEHAVIOUR, GuardDuty.PATROL);
         assertEquals(running, GuardDuty.fit(running, true));
         assertEquals(java.util.Set.of("attention", "journey"), GuardDuty.fit(running, false));
         assertTrue(BrainBehaviours.ALL.stream().anyMatch(s -> s.name().equals(GuardDuty.BEHAVIOUR) && s.family() == BrainFamily.GUARDS));

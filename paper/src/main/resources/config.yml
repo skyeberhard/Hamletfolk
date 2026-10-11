@@ -159,3 +159,8 @@ brain:
     guard:
       enabled: true
       budget-microseconds: 1500
+    # R9.6: a guard on duty walks the village's streets between fights (needs the journey behaviour). By day it stands a while at
+    # each spot; at night every other guard walks all night while the rest sleep.
+    patrol:
+      enabled: true
+      budget-microseconds: 1000

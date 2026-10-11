@@ -77,6 +77,12 @@ public final class Journey {
         /** Sets the villager's walk target to this block (it is then "ours" until something replaces it). */
         void walkTo(Point target, int closeEnough);
 
+        /**
+         * Whether something else has put a walk target of its own in place of ours (the game's idle chat does), as opposed to the
+         * brain having found no route and cleared it. Only false when there is none at all.
+         */
+        boolean steered();
+
         /** Whether the villager is still walking to the target last given to {@link #walkTo} (false once anything dropped or replaced it). */
         boolean walking();
 
@@ -99,6 +105,14 @@ public final class Journey {
     public static final int MAX_HOP_FAILS = 3;
     /** How near a road waypoint (horizontally) counts as reaching it. */
     public static final int WAYPOINT_NEAR = 3;
+    /**
+     * A path the brain replaces within this many ticks of our setting it was replaced by something else steering the villager
+     * (the game's idle chat with a neighbour walks two villagers to each other and sets the target again every tick), not
+     * dropped for want of a route. Trying again at once only loses the same race, three times in one second; the journey waits
+     * {@link #BACKOFF_TICKS} for the chat to end before it tries again.
+     */
+    public static final int QUICK_TICKS = 10;
+    public static final int BACKOFF_TICKS = 40;
     /** Each way of walking may take this many ticks plus {@link #TICKS_PER_BLOCK} for each block of the way that is left. */
     public static final int BASE_TICKS = 200;
     public static final int TICKS_PER_BLOCK = 20;
@@ -124,6 +138,9 @@ public final class Journey {
     private double best;
     private long lastProgress;
     private int setbacks;
+    private long issuedAt;
+    private long retryAt;
+    private boolean reissue;
     private Point hop;
     private long hopStart;
     private int hopFails;
@@ -201,6 +218,15 @@ public final class Journey {
 
     private void path(Mover mover, Point at) {
         Point target = advance(at);
+        if (reissue) {
+            if (ticks - stageStart > stageLimit) {
+                toHops(mover, at, "the path was taking too long");
+            } else if (ticks >= retryAt) {
+                reissue = false;
+                walk(mover, target, at, "walking again");
+            }
+            return;
+        }
         if (!issued) {
             walk(mover, target, at, "walking to " + (target.equals(end) ? "the goal" : "waypoint " + (next + 1) + " of " + waypoints()));
             issued = true;
@@ -237,6 +263,7 @@ public final class Journey {
         mover.walkTo(dest, target.equals(end) ? closeEnough : 1);
         best = at.horizontalDistance(target);
         lastProgress = ticks;
+        issuedAt = ticks;
         log(what + " (" + dest + ")");
     }
 
@@ -244,6 +271,12 @@ public final class Journey {
         setbacks++;
         if (setbacks >= MAX_SETBACKS) {
             toHops(mover, at, why + " (" + setbacks + " times)");
+            return;
+        }
+        if (ticks - issuedAt < QUICK_TICKS && mover.steered()) {
+            retryAt = ticks + BACKOFF_TICKS;
+            reissue = true;
+            log(why + " at once (" + setbacks + " of " + MAX_SETBACKS + "): something else is steering it, waiting " + BACKOFF_TICKS / 20 + " seconds");
             return;
         }
         log(why + " (" + setbacks + " of " + MAX_SETBACKS + "): trying the path again");
@@ -255,6 +288,7 @@ public final class Journey {
     private void toHops(Mover mover, Point at, String why) {
         log("falling back to short hops: " + why);
         stage = Stage.HOPS;
+        reissue = false;
         stageStart = ticks;
         stageLimit = limit(at);
         hop = null;
@@ -268,7 +302,9 @@ public final class Journey {
             return;
         }
         if (hop == null) {
-            nextHop(mover, at);
+            if (ticks >= retryAt) {
+                nextHop(mover, at);
+            }
             return;
         }
         if (arrived(at, hop, 1)) {
@@ -276,6 +312,17 @@ public final class Journey {
             hopsMade++;
             nextHop(mover, at);
         } else if (!mover.walking()) {
+            if (ticks - hopStart < QUICK_TICKS && mover.steered()) {
+                retryAt = ticks + BACKOFF_TICKS; // something else is steering it: wait, then the next hop
+                hop = null;
+                hopFails++;
+                if (hopFails >= MAX_HOP_FAILS) {
+                    stopWalking(mover, "the brain kept replacing the hop (" + hopFails + " hops failed in a row)");
+                } else {
+                    log("the brain replaced the hop at once (" + hopFails + " of " + MAX_HOP_FAILS + "): waiting " + BACKOFF_TICKS / 20 + " seconds");
+                }
+                return;
+            }
             hopFailed(mover, at, "the brain dropped the hop");
         } else if (ticks - hopStart > HOP_TICKS) {
             hopFailed(mover, at, "the hop was taking too long");

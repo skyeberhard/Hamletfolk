@@ -192,6 +192,11 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   spiders, raiders; never a zombie villager, zombified piglin or wither skeleton) so the villager does not panic, and a badly hurt one leaves them, so vanilla panic is its retreat. Villagers never heal
   by themselves, so a guard heals slowly out of a fight (`GuardDuty.heals`), or a retreat would last for ever. Chasing a moving monster is the one place a behaviour sets WALK_TARGET itself. The plugin gives it only to a guard
   on duty (`GuardDuty.onDuty`: a GUARD with tools in the stores; `GuardDuty.fit`), checked each second; the rules are in core.
+  R9.6: `PatrolBehaviour` (priority -1, after the guard at -2, same "never runs" style) walks `PatrolRoute` spots through `JourneyBehaviour.begin` and
+  gives way when `GuardBehaviour.busy()`; `BrainService.routeFor` feeds `setPatrol` each second. A night-watch guard is woken with `stopSleeping` and
+  walks without pausing (a villager with no walk target goes to bed); the guards on duty take the nights in turns (`PatrolRoute.watchesNight`).
+  Gotcha: the game's idle chat (a trade gate, `lockGazeAndWalkToEachOther`) resets WALK_TARGET every tick, so `Journey` waits 2 seconds when the
+  brain replaces a path within 10 ticks (`QUICK_TICKS`), rather than retrying at once; stopping the gates or clearing INTERACTION_TARGET made it worse.
 - **`SettlementService.track()` returns null** for a world excluded by `worlds.allow/deny`
   (R1.10); callers must handle it.
 - **Line endings:** working copies are CRLF (autocrlf) while the repo stores LF, so git warns

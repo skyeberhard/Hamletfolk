@@ -46,6 +46,12 @@ public interface BrainModule {
             List<io.github.skyeberhard.hamletfolk.core.Journey.Point> route, boolean mayTeleport, int closeEnough,
             java.util.function.Consumer<io.github.skyeberhard.hamletfolk.core.Journey.Result> done);
 
+    /**
+     * R9.6: tells a guard's patrol behaviour where to walk (the loop through its village) and whether it keeps the night watch.
+     * Nothing happens if the villager has no patrol behaviour.
+     */
+    void setPatrol(UUID villager, List<io.github.skyeberhard.hamletfolk.core.PatrolRoute.Spot> route, boolean watchesNight);
+
     /** R9.4: takes one behaviour off every villager it is on (it, or its family, was switched off, or it went over its budget). */
     void detachEverywhere(String behaviour);
 
