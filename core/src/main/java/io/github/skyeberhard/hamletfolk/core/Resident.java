@@ -79,6 +79,11 @@ public final class Resident {
     /** R4.29: days worked in the trade named by {@link #xpTrade}. */
     private int xp;
     private Occupation xpTrade;
+    /**
+     * R9.7: days served as a guard. A guard is called up when the village is attacked and stands down when it is safe, so
+     * this is kept apart from {@link #xp}: working another trade in between does not lose it, nor does guarding lose a farmer's.
+     */
+    private int guardXp;
 
     public Resident(UUID id, String givenName, String familyName, Gender gender, Traits traits,
                     Occupation occupation, boolean adult, long bornDay, UUID parentA, UUID parentB, Needs needs) {
@@ -169,7 +174,15 @@ public final class Resident {
      * goes back to the fields has it still. Working at a different trade starts again from nothing.
      */
     public int xp() {
+        if (occupation == Occupation.GUARD) {
+            return guardXp; // R9.7: kept for good, whatever else they have done since
+        }
         return xpTrade == occupation ? xp : 0;
+    }
+
+    /** R9.7: days served as a guard, whether or not they are one now. */
+    int guardXp() {
+        return guardXp;
     }
 
     /** The trade the experience is in, or null if none has been earned. */
@@ -183,6 +196,10 @@ public final class Resident {
     }
 
     void addXp(int days) {
+        if (occupation == Occupation.GUARD) {
+            guardXp = (int) Math.max(0, Math.min(Integer.MAX_VALUE, (long) guardXp + days));
+            return;
+        }
         if (xpTrade != occupation) {
             xpTrade = occupation;
             xp = 0; // a new trade is learned from the start
@@ -191,11 +208,24 @@ public final class Resident {
     }
 
     void setXp(int xp) {
+        if (occupation == Occupation.GUARD) {
+            this.guardXp = Math.max(0, xp);
+            return;
+        }
         this.xpTrade = occupation;
         this.xp = Math.max(0, xp);
     }
 
+    /** R9.7: restores saved guard days (and, from a save older than format 29, the guard days that were kept in {@link #xp}). */
+    void restoreGuardXp(int days) {
+        this.guardXp = Math.max(0, days);
+    }
+
     void restoreXp(Occupation trade, int xp) {
+        if (trade == Occupation.GUARD) {
+            this.guardXp = Math.max(this.guardXp, xp); // before format 29 guard days were stored like any trade's
+            return;
+        }
         this.xpTrade = trade;
         this.xp = Math.max(0, xp);
     }
@@ -293,6 +323,7 @@ public final class Resident {
         copy.built = built; // R4.21: and their skill
         copy.xp = xp; // R4.29
         copy.xpTrade = xpTrade;
+        copy.guardXp = guardXp; // R9.7
         copy.familiarity.putAll(familiarity);
         return copy;
     }

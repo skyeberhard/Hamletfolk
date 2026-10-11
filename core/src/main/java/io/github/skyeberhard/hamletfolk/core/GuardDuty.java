@@ -50,6 +50,30 @@ public final class GuardDuty {
         return resident.adult() && resident.occupation() == Occupation.GUARD && settlement.ledger().get(ResourceType.TOOLS) > 0;
     }
 
+    /** R9.7: what a guard on duty carries: the best weapon the village's tools make. */
+    public enum Blade {
+        NONE, WOOD, STONE, IRON, DIAMOND
+    }
+
+    /**
+     * R9.7: the weapon a guard carries: as good as the best tools in the village's stores (diamond, iron, stone), a wooden one if
+     * there are tools of some other kind (the simulation's tools are all of these three, so that is only a safety net), none
+     * if there are no tools (and then the guard is not on duty anyway).
+     */
+    public static Blade blade(Settlement settlement) {
+        Ledger ledger = settlement.ledger();
+        if (ledger.get(Commodity.DIAMOND_TOOLS) > 0) {
+            return Blade.DIAMOND;
+        }
+        if (ledger.get(Commodity.IRON_TOOLS) > 0) {
+            return Blade.IRON;
+        }
+        if (ledger.get(Commodity.STONE_TOOLS) > 0) {
+            return Blade.STONE;
+        }
+        return ledger.get(ResourceType.TOOLS) > 0 ? Blade.WOOD : Blade.NONE;
+    }
+
     /** R9.6: the patrol behaviour's name. */
     public static final String PATROL = "patrol";
 

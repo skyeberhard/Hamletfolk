@@ -97,6 +97,22 @@ class GuardDutyTest {
     }
 
     @Test
+    void aGuardCarriesTheBestWeaponTheVillagesToolsMake() {
+        Settlement village = new Settlement(UUID.randomUUID(), "Testford", "world", 0, 0, 0);
+        assertEquals(GuardDuty.Blade.NONE, GuardDuty.blade(village));
+        village.ledger().add(Commodity.STONE_TOOLS, 2);
+        assertEquals(GuardDuty.Blade.STONE, GuardDuty.blade(village));
+        village.ledger().add(Commodity.IRON_TOOLS, 1);
+        assertEquals(GuardDuty.Blade.IRON, GuardDuty.blade(village));
+        village.ledger().add(Commodity.DIAMOND_TOOLS, 1);
+        assertEquals(GuardDuty.Blade.DIAMOND, GuardDuty.blade(village));
+        village.ledger().take(Commodity.DIAMOND_TOOLS, 1);
+        village.ledger().take(Commodity.IRON_TOOLS, 1);
+        village.ledger().take(Commodity.STONE_TOOLS, 2);
+        assertEquals(GuardDuty.Blade.NONE, GuardDuty.blade(village), "no tools, no weapon");
+    }
+
+    @Test
     void itStrikesOnlyWithinReach() {
         assertTrue(GuardDuty.inReach(2.0));
         assertFalse(GuardDuty.inReach(3.0));

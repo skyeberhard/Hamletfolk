@@ -53,9 +53,13 @@ final class BrainService implements Listener {
     /** What a fault left to do, run by the once-a-second timer (never from inside a brain tick). */
     private final Deque<Runnable> pending = new ArrayDeque<>();
 
+    /** R9.7: the swords of the guards on duty. */
+    private final GuardArms arms;
+
     BrainService(HamletfolkPlugin plugin, SettlementService settlements) {
         this.plugin = plugin;
         this.settlements = settlements;
+        this.arms = new GuardArms(plugin);
     }
 
     /**
@@ -127,6 +131,7 @@ final class BrainService implements Listener {
 
     /** At shutdown: take everything off, so the server's villagers are saved exactly as vanilla. */
     void stop() {
+        arms.clearAll(); // the server's villagers are saved as vanilla: no swords
         if (module != null) {
             module.setActive(false);
             module.detachAll();
@@ -157,6 +162,7 @@ final class BrainService implements Listener {
             int count = module.attached();
             module.setActive(false);
             module.detachAll();
+            arms.clearAll();
             who.sendMessage("Brain module off: " + count + " villagers are back to vanilla.");
             plugin.getLogger().info("Brain module off.");
         } else {
@@ -242,6 +248,9 @@ final class BrainService implements Listener {
                 module.setRunning(spec.name(), true);
             } else {
                 module.detachEverywhere(spec.name());
+                if (spec.name().equals(io.github.skyeberhard.hamletfolk.core.GuardDuty.BEHAVIOUR)) {
+                    arms.clearAll(); // no guard behaviour, no sword
+                }
             }
         }
         if (brainSwitch.on()) {
@@ -256,7 +265,12 @@ final class BrainService implements Listener {
     private void overBudget(String name, String figures) {
         Optional<String> message = behaviours.overBudget(name, figures);
         if (message.isPresent()) {
-            pending.add(() -> module.detachEverywhere(name));
+            pending.add(() -> {
+                module.detachEverywhere(name);
+                if (name.equals(io.github.skyeberhard.hamletfolk.core.GuardDuty.BEHAVIOUR)) {
+                    arms.clearAll();
+                }
+            });
             plugin.getLogger().warning(message.get());
         }
     }
@@ -461,6 +475,13 @@ final class BrainService implements Listener {
             if (duty && module.has(id) && running.contains(io.github.skyeberhard.hamletfolk.core.GuardDuty.PATROL)) {
                 routeFor(id);
             }
+            // R9.7: a guard that is fighting carries a sword, as good as the best tools in the stores; any other villager none of ours
+            if (duty && module.has(id) && running.contains(io.github.skyeberhard.hamletfolk.core.GuardDuty.BEHAVIOUR)) {
+                settlements.registry().settlementOf(id).ifPresent(s -> arms.set(villager,
+                        io.github.skyeberhard.hamletfolk.core.GuardDuty.blade(s)));
+            } else {
+                arms.clear(villager);
+            }
             return module.has(id);
         } catch (RuntimeException | LinkageError e) {
             fault(id, e);
@@ -542,8 +563,20 @@ final class BrainService implements Listener {
     /** A villager coming into the world gets the behaviours (a tick later, once it is fully in). */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onAdd(com.destroystokyo.paper.event.entity.EntityAddToWorldEvent event) {
-        if (event.getEntity() instanceof Villager villager && brainSwitch.on()) {
-            Bukkit.getScheduler().runTask(plugin, () -> fit(villager, behaviours.running(), new HashMap<>()));
+        if (event.getEntity() instanceof org.bukkit.entity.ZombieVillager living) {
+            // a guard killed by a zombie that turns is a zombie villager holding the guard's sword: take it back
+            Bukkit.getScheduler().runTask(plugin, () -> arms.clear(living));
+        }
+        if (event.getEntity() instanceof Villager villager) {
+            // (with the module off a sword saved by a crash is cleared; with it on, fit() arms or disarms)
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (brainSwitch.on()) {
+                    fit(villager, behaviours.running(), new HashMap<>());
+                }
+                if (!brainSwitch.on() || !isResident(villager.getUniqueId())) {
+                    arms.clear(villager);
+                }
+            });
         }
     }
 
@@ -587,7 +620,10 @@ final class BrainService implements Listener {
         }
         if (module != null) {
             module.setActive(false);
-            pending.add(module::detachAll); // not now: this may be running inside that villager's brain tick
+            pending.add(() -> {
+                module.detachAll();
+                arms.clearAll();
+            }); // not now: this may be running inside that villager's brain tick
         }
         plugin.getLogger().log(Level.WARNING, message.get(), error);
     }

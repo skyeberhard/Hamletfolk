@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 28;
+    public static final int FORMAT_VERSION = 29;
 
     private SettlementCodec() {
     }
@@ -188,6 +188,9 @@ public final class SettlementCodec {
         if (r.xpRaw() != 0 && r.xpTrade() != null) {
             map.put("xp", r.xpRaw()); // R4.29: days worked in xpTrade
             map.put("xpTrade", r.xpTrade().name());
+        }
+        if (r.guardXp() != 0) {
+            map.put("guardXp", r.guardXp()); // R9.7: days served as a guard, kept apart
         }
         Traits t = r.traits();
         map.put("traits", List.of(t.workEthic(), t.sociability(), t.ambition(), t.bravery()));
@@ -397,6 +400,9 @@ public final class SettlementCodec {
         // an older build must refuse a save that may contain it.
         // v17 -> v18: "plan" (R8.3, the streets and lots) is optional, so an old save has none until the ground is surveyed.
         // v16 -> v17: "decisions" (R8.1, the planner's log) is optional, so an old save has none; the planner fills it in.
+        // v28 -> v29: "guardXp" (R9.7, days served as a guard) is optional on residents. A save older than 29 kept guard days in
+        // "xp"/"xpTrade" like any trade's; reading moves them into guardXp, and an older build reading a new save would find a
+        // guard with none, so it must refuse it.
         // v27 -> v28: buildings and projects may be the BOWYER, MASONS_YARD, ARMOURY and CHAPEL (R8.15); an older build would fail on the
         // unknown names, so it must refuse the save.
         // v26 -> v27: buildings and projects may be the trade buildings HARBOUR, PENS, SMOKEHOUSE, TANNERY, STABLE, APIARY, MAP_ROOM,
@@ -572,6 +578,7 @@ public final class SettlementCodec {
         if (map.get("xpTrade") != null && num(map, "xp").intValue() > 0) {
             r.restoreXp(Occupation.valueOf(map.get("xpTrade").toString()), num(map, "xp").intValue());
         }
+        r.restoreGuardXp(Math.max(r.guardXp(), num(map, "guardXp").intValue())); // v28 -> v29: optional
         for (Map.Entry<?, ?> entry : asMap(map.get("familiarity")).entrySet()) {
             r.familiarity().put(UUID.fromString(entry.getKey().toString()), ((Number) entry.getValue()).intValue());
         }

@@ -1097,13 +1097,18 @@ public final class SettlementSimulator {
             return;
         }
         if (guards > 0 && settlement.threat() < THREAT_CALM && settlement.incidentsSince(day - QUIET_DAYS + 1) == 0) {
+            Resident standingDown = null;
             for (Resident r : settlement.residents()) {
-                if (r.adult() && r.occupation() == Occupation.GUARD && !settlement.isPinned(r.id())) {
-                    r.setOccupation(Occupation.UNEMPLOYED);
-                    settlement.record(day, HistoryEvent.Kind.MILESTONE, "With the danger passed, " + r.fullName()
-                            + " stood down as a guard.");
-                    return;
+                // R9.7: the least experienced stands down first, so the veterans are the last to go home
+                if (r.adult() && r.occupation() == Occupation.GUARD && !settlement.isPinned(r.id())
+                        && (standingDown == null || r.guardXp() < standingDown.guardXp())) {
+                    standingDown = r;
                 }
+            }
+            if (standingDown != null) {
+                standingDown.setOccupation(Occupation.UNEMPLOYED);
+                settlement.record(day, HistoryEvent.Kind.MILESTONE, "With the danger passed, " + standingDown.fullName()
+                        + " stood down as a guard.");
             }
         }
     }
@@ -1211,12 +1216,13 @@ public final class SettlementSimulator {
     }
 
     /**
-     * Who is called up first: the jobless, then idlers, then people with work, and within each the braver, then by id so
-     * the choice is repeatable.
+     * Who is called up first: the one with the most experience as a guard (by level, so ten days make a veteran, not one), then
+     * the jobless, then idlers, then people with work, and within each the braver, then by id so the choice is repeatable.
      */
     private static String guardPreference(Resident r) {
         int rank = r.occupation() == Occupation.UNEMPLOYED ? 2 : r.occupation().produces() == null ? 1 : 0;
-        return String.format("%d%03d%s", rank, r.traits().bravery(), new StringBuilder(r.id().toString()).reverse());
+        return String.format("%d%d%03d%s", TradeLevel.of(r.guardXp()), rank, r.traits().bravery(),
+                new StringBuilder(r.id().toString()).reverse());
     }
 
     /**
