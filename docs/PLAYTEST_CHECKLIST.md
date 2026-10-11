@@ -116,6 +116,7 @@ turns out to need a player, just do it in game.
 | T86 | Unattended planning: a planless village (Foxhaven) plans itself, one at a time; a village on a well is not refused | C | |
 | T87 | `settlement admin resettle` Mossmoor and Hollowgate; Testford refused | C | |
 | T88 | The palisade follows slopes and shallow water; `settlement admin regrade` mends a standing wall (needs a free builder) | P | |
+| T89 | A hungry village with a free farm place and no jobless moves a worker onto it; a village with metal and a smithy gets a toolsmith | P | |
 
 Rows T82 to T88 were run on a console-only test server (a copy of the live world for T86 and T87) and are recorded in
 `CHANGELOG.md`; none has been played with a person yet, so their Result stays blank until one of you does.

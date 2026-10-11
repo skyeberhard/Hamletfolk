@@ -295,6 +295,7 @@ public final class SettlementSimulator {
         Construction.staffBuilders(settlement, day, settlement.hasCondition("famine")); // R4.8: a famine puts every hand on food
         assignJob(settlement, day);
         staffSuppliers(settlement, day);
+        staffShortages(settlement, day); // R4.35
         Random random = new Random(settlement.id().getMostSignificantBits() ^ (day * 0x9E3779B97F4A7C15L));
         Ledger ledger = settlement.ledger();
 
@@ -515,6 +516,7 @@ public final class SettlementSimulator {
         }
         if (best != null) {
             jobless.setOccupation(best);
+            noteMoved(settlement, jobless, day); // R4.35: just placed, so not moved again for a few days
             if (apprentice) {
                 settlement.record(day, HistoryEvent.Kind.MILESTONE, jobless.fullName()
                         + " was apprenticed as a " + best.title() + ".");
@@ -1162,7 +1164,8 @@ public final class SettlementSimulator {
                     .noneMatch(p -> p.status() == ConstructionProject.Status.ACTIVE && r.id().equals(p.builder()));
             if (!r.adult() || r.stage(day) == LifeStage.ELDER || (job == Occupation.BUILDER && !idleBuilder)
                     || job == Occupation.GUARD || job == Occupation.MERCHANT || onlySupplier(settlement, r)
-                    || settlement.isPinned(r.id())) { // R1.31
+                    || settlement.isPinned(r.id()) // R1.31
+                    || recentlyMoved(settlement, r, day)) { // R4.35
                 continue;
             }
             // Food workers only when the larder is well stocked, and never the last one.
@@ -1170,11 +1173,34 @@ public final class SettlementSimulator {
                 continue;
             }
             // Idle builders, then idlers; ties go to the first in the list so it is repeatable.
-            if (chosen == null || spareRank(settlement, r) > spareRank(settlement, chosen)) {
+            // R4.35: of equals, the one with the least experience, so a master is not sent back to the beginning
+            if (chosen == null || spareRank(settlement, r) > spareRank(settlement, chosen)
+                    || (spareRank(settlement, r) == spareRank(settlement, chosen) && r.xp() < chosen.xp())) {
                 chosen = r;
             }
         }
         return chosen;
+    }
+
+    /** R4.35: days after being moved to another trade (or drafted) before a resident can be moved again. */
+    static final int MOVE_COOLDOWN_DAYS = 5;
+    private static final String MOVED = "movedDay:";
+
+    /** R4.35: records that a resident was moved off their trade today. */
+    static void noteMoved(Settlement settlement, Resident resident, long day) {
+        settlement.conditions().put(MOVED + resident.id(), day);
+    }
+
+    private static boolean recentlyMoved(Settlement settlement, Resident resident, long day) {
+        Long moved = settlement.conditions().get(MOVED + resident.id());
+        if (moved == null) {
+            return false;
+        }
+        if (day - moved >= MOVE_COOLDOWN_DAYS) {
+            settlement.conditions().remove(MOVED + resident.id()); // (the record does not outlive its use)
+            return false;
+        }
+        return true;
     }
 
     private static int spareRank(Settlement settlement, Resident r) {
@@ -1208,11 +1234,84 @@ public final class SettlementSimulator {
             }
             String was = moved.occupation().title();
             moved.setOccupation(trade);
+            noteMoved(settlement, moved, day);
             settlement.record(day, HistoryEvent.Kind.MILESTONE, moved.fullName() + " put down the work of a " + was
                     + " to work as a " + trade.title() + ": " + settlement.name() + " needs "
                     + material.name().toLowerCase(Locale.ROOT) + " to build.");
             return;
         }
+    }
+
+    /**
+     * R4.35: with nobody out of work, a shortage that has a free place is still filled, one worker a day. Food first: while the
+     * village is short of food and a farm (or other food work) has a free place, a worker is moved onto it (see {@link #spareWorker},
+     * which never takes the last supplier, a guard, a merchant or a pinned resident, and takes a food worker only from a full
+     * larder). Otherwise, if tools are short, nobody is a toolsmith and a smithy has a free place, one is moved there, even in a
+     * famine (worn-out tools are what deepens it), as long as there is metal or stone to work.
+     */
+    private void staffShortages(Settlement settlement, long day) {
+        for (java.util.Map.Entry<String, Long> entry : settlement.conditions().entrySet()) {
+            if (entry.getValue() == day && entry.getKey().startsWith(MOVED)) {
+                return; // someone was already placed or moved today: one change a day
+            }
+        }
+        Resident jobless = null;
+        for (Resident r : settlement.residents()) {
+            if (r.adult() && r.occupation() == Occupation.UNEMPLOYED && !settlement.isPinned(r.id())) {
+                jobless = r;
+                break;
+            }
+        }
+        Occupation target = null;
+        if (jobless == null && cover(settlement, Occupation.FARMER) < 1.0) { // (assignJob gives the jobless food work)
+            for (Occupation candidate : candidates(settlement)) {
+                if (candidate.produces() == ResourceType.FOOD && workstationFree.test(settlement, candidate)
+                        && cover(settlement, candidate) < 1.0) {
+                    target = candidate;
+                    break;
+                }
+            }
+        }
+        if (target == null && cover(settlement, Occupation.TOOLSMITH) < 1.0
+                && workstationFree.test(settlement, Occupation.TOOLSMITH) && smithCanWork(settlement)
+                && settlement.residents().stream().noneMatch(r -> r.adult() && r.occupation() == Occupation.TOOLSMITH)
+                && (jobless == null || !foodWorkFree(settlement))) {
+            target = Occupation.TOOLSMITH;
+        }
+        if (target == null) {
+            return;
+        }
+        // (in a famine assignJob leaves the jobless to forage, so a smith is taken from them here, once the farms are full)
+        Resident moved = jobless != null ? jobless : spareWorker(settlement, day);
+        if (moved == null || moved.occupation() == target
+                || (moved.occupation() == Occupation.BUILDER && settlement.projects().stream()
+                        .anyMatch(p -> p.status() == ConstructionProject.Status.QUEUED))) {
+            return; // (a builder is not moved off while a project waits for one)
+        }
+        String was = moved.occupation().title();
+        moved.setOccupation(target);
+        noteMoved(settlement, moved, day);
+        settlement.record(day, HistoryEvent.Kind.MILESTONE, (was.equals("unemployed")
+                ? moved.fullName() + " took up the work of a " + target.title()
+                : moved.fullName() + " put down the work of a " + was + " to work as a " + target.title())
+                + ": " + settlement.name() + " is short of " + (target.produces() == ResourceType.FOOD ? "food" : "tools") + ".");
+    }
+
+    /** R4.35: whether a food job has a free place and could use the jobless. */
+    private boolean foodWorkFree(Settlement settlement) {
+        for (Occupation candidate : candidates(settlement)) {
+            if (candidate.produces() == ResourceType.FOOD && workstationFree.test(settlement, candidate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** R4.35: whether a smith would have anything to work: iron, cobblestone, or ore with fuel to smelt it (see {@code work}). */
+    private static boolean smithCanWork(Settlement settlement) {
+        Ledger ledger = settlement.ledger();
+        return ledger.get(Commodity.IRON) > 0 || ledger.get(Commodity.COBBLESTONE) > 0
+                || (ledger.get(Commodity.RAW_IRON) > 0 && ledger.get(ResourceType.FUEL) > 0);
     }
 
     /**

@@ -354,6 +354,7 @@ public final class Construction {
             if (drafted != null) {
                 String was = drafted.occupation().title();
                 drafted.setOccupation(Occupation.BUILDER);
+                SettlementSimulator.noteMoved(settlement, drafted, day);
                 queued.get().claim(drafted.id());
                 settlement.record(day, HistoryEvent.Kind.MILESTONE, drafted.fullName() + " put down the work of a " + was
                         + " to build the " + what + ", as there was no one else.");

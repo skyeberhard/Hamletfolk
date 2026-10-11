@@ -89,6 +89,9 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   simulation then targets `SettlementService.villageDay` (world day plus the lead). Paper code that records a day for a village
   uses `settlement.effectiveDay(day(world))`, never the raw world day. `construction.unattended` holds chunks with reference
   counted plugin tickets (`ConstructionService.hold/release`); nothing else in the plugin uses chunk tickets.
+- **Shortage staffing (R4.35):** `assignJob` only serves the jobless, so `SettlementSimulator.staffShortages` (after `staffSuppliers`) moves one
+  `spareWorker` a day onto a free food place while food is short, else onto a free smithy place while tools are short (even in famine). Anything that moves
+  employed people must keep skipping pinned residents, guards and the last of a supplying trade (all inside `spareWorker`, which also skips anyone moved in the last `MOVE_COOLDOWN_DAYS` and prefers the least experienced; call `noteMoved` when a rule moves someone).
 - **Suppliers (R4.24):** a village of four keeps a lumberjack, and a miner once a mine has room; lumberjacks, miners and masons
   rest at the storage limit (`resting:` conditions). Tests that measure a gatherer's output must spend the stock each day.
 - **Counts leanings (R8.13):** SCHOLARLY, CRAFT and TRADING come after ALL_ROUND in `Leaning` (the saved number is the ordinal plus one:
