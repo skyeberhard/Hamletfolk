@@ -373,4 +373,24 @@ class VillagePlanTest {
             }
         }
     }
+
+    /** R8.18: the game's villages are centred on a well, which is water to the ground check but no reason not to plan them. */
+    @Test
+    void aWellOrASmallPondAtTheCentreDoesNotStopAVillageBeingPlanned() {
+        HeightSource well = HeightSource.of((x, z) -> 64, (x, z) -> Math.abs(x) <= 1 && Math.abs(z) <= 1);
+        assertTrue(PlanGenerator.siteUsable(well, 0, 0), "a 3 by 3 well");
+        HeightSource pond = HeightSource.of((x, z) -> 64, (x, z) -> x >= 0 && x <= 3 && z >= 0 && z <= 3);
+        assertTrue(PlanGenerator.siteUsable(pond, 0, 0), "16 wet columns is the most allowed");
+        HeightSource bigger = HeightSource.of((x, z) -> 64, (x, z) -> (x >= 0 && x <= 3 && z >= 0 && z <= 3) || (x == 4 && z == 0));
+        assertFalse(PlanGenerator.siteUsable(bigger, 0, 0), "17 is a pond, not a well");
+    }
+
+    @Test
+    void aLakeOrUnmeasuredGroundStillStopsIt() {
+        HeightSource lake = HeightSource.of((x, z) -> 64, (x, z) -> Math.abs(x) <= 3 && Math.abs(z) <= 3);
+        assertFalse(PlanGenerator.siteUsable(lake, 0, 0), "a 7 by 7 pool is 49 columns of water");
+        HeightSource unmeasured = HeightSource.of((x, z) -> x == 3 && z == 3 ? HeightSource.UNKNOWN : 64, (x, z) -> false);
+        assertFalse(PlanGenerator.siteUsable(unmeasured, 0, 0), "one column nobody could measure");
+        assertTrue(PlanGenerator.siteUsable(HeightSource.flat(64), 0, 0), "dry flat ground");
+    }
 }

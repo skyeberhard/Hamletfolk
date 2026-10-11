@@ -98,11 +98,25 @@ public final class PlanGenerator {
         }
     }
 
-    /** True if the main square (15 by 15 around the centre) is dry, measured ground: a village cannot be planned in a lake. */
+    /**
+     * How many columns of the main square may be wet. The game's own villages are centred on a well (a 3 by 3 pool), which is
+     * water to the ground check but no reason not to plan the village; a lake is. A lot or road over water is dropped on its
+     * own account, so this only stops a village being planned in the middle of a lake or a sea.
+     */
+    static final int WET_ALLOWED = 16;
+
+    /**
+     * True if the main square (15 by 15 around the centre) is measured ground that is not mostly wet: a village cannot be
+     * planned in a lake, but a well or a small pond at its heart is allowed ({@link #WET_ALLOWED}).
+     */
     public static boolean siteUsable(HeightSource terrain, int centerX, int centerZ) {
+        int wet = 0;
         for (int x = centerX - SQUARE_HALF; x <= centerX + SQUARE_HALF; x++) {
             for (int z = centerZ - SQUARE_HALF; z <= centerZ + SQUARE_HALF; z++) {
-                if (!usable(terrain, x, z)) {
+                if (terrain.height(x, z) == HeightSource.UNKNOWN) {
+                    return false;
+                }
+                if (terrain.water(x, z) && ++wet > WET_ALLOWED) {
                     return false;
                 }
             }
