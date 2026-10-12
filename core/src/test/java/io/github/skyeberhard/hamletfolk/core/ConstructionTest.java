@@ -624,6 +624,38 @@ class ConstructionTest {
     }
 
     @Test
+    void roughGroundByTheStreetsPushesTheLotOutAndSaysSoWhenThereIsNone() {
+        Settlement s = fedWithIronAndNoSmithy();
+        // rough within 34 blocks either side of the main street, flat beyond: nothing within 6 of a street, something within 20
+        HeightSource rough = new HeightSource() {
+            public int height(int x, int z) {
+                return Math.abs(x) <= 34 ? 64 + (Math.floorDiv(x, 3) + Math.floorDiv(z, 3)) % 2 * 9 : 64;
+            }
+        };
+        VillagePlan.Lot lot = PlanGenerator.addReplacementLot(s.plan(), BuildingType.SMITHY, rough, java.util.List.of(), false).orElseThrow();
+        assertTrue(lot.rect().x() > 34 || lot.rect().maxX() < -34, "on the flat ground");
+        assertTrue(s.plan().roads().stream().noneMatch(r -> lot.rect().inflated(6).overlaps(r.rect())), "not within 6 of a street");
+        assertTrue(s.plan().roads().stream().anyMatch(r -> lot.rect().inflated(20).overlaps(r.rect())), "but within 20");
+
+        Settlement none = fedWithIronAndNoSmithy();
+        none.ledger().add(ResourceType.WOOD, 300);
+        fillTheBigLots(none);
+        Construction.finish(none, propose(none, 5).orElseThrow(), 5);
+        HeightSource wet = new HeightSource() {
+            public int height(int x, int z) {
+                return 64;
+            }
+
+            public boolean water(int x, int z) {
+                return true;
+            }
+        };
+        proposeSmithyOn(none, 6, wet);
+        assertTrue(none.history().stream().anyMatch(e -> e.text().contains("looked for ground for a smithy and found none")),
+                "the history says so, so it does not look like nothing was tried");
+    }
+
+    @Test
     void groundWithNoRoomIsNotMadeIntoALot() {
         Settlement s = fedWithIronAndNoSmithy();
         java.util.Optional<VillagePlan.Lot> lot = PlanGenerator.addReplacementLot(s.plan(), BuildingType.SMITHY,

@@ -524,6 +524,9 @@ public final class Construction {
         if (lot.isPresent()) {
             settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " set aside ground at " + lot.get().rect().x() + ", "
                     + lot.get().rect().z() + " for a " + type.label().toLowerCase(Locale.ROOT) + ", as its plan had no lot for one.");
+        } else {
+            settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " looked for ground for a " + type.label().toLowerCase(Locale.ROOT)
+                    + " and found none flat, dry and clear enough within " + PlanGenerator.REPLACEMENT_RADIUS + " blocks of its square.");
         }
     }
 

@@ -397,21 +397,33 @@ public final class PlanGenerator {
 
     /** How far from the main square a replacement lot is looked for, and how close to a street it must stand. */
     static final int REPLACEMENT_RADIUS = 64;
-    static final int REPLACEMENT_STREET_REACH = 6;
+    /** How close to a street a replacement lot is looked for first; then, on rough ground, farther out in these steps. */
+    static final int[] REPLACEMENT_STREET_REACH = {6, 20, 40};
 
     /**
      * R4.37: a lot for a building the plan has no lot for (the ground at its own place was too steep or wet, or another building
-     * took it): the nearest ground to the main square, within a few blocks of a street, that is measured, dry, flat enough and clear
+     * took it): the nearest ground to the main square, as near a street as the ground allows (6 blocks, else 20, else 40), that is measured, dry, flat enough and clear
      * of every lot, street and the {@code occupied} ground (registered buildings), and inside the plan's extent when
      * {@code withinExtent} (the village has a palisade or rampart). Empty if there is none within
      * {@link #REPLACEMENT_RADIUS}. Adds the lot to the plan, reserved, and returns it.
      */
     public static java.util.Optional<VillagePlan.Lot> addReplacementLot(VillagePlan plan, BuildingType type, HeightSource terrain,
             List<Rect> occupied, boolean withinExtent) {
+        terrain = cached(terrain); // (neighbouring candidates read the same columns)
+        for (int reach : REPLACEMENT_STREET_REACH) {
+            java.util.Optional<VillagePlan.Lot> found = replacementLot(plan, type, terrain, occupied, withinExtent, reach);
+            if (found.isPresent()) {
+                return found;
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
+    private static java.util.Optional<VillagePlan.Lot> replacementLot(VillagePlan plan, BuildingType type, HeightSource terrain,
+            List<Rect> occupied, boolean withinExtent, int reach) {
         int[] size = size(type);
         Rect best = null;
         long bestDistance = Long.MAX_VALUE;
-        terrain = cached(terrain); // (neighbouring candidates read the same columns)
         Rect extent = withinExtent ? Works.extent(plan).orElse(null) : null;
         List<Rect> future = futureStreets(plan);
         for (int dx = -REPLACEMENT_RADIUS; dx <= REPLACEMENT_RADIUS; dx += 2) {
@@ -421,7 +433,7 @@ public final class PlanGenerator {
                     continue;
                 }
                 Rect candidate = new Rect(plan.centerX() + dx, plan.centerZ() + dz, size[0], size[1]);
-                if (blockedByStreet(plan, candidate) || overlapsAnything(plan, candidate) || !touchesStreet(plan, candidate)) {
+                if (blockedByStreet(plan, candidate) || overlapsAnything(plan, candidate) || !touchesStreet(plan, candidate, reach)) {
                     continue;
                 }
                 // inside what the plan already covers when a wall is round it (so the ring does not move), and always clear of the
@@ -498,9 +510,9 @@ public final class PlanGenerator {
         return out;
     }
 
-    /** True if a street lies within {@link #REPLACEMENT_STREET_REACH} blocks of the footprint, so its door has somewhere to open. */
-    private static boolean touchesStreet(VillagePlan plan, Rect candidate) {
-        Rect reach = candidate.inflated(REPLACEMENT_STREET_REACH);
+    /** True if a street lies within {@code blocks} of the footprint, so its door has somewhere to open. */
+    private static boolean touchesStreet(VillagePlan plan, Rect candidate, int blocks) {
+        Rect reach = candidate.inflated(blocks);
         for (VillagePlan.Road road : plan.roads()) {
             if (reach.overlaps(road.rect())) {
                 return true;
