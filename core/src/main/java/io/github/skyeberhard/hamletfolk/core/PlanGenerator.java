@@ -410,17 +410,20 @@ public final class PlanGenerator {
     public static java.util.Optional<VillagePlan.Lot> addReplacementLot(VillagePlan plan, BuildingType type, HeightSource terrain,
             List<Rect> occupied, boolean withinExtent) {
         terrain = cached(terrain); // (neighbouring candidates read the same columns)
-        for (int reach : REPLACEMENT_STREET_REACH) {
-            java.util.Optional<VillagePlan.Lot> found = replacementLot(plan, type, terrain, occupied, withinExtent, reach);
-            if (found.isPresent()) {
-                return found;
+        // flat dry ground first, at each distance from a street; then ground the pad can level (a slope, shallow water)
+        for (boolean grading : new boolean[] {false, true}) {
+            for (int reach : REPLACEMENT_STREET_REACH) {
+                java.util.Optional<VillagePlan.Lot> found = replacementLot(plan, type, terrain, occupied, withinExtent, reach, grading);
+                if (found.isPresent()) {
+                    return found;
+                }
             }
         }
         return java.util.Optional.empty();
     }
 
     private static java.util.Optional<VillagePlan.Lot> replacementLot(VillagePlan plan, BuildingType type, HeightSource terrain,
-            List<Rect> occupied, boolean withinExtent, int reach) {
+            List<Rect> occupied, boolean withinExtent, int reach, boolean grading) {
         int[] size = size(type);
         Rect best = null;
         long bestDistance = Long.MAX_VALUE;
@@ -453,7 +456,7 @@ public final class PlanGenerator {
                 for (Rect ground : occupied) {
                     taken |= ground.overlaps(candidate);
                 }
-                if (taken || !buildable(terrain, candidate)) {
+                if (taken || !(grading ? gradable(terrain, candidate) : buildable(terrain, candidate))) {
                     continue;
                 }
                 best = candidate;
@@ -519,6 +522,38 @@ public final class PlanGenerator {
             }
         }
         return false;
+    }
+
+    /**
+     * True if every column of the footprint is measured and the ground can be levelled for a building (R4.37): its levels
+     * (the floor under shallow water) are within {@link TerrainPad#MAX_CHANGE} of each other, no water is deeper than
+     * {@link TerrainPad#MAX_WATER} and no more than a quarter of the columns are wet. What {@link TerrainPad} will do
+     * to the site when it is built; founding still keeps to the stricter {@link #buildable}.
+     */
+    static boolean gradable(HeightSource terrain, Rect footprint) {
+        int lowest = Integer.MAX_VALUE;
+        int highest = Integer.MIN_VALUE;
+        int wet = 0;
+        for (int x = footprint.x(); x <= footprint.maxX(); x++) {
+            for (int z = footprint.z(); z <= footprint.maxZ(); z++) {
+                int h = terrain.height(x, z);
+                if (h == HeightSource.UNKNOWN) {
+                    return false;
+                }
+                int level = h;
+                if (terrain.water(x, z)) {
+                    int floor = terrain.floor(x, z);
+                    if (floor == HeightSource.UNKNOWN || h - floor > TerrainPad.MAX_WATER) {
+                        return false;
+                    }
+                    wet++;
+                    level = floor;
+                }
+                lowest = Math.min(lowest, level);
+                highest = Math.max(highest, level);
+            }
+        }
+        return highest - lowest <= TerrainPad.MAX_CHANGE && wet * 4 <= footprint.width() * footprint.depth();
     }
 
     /** True if every column of the footprint is measured, dry, and within {@link #SLOPE_LIMIT} of the others. */

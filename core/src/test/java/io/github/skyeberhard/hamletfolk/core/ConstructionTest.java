@@ -656,6 +656,51 @@ class ConstructionTest {
     }
 
     @Test
+    void groundThatCanBeLevelledIsUsedWhenNothingFlatIsFound() {
+        Settlement s = fedWithIronAndNoSmithy();
+        // a hillside everywhere: 7 blocks of fall across any 13 columns, too steep to plan on but within what the pad can level
+        HeightSource hill = new HeightSource() {
+            public int height(int x, int z) {
+                return 64 + Math.floorMod(x, 14) / 2;
+            }
+        };
+        assertTrue(!PlanGenerator.buildable(hill, new Rect(30, 10, 13, 13)), "too steep for founding");
+        assertTrue(PlanGenerator.gradable(hill, new Rect(30, 10, 13, 13)));
+        VillagePlan.Lot lot = PlanGenerator.addReplacementLot(s.plan(), BuildingType.SMITHY, hill, java.util.List.of(), false).orElseThrow();
+        assertEquals(BuildingType.SMITHY, lot.type());
+        // a cliff beyond what the pad will cut, or water deeper than it will fill, is still refused
+        assertTrue(!PlanGenerator.gradable((x, z) -> x < 36 ? 64 : 80, new Rect(30, 10, 13, 13)));
+        HeightSource deep = new HeightSource() {
+            public int height(int x, int z) {
+                return 64;
+            }
+
+            public boolean water(int x, int z) {
+                return true;
+            }
+
+            public int floor(int x, int z) {
+                return 58;
+            }
+        };
+        assertTrue(!PlanGenerator.gradable(deep, new Rect(30, 10, 13, 13)));
+        HeightSource shallow = new HeightSource() {
+            public int height(int x, int z) {
+                return 64;
+            }
+
+            public boolean water(int x, int z) {
+                return x > 40;
+            }
+
+            public int floor(int x, int z) {
+                return x > 40 ? 62 : 64;
+            }
+        };
+        assertTrue(PlanGenerator.gradable(shallow, new Rect(30, 10, 13, 13)), "a puddle of shallow water at one edge is filled");
+    }
+
+    @Test
     void groundWithNoRoomIsNotMadeIntoALot() {
         Settlement s = fedWithIronAndNoSmithy();
         java.util.Optional<VillagePlan.Lot> lot = PlanGenerator.addReplacementLot(s.plan(), BuildingType.SMITHY,
