@@ -495,6 +495,30 @@ public final class Construction {
     private static final java.util.Set<BuildingType> PROTECTED_LOTS =
             java.util.EnumSet.of(BuildingType.SMITHY, BuildingType.MINE, BuildingType.FARM);
 
+    /**
+     * R4.37: whether the village is about to look for ground for a building its plan has no lot for, so the Paper layer should have
+     * the chunks round the whole search area loaded for the decision (the plan's own chunks do not reach that far).
+     */
+    public static boolean needsWiderGround(Settlement settlement, long day, int treasuryLimit) {
+        VillagePlan plan = settlement.plan();
+        if (plan == null || settlement.openProject().isPresent()) {
+            return false;
+        }
+        for (Planner.Directive directive : Planner.directives(settlement, day, treasuryLimit)) {
+            Optional<BuildingType> type = BuildingType.fromTarget(directive.target());
+            if (directive.kind() != Planner.Kind.BUILD || directive.tier() == Planner.Tier.GROWTH || type.isEmpty()
+                    || type.get().isWorks() || type.get().isPart() || type.get() == BuildingType.SQUARE
+                    || plan.nextLot(type.get()).isPresent()) {
+                continue;
+            }
+            Long last = settlement.conditions().get("lotSearch:" + type.get().name());
+            if (last == null || day - last >= REPLACEMENT_RETRY_DAYS) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** R4.37: days before the plan looks again for ground for a building it has no lot for. */
     static final int REPLACEMENT_RETRY_DAYS = 10;
 

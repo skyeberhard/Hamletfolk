@@ -396,7 +396,7 @@ public final class PlanGenerator {
     }
 
     /** How far from the main square a replacement lot is looked for, and how close to a street it must stand. */
-    static final int REPLACEMENT_RADIUS = 64;
+    public static final int REPLACEMENT_RADIUS = 64;
     /** How close to a street a replacement lot is looked for first; then, on rough ground, farther out in these steps. */
     static final int[] REPLACEMENT_STREET_REACH = {6, 20, 40};
 

@@ -701,6 +701,17 @@ class ConstructionTest {
     }
 
     @Test
+    void theVillageSaysWhenItIsAboutToLookForGroundSoMoreOfItCanBeLoaded() {
+        Settlement s = fedWithIronAndNoSmithy();
+        assertTrue(!Construction.needsWiderGround(s, 6, 200), "its plan has a smithy lot");
+        fillTheBigLots(s);
+        assertTrue(Construction.needsWiderGround(s, 6, 200), "no smithy lot and one is wanted");
+        s.conditions().put("lotSearch:SMITHY", 3L);
+        assertTrue(!Construction.needsWiderGround(s, 6, 200), "it looked three days ago");
+        assertTrue(Construction.needsWiderGround(s, 3 + Construction.REPLACEMENT_RETRY_DAYS, 200), "and may again after ten");
+    }
+
+    @Test
     void groundWithNoRoomIsNotMadeIntoALot() {
         Settlement s = fedWithIronAndNoSmithy();
         java.util.Optional<VillagePlan.Lot> lot = PlanGenerator.addReplacementLot(s.plan(), BuildingType.SMITHY,

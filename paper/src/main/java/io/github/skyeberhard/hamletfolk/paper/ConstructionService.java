@@ -3,9 +3,11 @@ package io.github.skyeberhard.hamletfolk.paper;
 import io.github.skyeberhard.hamletfolk.core.BiomeSet;
 import io.github.skyeberhard.hamletfolk.core.Blueprint;
 import io.github.skyeberhard.hamletfolk.core.BuildingType;
+import io.github.skyeberhard.hamletfolk.core.ChunkRegion;
 import io.github.skyeberhard.hamletfolk.core.Construction;
 import io.github.skyeberhard.hamletfolk.core.ConstructionProject;
 import io.github.skyeberhard.hamletfolk.core.HeightSource;
+import io.github.skyeberhard.hamletfolk.core.PlanGenerator;
 import io.github.skyeberhard.hamletfolk.core.Rampart;
 import io.github.skyeberhard.hamletfolk.core.Rect;
 import io.github.skyeberhard.hamletfolk.core.Resident;
@@ -301,7 +303,8 @@ final class ConstructionService {
                 lastHoldDay.put(settlement.id(), today);
                 lastHoldMs.put(settlement.id(), now);
             }
-            Held loading = hold(world, holdKey, planChunks(settlement));
+            Held loading = hold(world, holdKey, planChunks(settlement, Construction.needsWiderGround(settlement, today,
+                    service.treasuryLimit(settlement)))); // (R4.37: a search for ground reaches past the plan)
             if (!allLoaded(world, loading.chunks()) && now - loading.since() < LOAD_WAIT_MS) {
                 return; // look again in a few seconds; after a while it decides with what has loaded
             }
@@ -317,9 +320,13 @@ final class ConstructionService {
     }
 
     /** The chunks the village's plan covers: its lots, streets and square, which is where a decision needs the ground. */
-    private static Set<Long> planChunks(Settlement settlement) {
+    private static Set<Long> planChunks(Settlement settlement, boolean wide) {
         Set<Long> out = new HashSet<>();
         VillagePlan plan = settlement.plan();
+        if (wide) {
+            int reach = PlanGenerator.REPLACEMENT_RADIUS + 14; // the search area and the lot to be measured at its edge
+            out.addAll(ChunkRegion.covering(plan.centerX(), plan.centerZ(), reach, reach));
+        }
         List<Rect> rects = new ArrayList<>();
         plan.lots().forEach(l -> rects.add(l.rect()));
         plan.roads().forEach(r -> rects.add(r.rect()));
