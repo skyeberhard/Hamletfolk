@@ -189,6 +189,11 @@ public final class Planner {
                 };
                 List<Directive> out = found.isEmpty() ? List.of(new Directive(tier, Kind.WAIT, tier.label(), "it is at "
                         + Math.round(ratio(settlement, tier, day) * 100) + "% and the village is working back to full")) : found;
+                if (tier == Tier.FOOD && smithyWouldEaseShortage(settlement)) { // R4.36
+                    out = new ArrayList<>(out);
+                    out.add(new Directive(Tier.FOOD, Kind.BUILD, "smithy", "worn-out tools cut every harvest, and the village has "
+                            + "iron to make more but no smithy to make them in"));
+                }
                 return withLots(settlement, tier == Tier.FOOD ? out : withDefence(settlement, day, withSupply(settlement, out)));
             }
         }
@@ -293,6 +298,19 @@ public final class Planner {
     }
 
     // ----- the tiers -----
+
+    /**
+     * R4.36: tools are gone, the village has something for a smith to work, and there is no smithy to put one in. Without
+     * tools every gatherer works at three quarters, which is what keeps a hungry village hungry, so it may build one in a famine.
+     */
+    static boolean smithyWouldEaseShortage(Settlement s) {
+        if (s.buildingCount(BuildingType.SMITHY) > 0) {
+            return false;
+        }
+        // (once the smithy is being built it stays wanted, even if the building itself uses up the cobblestone that made it worth it)
+        return s.projects().stream().anyMatch(p -> p.type() == BuildingType.SMITHY && p.isOpen() && !p.isUpgrade())
+                || (s.ledger().get(ResourceType.TOOLS) == 0 && SettlementSimulator.smithCanWork(s));
+    }
 
     private static List<Directive> food(Settlement s) {
         boolean famine = s.hasCondition("famine");

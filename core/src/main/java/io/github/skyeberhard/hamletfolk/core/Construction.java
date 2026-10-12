@@ -282,6 +282,16 @@ public final class Construction {
 
     // ----- builders -----
 
+    /** R4.36: what a hungry village may still build: a farm, and a smithy when worn-out tools are what keeps it hungry. */
+    /** R4.36: a queued project nobody has begun, with nothing paid or graded, that can be dropped for something else. */
+    private static boolean neverStarted(ConstructionProject project) {
+        return !project.siteChecked() && !project.graded() && project.credit().isEmpty() && project.turns() == 0;
+    }
+
+    static boolean endsFamine(Settlement settlement, BuildingType type) {
+        return type == BuildingType.FARM || (type == BuildingType.SMITHY && Planner.smithyWouldEaseShortage(settlement));
+    }
+
     /**
      * One builder per open project. A builder keeps the trade between buildings and takes the next project before anyone
      * else is asked (R4.21); one with nothing to build for {@link #BUILDER_IDLE_DAYS} days goes back to other work. With
@@ -292,7 +302,7 @@ public final class Construction {
     static void staffBuilders(Settlement settlement, long day, boolean famine) {
         for (ConstructionProject project : settlement.projects()) {
             if (project.status() == ConstructionProject.Status.ACTIVE
-                    && ((famine && project.type() != BuildingType.FARM)
+                    && ((famine && !endsFamine(settlement, project.type()))
                             || settlement.resident(project.builder()).filter(r -> r.occupation() == Occupation.BUILDER).isEmpty())) {
                 project.release();
             }
@@ -322,7 +332,7 @@ public final class Construction {
             return;
         }
         String what = queued.get().type().label().toLowerCase(Locale.ROOT);
-        if (!idle.isEmpty() && famine && queued.get().type() != BuildingType.FARM) {
+        if (!idle.isEmpty() && famine && !endsFamine(settlement, queued.get().type())) {
             return; // a builder kept on (pinned) still waits out a famine, as everyone else does
         }
         if (!idle.isEmpty()) {
@@ -335,7 +345,7 @@ public final class Construction {
         long farmers = settlement.residents().stream().filter(r -> r.adult() && r.occupation() == Occupation.FARMER).count();
         boolean foodShort = famine || (SettlementSimulator.placesFor(settlement, Occupation.FARMER) > farmers
                 && settlement.ledger().get(ResourceType.FOOD) < FOOD_FIRST_PER_RESIDENT * Math.max(1, settlement.population()));
-        if (foodShort && queued.get().type() != BuildingType.FARM) {
+        if (foodShort && !endsFamine(settlement, queued.get().type())) {
             return;
         }
         for (Resident r : settlement.residents()) {
@@ -520,6 +530,9 @@ public final class Construction {
             if (type.isEmpty() || (needUnmet && directive.tier() == Planner.Tier.GROWTH)) {
                 continue; // (a want waits for a need the village is saving up for)
             }
+            if (settlement.hasCondition("famine") && !endsFamine(settlement, type.get())) {
+                continue; // R4.36: nobody is spared to build it (the planner's own view of the famine can lag by a day or two)
+            }
             if (type.get().isWorks()) {
                 // R5.6: lights and a palisade are laid out on the plan, not on a lot. One the village cannot yet pay for is saved up for.
                 if (!worksSettled(settlement, type.get(), day)) {
@@ -561,6 +574,9 @@ public final class Construction {
                     return improved;
                 }
             }
+        }
+        if (settlement.hasCondition("famine")) {
+            return Optional.empty(); // R4.36: only what ends a famine is built in one (above), as nobody else can be spared to build
         }
         boolean foodNeeded = Planner.directives(settlement, day, treasuryLimit).stream()
                 .anyMatch(d -> d.kind() == Planner.Kind.BUILD && d.tier() == Planner.Tier.FOOD);
@@ -744,14 +760,25 @@ public final class Construction {
      */
     private static void dropStaleQueuedProject(Settlement settlement, long day, int treasuryLimit) {
         Optional<ConstructionProject> open = settlement.openProject();
+        // R4.36: in a famine nobody is spared to build anything but what ends it, so a queued square, upgrade or palisade would
+        // wait for ever and, being the village's only open project, keep a farm or smithy from being started behind it.
+        if (open.isPresent() && open.get().status() == ConstructionProject.Status.QUEUED && open.get().queuedDay() < day
+                && settlement.hasCondition("famine") && !endsFamine(settlement, open.get().type())
+                && (open.get().type().isWorks() || neverStarted(open.get())) // (half-built work is not thrown away)
+                && Planner.directives(settlement, day, treasuryLimit).stream().anyMatch(d -> d.kind() == Planner.Kind.BUILD
+                        && d.tier() == Planner.Tier.FOOD)) {
+            cancel(settlement, open.get(), day, "the village is hungry and builds what feeds it first", false);
+            return;
+        }
         if (open.isEmpty() || open.get().status() != ConstructionProject.Status.QUEUED || open.get().isUpgrade()
                 || open.get().type() == BuildingType.SQUARE || open.get().queuedDay() >= day // the planner never asks for a square
                 || open.get().type().isWorks()) { // and stops asking for a work once it is in hand, so it would look unwanted
             return;
         }
         String target = open.get().type().name().toLowerCase(Locale.ROOT);
-        boolean wanted = Planner.directives(settlement, day, treasuryLimit).stream()
-                .anyMatch(d -> d.kind() == Planner.Kind.BUILD && d.target().equalsIgnoreCase(target));
+        boolean wanted = (open.get().type() == BuildingType.SMITHY && Planner.smithyWouldEaseShortage(settlement)) // R4.36
+                || Planner.directives(settlement, day, treasuryLimit).stream()
+                        .anyMatch(d -> d.kind() == Planner.Kind.BUILD && d.target().equalsIgnoreCase(target));
         if (!wanted) {
             cancel(settlement, open.get(), day, "it is not needed any more", false);
         }

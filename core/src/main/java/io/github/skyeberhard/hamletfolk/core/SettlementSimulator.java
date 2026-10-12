@@ -1308,7 +1308,7 @@ public final class SettlementSimulator {
     }
 
     /** R4.35: whether a smith would have anything to work: iron, cobblestone, or ore with fuel to smelt it (see {@code work}). */
-    private static boolean smithCanWork(Settlement settlement) {
+    static boolean smithCanWork(Settlement settlement) {
         Ledger ledger = settlement.ledger();
         return ledger.get(Commodity.IRON) > 0 || ledger.get(Commodity.COBBLESTONE) > 0
                 || (ledger.get(Commodity.RAW_IRON) > 0 && ledger.get(ResourceType.FUEL) > 0);

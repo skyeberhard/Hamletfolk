@@ -92,6 +92,9 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
 - **Shortage staffing (R4.35):** `assignJob` only serves the jobless, so `SettlementSimulator.staffShortages` (after `staffSuppliers`) moves one
   `spareWorker` a day onto a free food place while food is short, else onto a free smithy place while tools are short (even in famine). Anything that moves
   employed people must keep skipping pinned residents, guards and the last of a supplying trade (all inside `spareWorker`, which also skips anyone moved in the last `MOVE_COOLDOWN_DAYS` and prefers the least experienced; call `noteMoved` when a rule moves someone).
+- **Famine building (R4.36):** in a famine only `Construction.endsFamine` types are queued or staffed: a farm, and a smithy while
+  `Planner.smithyWouldEaseShortage` (no tools, no smithy, `SettlementSimulator.smithCanWork`). `propose` returns nothing else in a famine, and
+  `dropStaleQueuedProject` cancels a queued non-famine project when a FOOD-tier BUILD is wanted (one open project at a time).
 - **Suppliers (R4.24):** a village of four keeps a lumberjack, and a miner once a mine has room; lumberjacks, miners and masons
   rest at the storage limit (`resting:` conditions). Tests that measure a gatherer's output must spend the stock each day.
 - **Counts leanings (R8.13):** SCHOLARLY, CRAFT and TRADING come after ALL_ROUND in `Leaning` (the saved number is the ordinal plus one:

@@ -416,6 +416,86 @@ class ConstructionTest {
         assertTrue(Construction.propose(s, 30, "plains", 200, catalog, this::blueprints, (x, z) -> 68).isEmpty());
     }
 
+    /** R4.36: a famine village with iron but no smithy builds one, since having no tools keeps it hungry. */
+    private Settlement hungryWithIron() {
+        Settlement s = village();
+        s.registerBuilding(new Building(BuildingType.FARM, 500, 64, 500, 0, "a player"));
+        int farmers = 0;
+        for (Resident r : s.residents()) {
+            if (farmers++ < 2) {
+                r.setOccupation(Occupation.FARMER);
+            }
+        }
+        s.conditions().put("famine", 5L);
+        return s;
+    }
+
+    @Test
+    void aFamineVillageWithIronBuildsASmithyAndItsBuilderStays() {
+        Settlement s = hungryWithIron();
+        s.ledger().add(Commodity.IRON, 50);
+        ConstructionProject smithy = propose(s, 6).orElseThrow();
+        assertEquals(BuildingType.SMITHY, smithy.type());
+        SettlementSimulator sim = SettlementSimulator.withOldAgeDeaths(false);
+        s.ledger().add(ResourceType.FOOD, 1);
+        sim.simulateDay(s, 6);
+        assertEquals(ConstructionProject.Status.ACTIVE, smithy.status(), "a jobless adult takes it up despite the famine");
+        s.conditions().put("famine", 6L);
+        sim.simulateDay(s, 7);
+        assertEquals(ConstructionProject.Status.ACTIVE, smithy.status(), "and is not sent back to the fields");
+    }
+
+    @Test
+    void aQueuedPalisadeOrSquareDoesNotKeepAHungryVillageFromItsSmithy() {
+        Settlement s = hungryWithIron();
+        s.ledger().add(Commodity.IRON, 50);
+        ConstructionProject palisade = new ConstructionProject(1, BuildingType.PALISADE, 1, 0, "plains", 0, 0, 0, -1, 3);
+        s.addProject(palisade);
+        ConstructionProject next = propose(s, 6).orElseThrow();
+        assertEquals(ConstructionProject.Status.CANCELLED, palisade.status(), "nobody can be spared to build it in a famine");
+        assertEquals(BuildingType.SMITHY, next.type());
+        Settlement fed = hungryWithIron();
+        fed.conditions().remove("famine");
+        fed.ledger().add(ResourceType.FOOD, 500);
+        ConstructionProject square = new ConstructionProject(1, BuildingType.SQUARE, 1, 0, "plains", 0, 64, 0, -1, 3);
+        fed.addProject(square);
+        propose(fed, 6);
+        assertEquals(ConstructionProject.Status.QUEUED, square.status(), "no famine: it waits for its builder as before");
+    }
+
+    @Test
+    void workAlreadyBegunIsNotCancelledByAFamineAndASmithyKeepsItsBuilderWhenItsOwnBuildUsesUpTheStone() {
+        Settlement s = hungryWithIron();
+        s.ledger().add(Commodity.IRON, 50);
+        ConstructionProject upgrade = new ConstructionProject(1, BuildingType.HOUSE, 2, 1, "plains", 0, 64, 0, -1, 3);
+        upgrade.setSiteChecked(true); // it was begun before the famine, then released
+        s.addProject(upgrade);
+        propose(s, 6);
+        assertEquals(ConstructionProject.Status.QUEUED, upgrade.status(), "half-done work waits out the famine");
+
+        Settlement t = hungryWithIron();
+        ConstructionProject smithy = new ConstructionProject(1, BuildingType.SMITHY, 1, 0, "plains", 0, 64, 0, -1, 3);
+        t.addProject(smithy);
+        t.ledger().take(ResourceType.STONE, 200); // nothing left for a smith to work: the building itself used it up
+        SettlementSimulator sim = SettlementSimulator.withOldAgeDeaths(false);
+        sim.simulateDay(t, 6);
+        assertEquals(ConstructionProject.Status.ACTIVE, smithy.status(), "a smithy under way is still what ends the famine");
+        propose(t, 7);
+        assertEquals(ConstructionProject.Status.ACTIVE, smithy.status(), "and is not dropped as unwanted");
+    }
+
+    @Test
+    void aFamineVillageWithNothingForASmithToWorkBuildsNoSmithy() {
+        Settlement s = hungryWithIron();
+        s.ledger().take(ResourceType.STONE, 200); // (cobblestone is what a smith falls back on)
+        assertTrue(propose(s, 6).isEmpty(), "no iron, cobblestone or fuelled ore: a smithy would stand idle");
+        s.ledger().add(Commodity.RAW_IRON, 50); // ore, but nothing to smelt it with
+        assertTrue(propose(s, 7).isEmpty());
+        s.registerBuilding(new Building(BuildingType.SMITHY, 520, 64, 520, 0, "a player"));
+        s.ledger().add(Commodity.IRON, 50);
+        assertTrue(propose(s, 8).isEmpty(), "and none when there already is one");
+    }
+
     @Test
     void aFamineReleasesTheBuilderAndFarmsComeBeforeBuilding() {
         Settlement s = village();

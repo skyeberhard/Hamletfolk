@@ -117,6 +117,7 @@ turns out to need a player, just do it in game.
 | T87 | `settlement admin resettle` Mossmoor and Hollowgate; Testford refused | C | partial: resettle was run three times on the live server (14:23, 14:28, 14:55) and Hollowgate, Mossmoor and Hollowstead each have a resettle entry; the Testford refusal was not seen |
 | T88 | The palisade follows slopes and shallow water; `settlement admin regrade` mends a standing wall (needs a free builder) | P | |
 | T89 | A hungry village with a free farm place and no jobless moves a worker onto it; a village with metal and a smithy gets a toolsmith | P | |
+| T90 | A famine village with iron and no smithy builds one, and a queued palisade or square does not block it | P | |
 
 Results marked passive were read from the server logs and the saved villages after the server had been left running, not played; a person may still want to look at them.
 
