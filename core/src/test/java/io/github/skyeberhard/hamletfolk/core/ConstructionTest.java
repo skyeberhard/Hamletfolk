@@ -484,6 +484,164 @@ class ConstructionTest {
         assertEquals(ConstructionProject.Status.ACTIVE, smithy.status(), "and is not dropped as unwanted");
     }
 
+    /** R4.37: a fed village with iron and no smithy asks for one, and a plan with no lot for it gets a lot on good ground. */
+    private Settlement fedWithIronAndNoSmithy() {
+        Settlement s = village();
+        s.registerBuilding(new Building(BuildingType.FARM, 500, 64, 500, 0, "a player"));
+        s.registerBuilding(new Building(BuildingType.MINE, 501, 64, 501, 0, "a player"));
+        s.ledger().add(ResourceType.FOOD, 1000);
+        s.ledger().add(Commodity.IRON, 50);
+        s.housing().setChunk(0, 0, 20);
+        return s;
+    }
+
+    /** As {@link #propose}, but the smithy design is 12 by 12 like the game's, so a house lot cannot hold it. */
+    private Optional<ConstructionProject> proposeWithRealSmithy(Settlement s, long day) {
+        return Construction.propose(s, day, "plains", 200, catalog, t -> {
+            if (t.type() != BuildingType.SMITHY) {
+                return blueprints(t);
+            }
+            List<Blueprint.Block> floor = new ArrayList<>();
+            for (int x = 0; x < 12; x++) {
+                for (int z = 0; z < 12; z++) {
+                    floor.add(new Blueprint.Block(x, 0, z, "OAK_PLANKS"));
+                }
+            }
+            return Optional.of(new Blueprint(t.key(), 12, 1, 12, floor));
+        }, (x, z) -> 64);
+    }
+
+    @Test
+    void aVillageWithIronAndNoToolsAsksForASmithyWithoutAFamine() {
+        Settlement s = fedWithIronAndNoSmithy();
+        assertTrue(Planner.directives(s, 6, 200).stream().anyMatch(d -> d.kind() == Planner.Kind.BUILD
+                && d.target().equalsIgnoreCase("smithy")), "asked for outside a famine");
+        ConstructionProject square = propose(s, 6).orElseThrow(); // (the meeting place comes before supplies, as it does for a mine)
+        assertEquals(BuildingType.SQUARE, square.type());
+        Construction.finish(s, square, 6);
+        ConstructionProject project = propose(s, 7).orElseThrow();
+        assertEquals(BuildingType.SMITHY, project.type());
+        Settlement tooled = fedWithIronAndNoSmithy();
+        tooled.ledger().add(ResourceType.TOOLS, 5);
+        assertTrue(Planner.directives(tooled, 6, 200).stream().noneMatch(d -> d.target().equalsIgnoreCase("smithy")),
+                "none while there are tools");
+    }
+
+    private void fillTheBigLots(Settlement s) {
+        for (VillagePlan.Lot lot : new java.util.ArrayList<>(s.plan().lots())) {
+            if (lot.rect().width() >= 13 && lot.rect().depth() >= 13) {
+                s.plan().fill(lot.id()); // none of the lots left is big enough for a smithy
+            }
+        }
+    }
+
+    private Optional<ConstructionProject> proposeSmithyOn(Settlement s, long day, HeightSource ground) {
+        return Construction.propose(s, day, "plains", 200, catalog, t -> {
+            if (t.type() != BuildingType.SMITHY) {
+                return blueprints(t);
+            }
+            List<Blueprint.Block> floor = new ArrayList<>();
+            for (int x = 0; x < 12; x++) {
+                for (int z = 0; z < 12; z++) {
+                    floor.add(new Blueprint.Block(x, 0, z, "OAK_PLANKS"));
+                }
+            }
+            return Optional.of(new Blueprint(t.key(), 12, 1, 12, floor));
+        }, ground, ground);
+    }
+
+    @Test
+    void aPlanWithNoLotForTheSmithyGetsOneOnGoodGroundNearAStreetInsideItsExtent() {
+        Settlement s = fedWithIronAndNoSmithy();
+        s.ledger().add(ResourceType.WOOD, 300);
+        fillTheBigLots(s);
+        assertTrue(s.plan().nextLot(BuildingType.SMITHY).isEmpty());
+        Construction.finish(s, propose(s, 5).orElseThrow(), 5); // the square
+        java.util.Set<Integer> before = new java.util.HashSet<>();
+        s.plan().lots().forEach(l -> before.add(l.id()));
+        Optional<ConstructionProject> pass = proposeWithRealSmithy(s, 6);
+        VillagePlan.Lot added = s.plan().lots().stream().filter(l -> !before.contains(l.id())).findFirst().orElseThrow();
+        assertEquals(BuildingType.SMITHY, added.type());
+        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("set aside ground")));
+        assertTrue(added.rect().width() >= 13 && added.rect().depth() >= 13);
+        for (VillagePlan.Lot other : s.plan().lots()) {
+            if (other != added) {
+                assertTrue(!added.rect().inflated(1).overlaps(other.rect()), "clear of every other lot");
+            }
+        }
+        assertTrue(s.plan().roads().stream().anyMatch(r -> added.rect().inflated(6).overlaps(r.rect())), "near a street");
+        assertTrue(s.plan().roads().stream().noneMatch(r -> added.rect().inflated(1).overlaps(r.rect())), "not on one");
+        Rect extent = Works.extent(s.plan(), s.plan().stage()).orElseThrow();
+        assertTrue(added.rect().x() >= extent.x() && added.rect().maxX() <= extent.maxX()
+                && added.rect().z() >= extent.z() && added.rect().maxZ() <= extent.maxZ(), "inside what the plan covered, so a wall round it does not move");
+        ConstructionProject project = pass.filter(p -> p.type() == BuildingType.SMITHY).orElseGet(() -> {
+            pass.ifPresent(other -> Construction.finish(s, other, 6)); // (the shop it also wanted)
+            return proposeWithRealSmithy(s, 7).orElseThrow();
+        });
+        assertEquals(BuildingType.SMITHY, project.type());
+        assertEquals(added.id(), project.lotId());
+    }
+
+    @Test
+    void aSearchThatFindsNothingWaitsTenDaysBeforeLookingAgain() {
+        Settlement s = fedWithIronAndNoSmithy();
+        s.ledger().add(ResourceType.WOOD, 300);
+        fillTheBigLots(s);
+        Construction.finish(s, propose(s, 5).orElseThrow(), 5);
+        HeightSource wet = new HeightSource() {
+            public int height(int x, int z) {
+                return 64;
+            }
+
+            public boolean water(int x, int z) {
+                return true;
+            }
+        };
+        int lots = s.plan().lots().size();
+        proposeSmithyOn(s, 6, wet);
+        assertEquals(lots, s.plan().lots().size(), "no good ground, no lot");
+        proposeSmithyOn(s, 7, HeightSource.flat(64));
+        assertEquals(lots, s.plan().lots().size(), "and it does not look again the next day");
+        s.openProject().ifPresent(open -> Construction.finish(s, open, 8)); // (anything else it started is out of the way)
+        proposeSmithyOn(s, 6 + Construction.REPLACEMENT_RETRY_DAYS, HeightSource.flat(64));
+        assertTrue(s.plan().lots().size() > lots, "but does after ten");
+    }
+
+    @Test
+    void aHouseDoesNotTakeTheLotReservedForASmithyTheVillageLacks() {
+        Settlement s = village();
+        s.registerBuilding(new Building(BuildingType.FARM, 500, 64, 500, 0, "a player"));
+        s.ledger().add(ResourceType.FOOD, 1000);
+        VillagePlan.Lot smithyLot = s.plan().nextLot(BuildingType.SMITHY).orElseThrow();
+        for (VillagePlan.Lot lot : new java.util.ArrayList<>(s.plan().lots())) {
+            if (lot.type() == BuildingType.HOUSE) {
+                s.plan().fill(lot.id());
+            }
+        }
+        Construction.finish(s, propose(s, 5).orElseThrow(), 5); // the square
+        Optional<ConstructionProject> house = propose(s, 6);
+        assertTrue(house.isEmpty() || house.get().lotId() != smithyLot.id(), "the smithy's lot is left for the smithy");
+    }
+
+    @Test
+    void groundWithNoRoomIsNotMadeIntoALot() {
+        Settlement s = fedWithIronAndNoSmithy();
+        java.util.Optional<VillagePlan.Lot> lot = PlanGenerator.addReplacementLot(s.plan(), BuildingType.SMITHY,
+                (x, z) -> HeightSource.UNKNOWN, java.util.List.of(), false);
+        assertTrue(lot.isEmpty(), "unmeasured ground is never built on");
+        java.util.Optional<VillagePlan.Lot> wet = PlanGenerator.addReplacementLot(s.plan(), BuildingType.SMITHY,
+                new HeightSource() {
+                    public int height(int x, int z) {
+                        return 64;
+                    }
+
+                    public boolean water(int x, int z) {
+                        return true;
+                    }
+                }, java.util.List.of(), false);
+        assertTrue(wet.isEmpty(), "nor water");
+    }
+
     @Test
     void aFamineVillageWithNothingForASmithToWorkBuildsNoSmithy() {
         Settlement s = hungryWithIron();

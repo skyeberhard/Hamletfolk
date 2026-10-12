@@ -491,6 +491,42 @@ public final class Construction {
         return Optional.of(project);
     }
 
+    /** R4.37: the buildings whose lots another kind may not take while the village has none of them. */
+    private static final java.util.Set<BuildingType> PROTECTED_LOTS =
+            java.util.EnumSet.of(BuildingType.SMITHY, BuildingType.MINE, BuildingType.FARM);
+
+    /** R4.37: days before the plan looks again for ground for a building it has no lot for. */
+    static final int REPLACEMENT_RETRY_DAYS = 10;
+
+    /** R4.37: a building the plan has no lot for gets one on the nearest good ground; tried at most once in {@link #REPLACEMENT_RETRY_DAYS}. */
+    private static void setAsideReplacementLot(Settlement settlement, long day, BuildingType type, HeightSource terrain) {
+        if (type.isWorks() || type.isPart() || type == BuildingType.SQUARE) {
+            return;
+        }
+        String key = "lotSearch:" + type.name();
+        Long last = settlement.conditions().get(key);
+        if (last != null && day - last < REPLACEMENT_RETRY_DAYS) {
+            return;
+        }
+        settlement.conditions().put(key, day);
+        List<Rect> occupied = new ArrayList<>();
+        for (Building building : settlement.buildings()) {
+            occupied.add(new Rect(building.x() - 6, building.z() - 6, 13, 13));
+        }
+        for (ConstructionProject project : settlement.projects()) {
+            if (project.status() != ConstructionProject.Status.CANCELLED && !project.type().isWorks() && project.x() != 0) {
+                occupied.add(new Rect(project.x() - 6, project.z() - 6, 13, 13));
+            }
+        }
+        boolean walled = settlement.projects().stream().anyMatch(p -> (p.type() == BuildingType.PALISADE || p.type() == BuildingType.RAMPART)
+                && p.status() != ConstructionProject.Status.CANCELLED);
+        Optional<VillagePlan.Lot> lot = PlanGenerator.addReplacementLot(settlement.plan(), type, terrain, occupied, walled);
+        if (lot.isPresent()) {
+            settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " set aside ground at " + lot.get().rect().x() + ", "
+                    + lot.get().rect().z() + " for a " + type.label().toLowerCase(Locale.ROOT) + ", as its plan had no lot for one.");
+        }
+    }
+
     /** R4.21: days a builder waits for something to build before going back to other work. */
     static final int BUILDER_IDLE_DAYS = 7;
     static final String BUILDER_IDLE = "builderIdleSince";
@@ -513,6 +549,16 @@ public final class Construction {
     public static Optional<ConstructionProject> propose(Settlement settlement, long day, String style, int treasuryLimit,
             TemplateCatalog catalog, Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints,
             HeightSource terrain) {
+        return propose(settlement, day, style, treasuryLimit, catalog, blueprints, terrain, terrain);
+    }
+
+    /**
+     * As above; {@code searchGround} is what a lot for a building the plan has none for is looked for on (R4.37): a column
+     * with something built on it should read as unmeasured there, so that ground is not set aside over a roof or a lamp post.
+     */
+    public static Optional<ConstructionProject> propose(Settlement settlement, long day, String style, int treasuryLimit,
+            TemplateCatalog catalog, Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints,
+            HeightSource terrain, HeightSource searchGround) {
         VillagePlan plan = settlement.plan();
         dropStaleQueuedProject(settlement, day, treasuryLimit);
         if (plan == null || settlement.population() < MIN_POPULATION || settlement.isAbandoned()
@@ -527,7 +573,8 @@ public final class Construction {
                 continue;
             }
             Optional<BuildingType> type = BuildingType.fromTarget(directive.target());
-            if (type.isEmpty() || (needUnmet && directive.tier() == Planner.Tier.GROWTH)) {
+            if (type.isEmpty() || (needUnmet && (directive.tier() == Planner.Tier.GROWTH
+                    || (directive.tier() == Planner.Tier.SUPPLY && type.get() == BuildingType.SMITHY)))) { // R4.37: tools wait for lights and a fence too
                 continue; // (a want waits for a need the village is saving up for)
             }
             if (settlement.hasCondition("famine") && !endsFamine(settlement, type.get())) {
@@ -553,14 +600,29 @@ public final class Construction {
                     return square;
                 }
             }
+            // R4.37: more people for a mine already standing are found by improving it before a second is dug
+            if (type.get() == BuildingType.MINE && settlement.buildingCount(BuildingType.MINE) > 0) {
+                Optional<ConstructionProject> improved = upgrade(settlement, day, biome, catalog, blueprints, terrain,
+                        t -> t == BuildingType.MINE, 1, false, directive.reason());
+                if (improved.isPresent()) {
+                    return improved;
+                }
+            }
             boolean first = true;
             for (VillagePlan.Lot lot : plan.candidatesFor(type.get())) {
+                // R4.37: the lot of a smithy, mine or farm is left for it while the village has none (a house must not take the smithy's)
+                if (lot.type() != type.get() && PROTECTED_LOTS.contains(lot.type()) && settlement.buildingCount(lot.type()) == 0) {
+                    continue;
+                }
                 Optional<ConstructionProject> project = queue(settlement, day, biome, type.get(), 0, lot, 1, catalog,
                         blueprints, terrain, directive.reason(), null, first);
                 if (project.isPresent()) {
                     return project;
                 }
                 first = false;
+            }
+            if (directive.tier() != Planner.Tier.GROWTH && plan.nextLot(type.get()).isEmpty()) {
+                setAsideReplacementLot(settlement, day, type.get(), searchGround); // (used from the next day, if there was ground for it)
             }
             // R4.20: a need with somewhere to go that the village cannot pay for yet, for want of something it can make, is
             // saved up for, not spent past. Not the mine: a village with no stone and no mine could never make the stone.

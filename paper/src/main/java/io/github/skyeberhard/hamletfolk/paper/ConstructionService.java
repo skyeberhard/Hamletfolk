@@ -309,7 +309,7 @@ final class ConstructionService {
         String style = BiomeSet.forBiome(world.getComputedBiome(settlement.centerX(), 64, settlement.centerZ()).getKey().getKey());
         Optional<ConstructionProject> queued = Construction.propose(settlement, settlement.lastSimulatedDay(), style,
                 service.treasuryLimit(settlement), plugin.templates().catalog(), plugin.templates()::blueprint,
-                groundOf(world));
+                groundOf(world), streetGround(world)); // (R4.37: ground set aside for a lot is not over a roof or a lamp post)
         release(holdKey);
         if (queued.isPresent()) {
             plugin.requestSave();

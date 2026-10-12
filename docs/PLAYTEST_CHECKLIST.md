@@ -118,6 +118,7 @@ turns out to need a player, just do it in game.
 | T88 | The palisade follows slopes and shallow water; `settlement admin regrade` mends a standing wall (needs a free builder) | P | |
 | T89 | A hungry village with a free farm place and no jobless moves a worker onto it; a village with metal and a smithy gets a toolsmith | P | |
 | T90 | A famine village with iron and no smithy builds one, and a queued palisade or square does not block it | P | |
+| T91 | A plan with no lot for a smithy gets ground set aside; a smithy is asked for outside a famine | P | |
 
 Results marked passive were read from the server logs and the saved villages after the server had been left running, not played; a person may still want to look at them.
 

@@ -263,11 +263,19 @@ public final class Planner {
      * yet still gets on with its houses.
      */
     private static List<Directive> withSupply(Settlement settlement, List<Directive> rest) {
-        if (settlement.buildingCount(BuildingType.MINE) > 0) {
+        List<Directive> out = new ArrayList<>();
+        if (settlement.buildingCount(BuildingType.MINE) == 0) {
+            out.add(new Directive(Tier.SUPPLY, Kind.BUILD, "mine", "stone and metal come from a mine; the village has none"));
+        }
+        // R4.37: no tools, something to make them from and nowhere to make them: asked for at any time, not only in a famine
+        if (smithyWouldEaseShortage(settlement)
+                && rest.stream().noneMatch(d -> d.kind() == Kind.BUILD && d.target().equalsIgnoreCase("smithy"))) {
+            out.add(new Directive(Tier.SUPPLY, Kind.BUILD, "smithy", "tools have run out, and the village has something to make "
+                    + "them from but no smithy to make them in"));
+        }
+        if (out.isEmpty()) {
             return rest;
         }
-        List<Directive> out = new ArrayList<>();
-        out.add(new Directive(Tier.SUPPLY, Kind.BUILD, "mine", "stone and metal come from a mine; the village has none"));
         out.addAll(rest);
         return out;
     }

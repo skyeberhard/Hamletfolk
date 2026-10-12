@@ -95,6 +95,10 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
 - **Famine building (R4.36):** in a famine only `Construction.endsFamine` types are queued or staffed: a farm, and a smithy while
   `Planner.smithyWouldEaseShortage` (no tools, no smithy, `SettlementSimulator.smithCanWork`). `propose` returns nothing else in a famine, and
   `dropStaleQueuedProject` cancels a queued non-famine project when a FOOD-tier BUILD is wanted (one open project at a time).
+- **Lots (R4.37):** `Construction.propose` no longer lets a building use a lot reserved for another kind the village has none of yet (houses
+  excepted as the donor), and when the plan has no RESERVED lot of the wanted kind it calls `PlanGenerator.addReplacementLot` (nearest good ground, near a
+  street, clear of lots, streets and registered buildings; `lotSearch:<TYPE>` condition, once in 10 days). The smithy is also a SUPPLY directive
+  (`Planner.withSupply`) outside a famine. A mine already standing is upgraded before a second is dug.
 - **Suppliers (R4.24):** a village of four keeps a lumberjack, and a miner once a mine has room; lumberjacks, miners and masons
   rest at the storage limit (`resting:` conditions). Tests that measure a gatherer's output must spend the stock each day.
 - **Counts leanings (R8.13):** SCHOLARLY, CRAFT and TRADING come after ALL_ROUND in `Leaning` (the saved number is the ordinal plus one:
