@@ -280,8 +280,8 @@ public final class Construction {
         if (abandonLot && settlement.plan() != null && project.lotId() >= 0) {
             settlement.plan().fill(project.lotId()); // so the plan moves on to another lot instead of trying again
         }
-        settlement.record(day, HistoryEvent.Kind.BUILDING, "Work on the " + project.type().label().toLowerCase(Locale.ROOT)
-                + " was given up: " + reason + ".");
+        settlement.recordQuiet(day, HistoryEvent.Kind.BUILDING, "Work on the " + project.type().label().toLowerCase(Locale.ROOT)
+                + " was given up: " + reason + ".", QUIET_DAYS); // (R4.44: not again and again for the same thing)
     }
 
     // ----- builders -----
@@ -364,7 +364,7 @@ public final class Construction {
         // Nobody is out of work. A project that has waited a few days for a builder takes someone off a job the village
         // can spare: a village that is fully employed still has to be able to put up a house.
         if (day - queued.get().queuedDay() >= DRAFT_AFTER_DAYS) {
-            Resident drafted = SettlementSimulator.spareWorker(settlement, day);
+            Resident drafted = SettlementSimulator.spareWorker(settlement, day, true); // R4.43: a supplier with full stores can be drafted
             if (drafted != null) {
                 String was = drafted.occupation().title();
                 drafted.setOccupation(Occupation.BUILDER);
@@ -374,7 +374,14 @@ public final class Construction {
                         + " to build the " + what + ", as there was no one else.");
             }
         }
+        // R4.43: a project nobody could be spared for does not hold up the rest of the village's building for ever
+        if (queued.get().builder() == null && day - queued.get().queuedDay() >= STUCK_DAYS && neverStarted(queued.get())) {
+            cancel(settlement, queued.get(), day, "nobody could be spared to build it", false);
+        }
     }
+
+    /** R4.43: days a project may wait for someone to build it, with nobody out of work and nobody to spare, before it is given up. */
+    static final int STUCK_DAYS = 20;
 
     // ----- works on the plan (R5.6) -----
 
@@ -428,7 +435,7 @@ public final class Construction {
     }
 
     /** True if there is nothing to start: it stands or is in hand, was given up lately, or the plan has no place for it. */
-    private static boolean worksSettled(Settlement settlement, BuildingType type, long day) {
+    static boolean worksSettled(Settlement settlement, BuildingType type, long day) {
         if (type == BuildingType.RAMPART) {
             return rampartOpen(settlement) || Works.spots(BuildingType.PALISADE, settlement.plan()).isEmpty()
                     || settlement.projects().stream().anyMatch(p -> p.type() == type && p.status() == ConstructionProject.Status.CANCELLED
