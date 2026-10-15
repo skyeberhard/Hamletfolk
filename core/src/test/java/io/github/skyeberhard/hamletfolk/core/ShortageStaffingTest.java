@@ -145,4 +145,56 @@ class ShortageStaffingTest {
         assertEquals(4, count(s, Occupation.FARMER), "the jobless one goes to the farm");
         assertEquals(3, count(s, Occupation.LUMBERJACK), "and no worker is moved as well");
     }
+
+    /** R4.41: Hollowstead's case: food made equals food eaten, so the stores never fill, and every other trade is the only one of its kind. */
+    @Test
+    void aSupplierWithFullStoresIsMovedOntoTheFarmEvenIfItIsTheOnlyOne() {
+        Settlement s = village(2, 1);
+        s.addResident(person(Occupation.MINER));
+        s.ledger().add(ResourceType.WOOD, SettlementSimulator.capacity(s, ResourceType.WOOD));
+        simulator.simulateDay(s, 1);
+        assertEquals(1, count(s, Occupation.LUMBERJACK), "the first day it is not yet resting");
+        simulator.simulateDay(s, 2);
+        assertEquals(3, count(s, Occupation.FARMER), "resting at the storage limit, the lumberjack goes to the farm");
+        assertEquals(0, count(s, Occupation.LUMBERJACK));
+        assertEquals(1, count(s, Occupation.MINER), "the miner, whose stores are not full, stays");
+    }
+
+    @Test
+    void aSupplierWhoseStoresAreNotFullIsStillNotMovedAsTheOnlyOne() {
+        Settlement s = village(2, 1);
+        s.ledger().add(ResourceType.WOOD, 10);
+        for (long day = 1; day <= 5; day++) {
+            simulator.simulateDay(s, day);
+        }
+        assertEquals(1, count(s, Occupation.LUMBERJACK));
+    }
+
+    @Test
+    void aTradeGivenUpForTheFarmsIsTakenUpAgainOnceItsStoresRunLow() {
+        Settlement s = village(4, 1);
+        s.addResident(person(Occupation.MINER));
+        s.ledger().add(ResourceType.WOOD, SettlementSimulator.capacity(s, ResourceType.WOOD));
+        simulator.simulateDay(s, 1);
+        simulator.simulateDay(s, 2);
+        assertEquals(0, count(s, Occupation.LUMBERJACK), "given up for the farms");
+        assertTrue(s.hasCondition("gaveUp:LUMBERJACK"));
+        s.ledger().take(ResourceType.WOOD, s.ledger().get(ResourceType.WOOD)); // the wood is used up
+        s.ledger().add(ResourceType.FOOD, 20 * 6 * 2); // and food is plentiful, so a farmer can be spared
+        for (long day = 3; day <= 12; day++) {
+            simulator.simulateDay(s, day);
+        }
+        assertEquals(1, count(s, Occupation.LUMBERJACK), "wood is made again");
+        assertTrue(!s.hasCondition("gaveUp:LUMBERJACK"));
+    }
+
+    @Test
+    void aVillageThatIsFedButNotPlentifulKeepsItsFarmersAtTheirFarms() {
+        Settlement s = village(5, 0);
+        s.ledger().add(ResourceType.FOOD, 15 * 5); // fed, but below twice the wanted level
+        for (long day = 1; day <= 5; day++) {
+            simulator.simulateDay(s, day);
+        }
+        assertEquals(0, count(s, Occupation.LUMBERJACK), "food workers are only spared from a full larder");
+    }
 }
