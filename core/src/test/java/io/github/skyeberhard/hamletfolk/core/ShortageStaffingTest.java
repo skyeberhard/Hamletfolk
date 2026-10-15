@@ -107,10 +107,24 @@ class ShortageStaffingTest {
     }
 
     @Test
-    void aFamineWithAFreeFarmFillsItBeforeAnySmith() {
+    void aFamineWithIronAndNoToolsTakesASmithBeforeAnotherFarmer() {
         Settlement s = village(3, 3);
         s.conditions().put("famine", 0L);
         s.ledger().add(Commodity.IRON, 40);
+        simulator.simulateDay(s, 1);
+        assertEquals(1, count(s, Occupation.TOOLSMITH), "tools are what keep every worker's output down (R4.42)");
+        assertEquals(3, count(s, Occupation.FARMER), "and the smith is not taken from the farmers");
+        assertEquals(2, count(s, Occupation.LUMBERJACK));
+        simulator.simulateDay(s, 2);
+        assertEquals(4, count(s, Occupation.FARMER), "the next day the farm gets its worker");
+    }
+
+    @Test
+    void aFamineWithToolsStillFillsTheFarmFirst() {
+        Settlement s = village(3, 3);
+        s.conditions().put("famine", 0L);
+        s.ledger().add(Commodity.IRON, 40);
+        s.ledger().add(ResourceType.TOOLS, 50);
         simulator.simulateDay(s, 1);
         assertEquals(4, count(s, Occupation.FARMER));
         assertEquals(0, count(s, Occupation.TOOLSMITH));
@@ -151,6 +165,7 @@ class ShortageStaffingTest {
     void aSupplierWithFullStoresIsMovedOntoTheFarmEvenIfItIsTheOnlyOne() {
         Settlement s = village(2, 1);
         s.addResident(person(Occupation.MINER));
+        s.ledger().add(ResourceType.TOOLS, 50); // (no call for a smith: that is R4.42)
         s.ledger().add(ResourceType.WOOD, SettlementSimulator.capacity(s, ResourceType.WOOD));
         simulator.simulateDay(s, 1);
         assertEquals(1, count(s, Occupation.LUMBERJACK), "the first day it is not yet resting");
@@ -174,6 +189,7 @@ class ShortageStaffingTest {
     void aTradeGivenUpForTheFarmsIsTakenUpAgainOnceItsStoresRunLow() {
         Settlement s = village(4, 1);
         s.addResident(person(Occupation.MINER));
+        s.ledger().add(ResourceType.TOOLS, 50);
         s.ledger().add(ResourceType.WOOD, SettlementSimulator.capacity(s, ResourceType.WOOD));
         simulator.simulateDay(s, 1);
         simulator.simulateDay(s, 2);
@@ -196,5 +212,19 @@ class ShortageStaffingTest {
             simulator.simulateDay(s, day);
         }
         assertEquals(0, count(s, Occupation.LUMBERJACK), "food workers are only spared from a full larder");
+    }
+
+    /** R4.42: Testford's case: three farmers, the only lumberjack resting at the storage limit, iron in the stores and no smith. */
+    @Test
+    void aRestingSupplierBecomesTheSmithOfAHungryVillageWithIron() {
+        Settlement s = village(3, 1);
+        s.conditions().put("famine", 0L);
+        s.ledger().add(Commodity.IRON, 98);
+        s.ledger().add(ResourceType.WOOD, SettlementSimulator.capacity(s, ResourceType.WOOD));
+        simulator.simulateDay(s, 1);
+        assertEquals(0, count(s, Occupation.TOOLSMITH), "not resting on the first day, so nobody can be spared");
+        simulator.simulateDay(s, 2);
+        assertEquals(1, count(s, Occupation.TOOLSMITH));
+        assertEquals(3, count(s, Occupation.FARMER), "the farmers are left to feed the village");
     }
 }

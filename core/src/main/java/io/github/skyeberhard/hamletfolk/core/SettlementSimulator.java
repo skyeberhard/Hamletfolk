@@ -1295,7 +1295,15 @@ public final class SettlementSimulator {
             }
         }
         Occupation target = null;
-        if (jobless == null && cover(settlement, Occupation.FARMER) < 1.0) { // (assignJob gives the jobless food work)
+        // R4.42: tools before food when tools are short and there is a smithy to make them in, since worn-out tools are what keeps
+        // every worker's output down; the people moved are never farmers (see spareWorker), so nobody who feeds the village is taken.
+        if (cover(settlement, Occupation.TOOLSMITH) < 1.0
+                && workstationFree.test(settlement, Occupation.TOOLSMITH) && smithCanWork(settlement)
+                && settlement.residents().stream().noneMatch(r -> r.adult() && r.occupation() == Occupation.TOOLSMITH)
+                && (jobless == null || !foodWorkFree(settlement))) {
+            target = Occupation.TOOLSMITH;
+        }
+        if (target == null && jobless == null && cover(settlement, Occupation.FARMER) < 1.0) { // (assignJob gives the jobless food work)
             for (Occupation candidate : candidates(settlement)) {
                 if (candidate.produces() == ResourceType.FOOD && workstationFree.test(settlement, candidate)
                         && cover(settlement, candidate) < 1.0) {
@@ -1304,17 +1312,11 @@ public final class SettlementSimulator {
                 }
             }
         }
-        if (target == null && cover(settlement, Occupation.TOOLSMITH) < 1.0
-                && workstationFree.test(settlement, Occupation.TOOLSMITH) && smithCanWork(settlement)
-                && settlement.residents().stream().noneMatch(r -> r.adult() && r.occupation() == Occupation.TOOLSMITH)
-                && (jobless == null || !foodWorkFree(settlement))) {
-            target = Occupation.TOOLSMITH;
-        }
         if (target == null) {
             return;
         }
         // (in a famine assignJob leaves the jobless to forage, so a smith is taken from them here, once the farms are full)
-        Resident moved = jobless != null ? jobless : spareWorker(settlement, day, target.produces() == ResourceType.FOOD);
+        Resident moved = jobless != null ? jobless : spareWorker(settlement, day, true); // (a supplier with full stores can go to either)
         if (moved == null || moved.occupation() == target
                 || (moved.occupation() == Occupation.BUILDER && settlement.projects().stream()
                         .anyMatch(p -> p.status() == ConstructionProject.Status.QUEUED))) {
