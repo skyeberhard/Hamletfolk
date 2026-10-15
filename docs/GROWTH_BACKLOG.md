@@ -190,9 +190,7 @@ trade. A resident R4.35 moved from farmer to toolsmith therefore gets its vanill
 villager with experience can never lose its profession in vanilla, so the wrong look is locked in. Only raise the
 level when `Occupation.fromVanillaKey(profession)` equals the simulated occupation.
 
-Decision for the user before building: this is now about players being told the truth, not only about a resource
-pack, so consider making the setting on by default (the row says off). Ask, then keep the row text and the issue
-body the same.
+Decision made (2026-10-15): the setting is on by default, as the row now says.
 
 Approach: a table in core from `Occupation` to a vanilla profession name (or none), with a test, documented in
 docs/APPEARANCE.md. The Paper layer applies it behind `appearance.profession-follows-occupation` (off by
