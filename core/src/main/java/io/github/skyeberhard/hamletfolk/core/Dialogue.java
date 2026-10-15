@@ -351,7 +351,12 @@ public final class Dialogue {
             wealthOption(resident, occupation).ifPresent(options::add); // R3.5, R4.32
         }
 
-        settlement.requests().stream().findFirst().ifPresent(request -> options.add(Option.of(Situation.REQUEST,
+        settlement.requests().stream().findFirst().ifPresent(request -> options.add(request.thanksOnly()
+                ? Option.of(Situation.REQUEST_FREE, "We're short of " + request.type().name().toLowerCase(Locale.ROOT) + ". "
+                        + settlement.name() + " cannot pay for " + request.remaining() + " more, but it will not forget who helped.",
+                        "item", request.type().name().toLowerCase(Locale.ROOT), "left", String.valueOf(request.remaining()),
+                        "village", settlement.name())
+                : Option.of(Situation.REQUEST,
                 "We're short of " + request.type().name().toLowerCase(Locale.ROOT) + ". " + settlement.name() + " will pay "
                         + request.unpaid() + " emeralds for " + request.remaining() + " more, if a traveller can spare some.",
                 "item", request.type().name().toLowerCase(Locale.ROOT), "pay", String.valueOf(request.unpaid()),

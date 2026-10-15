@@ -1,0 +1,24 @@
+# Villager lines for one situation. One line per entry: 'tone: text'. Tones: warm, gruff, anxious, proud, dry, gentle.
+# Slots in braces ({village}, {player}, ...) are filled in; a line whose slot is missing is skipped.
+# In plugins/Hamletfolk/dialogue/ a file of the same name REPLACES the lines of each tone it mentions;
+# start a line with '+' (+warm: ...) to ADD to the built-in lines instead.
+# R4.40: a request the village cannot pay emeralds for; it offers its thanks.
+# slots: {item} {left} {village}
+warm: We're short of {item}, friend. {village} can't pay, but we'll never forget who helped with {left} more.
+warm: Could you spare {left} {item} for {village}? There's no coin in it, only our thanks.
+warm: If you've {item} to share, {village} would be glad of {left}. We'll remember you.
+gruff: Need {item}. {left} more. No coin. {village} remembers who helps.
+gruff: {village} wants {left} {item}. Can't pay. Won't forget it.
+gruff: {item}. {left}. Nothing to pay with. We remember our friends.
+anxious: We're so short of {item}... {village} can't pay, but please, {left} more, and we'll never forget you.
+anxious: If you could find {left} {item}... we've no coin, only gratitude. Please.
+anxious: {item}... we need {left} more, and we can't pay. Anything helps.
+proud: {village} needs {left} {item}. We can't pay in emeralds, but {village} does not forget a friend.
+proud: There's no coin in it, but the people of {village} will honour whoever brings {left} {item}.
+proud: A worthy traveller will have the thanks of {village} for {left} {item}.
+dry: We need {left} more {item}. No pay. Just our eternal gratitude. Try to contain yourself.
+dry: {item}. {left}. {village} is broke, but it keeps a long memory.
+dry: If you're looking for glory instead of coin: {left} {item}.
+gentle: {village} is short of {item}. We can't pay, but we'd be grateful for {left} more, and we won't forget.
+gentle: If you could spare {left} {item}, {village} would remember your kindness. Thank you.
+gentle: We need {left} {item}, dear traveller, and we've only our thanks to give.

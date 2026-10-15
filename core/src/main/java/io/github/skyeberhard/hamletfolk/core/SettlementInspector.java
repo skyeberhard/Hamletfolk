@@ -58,7 +58,7 @@ public final class SettlementInspector {
         StringBuilder requests = new StringBuilder();
         for (Request r : s.requests()) {
             requests.append(requests.isEmpty() ? "" : ", ").append(r.filled()).append('/').append(r.describe())
-                    .append(" for ").append(r.reward()).append(" emeralds");
+                    .append(r.thanksOnly() ? " for thanks" : " for " + r.reward() + " emeralds");
         }
         lines.add("Requests: " + (requests.isEmpty() ? "none" : requests));
 

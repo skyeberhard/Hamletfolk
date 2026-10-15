@@ -102,7 +102,7 @@ class ToolWearTest {
         long dayNow = equipped.lastSimulatedDay();
         assertEquals(equipped.flow().produced(ResourceType.STONE, dayNow), bare.flow().produced(ResourceType.STONE, dayNow));
         assertFalse(bare.hasCondition("shortage:tools"));
-        assertTrue(bare.history().stream().noneMatch(e -> e.text().contains("tools")));
+        assertTrue(bare.history().stream().noneMatch(e -> e.text().contains("tools") && !e.text().contains("asking for") && !e.text().contains("request for")));
     }
 
     @Test

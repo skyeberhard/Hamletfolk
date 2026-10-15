@@ -240,7 +240,8 @@ final class SettlementCommand implements TabExecutor {
         line(player, "Treasury", s.ledger().treasury() + " of " + service.treasuryLimit(s) + " emeralds");
         for (Request request : s.requests()) {
             line(player, "Wanted", request.remaining() + " more " + request.type().name().toLowerCase(Locale.ROOT)
-                    + " (" + request.unpaid() + " emeralds on offer), /settlement donate");
+                    + (request.thanksOnly() ? " (it cannot pay, but will remember who helps)" : " (" + request.unpaid() + " emeralds on offer)")
+                    + ", /settlement donate");
         }
         String flow = flowSummary(s);
         if (!flow.isEmpty()) {
@@ -810,9 +811,10 @@ final class SettlementCommand implements TabExecutor {
         if (toolCap != Integer.MAX_VALUE) {
             toolCap = (int) Math.min(Integer.MAX_VALUE, (long) toolCap * amount); // the cap is per tool; a stack is several
         }
+        int thanks = emeralds > 0 ? 0 : SettlementSimulator.thanksFor(s, value.get().type(), credited); // R4.40
         int paid = emeralds > 0 ? 0 : service.fulfilRequest(s, value.get().type(), credited, today, player.getName(),
                 toolCap);
-        s.adjustReputation(player.getUniqueId(), Reputation.requestGain(paid)); // R3.4
+        s.adjustReputation(player.getUniqueId(), Reputation.requestGain(paid + thanks)); // R3.4
         // In stacks of at most 64: a big request can pay more than a stack, and an oversized item is not safe to drop.
         for (int left = paid; left > 0; left -= 64) {
             player.getInventory().addItem(new ItemStack(Material.EMERALD, Math.min(64, left)))

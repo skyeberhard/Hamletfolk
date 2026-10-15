@@ -50,6 +50,11 @@ public final class Request {
         return paid;
     }
 
+    /** R4.40: true for a request the treasury could not fund: it offers the village's thanks and good name instead of emeralds. */
+    public boolean thanksOnly() {
+        return reward == 0;
+    }
+
     /** Emeralds still held, not yet paid to anyone. */
     public int unpaid() {
         return reward - paid;

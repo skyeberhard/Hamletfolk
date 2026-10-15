@@ -14,7 +14,9 @@ public enum Situation {
     /** R4.31: a remark on the weather and the time of day. */
     WEATHER,
     /** R4.32: what they say about the land, the village's mood, its size, their own money and a parent (facts from the vocab files). */
-    LAND, MOOD, SIZE, WEALTH, PARENT;
+    LAND, MOOD, SIZE, WEALTH, PARENT,
+    /** R4.40: a request the village cannot pay emeralds for (it offers its thanks). */
+    REQUEST_FREE;
 
     /** The file the lines are in, e.g. {@code greeting_stranger.txt}. */
     public String fileName() {

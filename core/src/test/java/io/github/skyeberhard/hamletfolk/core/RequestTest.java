@@ -54,11 +54,36 @@ class RequestTest {
     }
 
     @Test
-    void aVillageThatCannotPayDoesNotAsk() {
+    void aVillageThatCannotPayStillAsksForItsThanks() {
         Settlement s = village(3);
         simulator.simulateTo(s, 5, 100);
-        assertTrue(s.requests().isEmpty());
-        assertEquals(3, s.ledger().treasury());
+        assertFalse(s.requests().isEmpty(), "R4.40: a poor village is not silent");
+        assertTrue(s.requests().stream().allMatch(Request::thanksOnly));
+        assertEquals(3, s.ledger().treasury(), "nothing is taken from the treasury for a request that pays nothing");
+        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("will remember who helps")));
+    }
+
+    @Test
+    void handingInWhatAFreeRequestAsksForPaysNothingAndEarnsThanks() {
+        Settlement s = village(3);
+        simulator.simulateTo(s, 5, 100);
+        Request free = s.requests().iterator().next();
+        int thanks = SettlementSimulator.thanksFor(s, free.type(), free.remaining());
+        assertTrue(thanks > 0, "the emeralds it would have paid, as reputation");
+        assertEquals(0, simulator.fulfil(s, free.type(), free.remaining(), 6, "Skye"), "no emeralds");
+        assertTrue(s.requests().stream().noneMatch(r -> r.type() == free.type()), "and the request is filled");
+        assertEquals(0, SettlementSimulator.thanksFor(s, free.type(), 10), "nothing open: nothing");
+    }
+
+    @Test
+    void aMaterialABuildingIsWaitingOnIsAskedForEvenWhenTheStoresAreAboveTheWantedLevel() {
+        Settlement s = village(3);
+        for (ResourceType type : ResourceType.values()) {
+            s.ledger().add(type, 500); // nothing is short but what the house is waiting on
+        }
+        s.conditions().put("constructionLacks:WOOD", 5L);
+        simulator.simulateTo(s, 6, 100);
+        assertTrue(s.requestMap().containsKey(ResourceType.WOOD), "wood is lacking for a house, whatever is in store");
     }
 
     @Test

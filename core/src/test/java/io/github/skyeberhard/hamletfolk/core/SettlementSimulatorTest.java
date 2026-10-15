@@ -117,7 +117,7 @@ class SettlementSimulatorTest {
         }
         assertTrue(flips > 10, "the shortage should really be flickering: " + flips);
         long lines = s.history().stream()
-                .filter(e -> e.text().contains("metal")).count();
+                .filter(e -> e.text().contains("metal") && !e.text().contains("asking for") && !e.text().contains("request for")).count();
         assertTrue(lines <= 2, "history lines about metal: " + lines);
     }
 

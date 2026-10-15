@@ -848,9 +848,11 @@ public final class SettlementSimulator {
      * of the treasury at once and held, so a request is never a promise the village can't keep.
      */
     private static void updateRequests(Settlement settlement, long day) {
+        java.util.Set<ResourceType> lacking = Construction.lacking(settlement, day); // R4.40: what a wanted building is waiting on
         for (Request request : new ArrayList<>(settlement.requests())) {
             boolean emptied = settlement.population() == 0;
-            boolean covered = !emptied && settlement.ledger().get(request.type()) >= wantedLevel(settlement, request.type());
+            boolean covered = !emptied && settlement.ledger().get(request.type()) >= wantedLevel(settlement, request.type())
+                    && !lacking.contains(request.type());
             if (emptied || covered || day - request.postedDay() >= REQUEST_EXPIRY_DAYS) {
                 settlement.requestMap().remove(request.type());
                 settlement.ledger().addTreasury(request.unpaid());
@@ -871,19 +873,20 @@ public final class SettlementSimulator {
             int wanted = wantedLevel(settlement, type);
             int stock = settlement.ledger().get(type);
             Long closed = settlement.conditions().get(closedKey(type));
-            if (settlement.requestMap().containsKey(type) || stock >= wanted
+            if (settlement.requestMap().containsKey(type) || (stock >= wanted && !lacking.contains(type))
                     || (closed != null && day - closed < REQUEST_COOLDOWN_DAYS)) {
                 continue;
             }
-            int units = Math.max(REQUEST_MIN_UNITS, 2 * wanted - stock);
+            int units = Math.max(REQUEST_MIN_UNITS, stock >= wanted ? wanted : 2 * wanted - stock);
             int reward = (int) Math.ceil((double) units * REQUEST_PREMIUM / unitsPerEmerald(type));
             if (!settlement.ledger().spendTreasury(reward)) {
-                continue; // the village can't afford to pay for it
+                reward = 0; // R4.40: the village can't pay for it, so it asks for help for its thanks
             }
             Request request = new Request(type, units, 0, reward, 0, day);
             settlement.requestMap().put(type, request);
             settlement.recordQuiet(day, HistoryEvent.Kind.MILESTONE, settlement.name() + " is asking for "
-                    + request.describe() + " and will pay " + reward + " emeralds for it.", REQUEST_QUIET_DAYS);
+                    + request.describe() + (reward > 0 ? " and will pay " + reward + " emeralds for it."
+                    : ", and cannot pay for it, but will remember who helps."), REQUEST_QUIET_DAYS);
         }
     }
 
@@ -920,6 +923,18 @@ public final class SettlementSimulator {
                     + "'s request for " + request.describe() + ".");
         }
         return owed;
+    }
+
+    /**
+     * R4.40: what handing in {@code units} to the open request for a resource earns in thanks: the emeralds it would have paid, as
+     * reputation, when the request offers none (and 0 when it pays, or when there is none). Ask before {@link #fulfil}.
+     */
+    public static int thanksFor(Settlement settlement, ResourceType type, int units) {
+        Request request = settlement.requestMap().get(type);
+        if (request == null || !request.thanksOnly() || units <= 0) {
+            return 0;
+        }
+        return Math.min(units, request.remaining()) * REQUEST_PREMIUM / unitsPerEmerald(type);
     }
 
     /**
