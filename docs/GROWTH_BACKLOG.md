@@ -260,6 +260,17 @@ Watch for:
 - `SimulationPerformanceTest` is unaffected (planning is not daily), but `placeLots` runs on loaded ground on the
   main thread: keep the extra measuring to the lots it already measures.
 
+### Status (2026-10-15)
+
+Built and pushed, unplayed: R4.41, R4.42, R2.8, R4.44, R4.43, R4.40, R3.18, R1.33, R4.45 and R8.19 (see CHANGELOG.md for each, T94 to T102 in
+docs/TESTING.md). **R8.20 and R8.21 are deliberately not started.** After R8.19 a rough lot is already built on through `TerrainPad`, which
+levels up to 8 blocks and fills shallow water when the building is placed, and the plan now reads through tree trunks, so the two things
+R8.20 would add (felling and cutting ahead of time) are mostly done at build time. Play T102 first: if rough lots are built on without
+trouble, R8.20 may need only the felling and the stone from cutting; if buildings stall on rough lots (the levelling gives up), R8.20
+becomes worth its cost. R4.46 needs art and a person looking; R4.47 needs a check on a running 26.2 server that a villager draws an item
+in its head slot (the test servers used for the brain module were in an earlier session's scratch folder and are gone: see the memory
+notes for how they were made).
+
 ### R8.20 Villagers prepare the ground they need
 
 Approach:
