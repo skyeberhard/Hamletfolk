@@ -16,12 +16,14 @@ public final class BuildingFinder {
     /** The {@code registeredBy} of a building found rather than signed or built: it has no sign to look for. */
     public static final String FOUND_BY = "found";
 
-    /** Beds this close together (blocks, either way) are one house; a job site's building takes in sites this close. */
+    /** Beds this close to a house's first bed (blocks, either way) are in that house. */
+    static final int HOUSE_DISTANCE = 6;
+    /** A work building takes in job sites this close to its first one. */
     static final int GROUP_DISTANCE = 10;
     /** A building of the same kind this close to an older one is that same building. */
     public static final int SAME_BUILDING = 12;
-    /** Farmland within this many blocks of other farmland is one field (a field has water in it). */
-    static final int FIELD_GAP = 2;
+    /** Farmland within this many blocks of a field's first block is that field (a field has water in it). */
+    static final int FIELD_SPAN = 8;
     /** Fewest farmland blocks that make a farm. */
     static final int MIN_FIELD = 6;
     /** The blocks round a found building that a lot may not overlap. */
@@ -96,11 +98,11 @@ public final class BuildingFinder {
                 workBuilding(site.kind()).ifPresent(type -> work.computeIfAbsent(type, t -> new ArrayList<>()).add(site));
             }
         }
-        for (List<Site> group : groups(beds)) {
+        for (List<Site> group : groups(beds, HOUSE_DISTANCE)) {
             out.add(foundAt(BuildingType.HOUSE, group));
         }
         for (Map.Entry<BuildingType, List<Site>> entry : work.entrySet()) {
-            for (List<Site> group : groups(entry.getValue())) {
+            for (List<Site> group : groups(entry.getValue(), GROUP_DISTANCE)) {
                 out.add(foundAt(entry.getKey(), group));
             }
         }
@@ -109,36 +111,32 @@ public final class BuildingFinder {
         return out;
     }
 
-    /** The sites split into groups: any two within {@link #GROUP_DISTANCE} blocks (and 6 up or down) of each other, directly or through others, are one. */
-    private static List<List<Site>> groups(List<Site> sites) {
+    /**
+     * The sites split into groups of bounded size: each site joins the first group whose first site (its anchor) is within
+     * {@code distance} blocks, and 6 up or down, else starts a group. Not chained from site to site, so a street of houses is many
+     * houses, not one.
+     */
+    private static List<List<Site>> groups(List<Site> sites, int distance) {
         List<Site> sorted = new ArrayList<>(sites);
         sorted.sort(Comparator.comparingInt(Site::x).thenComparingInt(Site::z).thenComparingInt(Site::y));
-        int[] parent = new int[sorted.size()];
-        for (int i = 0; i < parent.length; i++) {
-            parent[i] = i;
-        }
-        for (int i = 0; i < sorted.size(); i++) {
-            for (int j = i + 1; j < sorted.size(); j++) {
-                Site a = sorted.get(i);
-                Site b = sorted.get(j);
-                if (Math.abs(a.x() - b.x()) <= GROUP_DISTANCE && Math.abs(a.z() - b.z()) <= GROUP_DISTANCE && Math.abs(a.y() - b.y()) <= 6) {
-                    parent[root(parent, j)] = root(parent, i);
+        List<List<Site>> out = new ArrayList<>();
+        for (Site site : sorted) {
+            List<Site> home = null;
+            for (List<Site> group : out) {
+                Site anchor = group.get(0);
+                if (Math.abs(anchor.x() - site.x()) <= distance && Math.abs(anchor.z() - site.z()) <= distance
+                        && Math.abs(anchor.y() - site.y()) <= 6) {
+                    home = group;
+                    break;
                 }
             }
+            if (home == null) {
+                home = new ArrayList<>();
+                out.add(home);
+            }
+            home.add(site);
         }
-        Map<Integer, List<Site>> byRoot = new java.util.TreeMap<>();
-        for (int i = 0; i < sorted.size(); i++) {
-            byRoot.computeIfAbsent(root(parent, i), r -> new ArrayList<>()).add(sorted.get(i));
-        }
-        return new ArrayList<>(byRoot.values());
-    }
-
-    private static int root(int[] parent, int i) {
-        while (parent[i] != i) {
-            parent[i] = parent[parent[i]];
-            i = parent[i];
-        }
-        return i;
+        return out;
     }
 
     /** The building a group of sites is: at its first site (the lowest x, then z), covering the group and a margin. */
@@ -158,29 +156,29 @@ public final class BuildingFinder {
         return new Found(type, first.x(), first.y(), first.z(), cover);
     }
 
-    /** One farm for each field of at least {@link #MIN_FIELD} blocks of farmland, at the field's middle. */
+    /** One farm for each field of at least {@link #MIN_FIELD} blocks of farmland, a field being the farmland within {@link #FIELD_SPAN} blocks of its first block. */
     private static List<Found> fields(List<Cell> farmland) {
         List<Cell> sorted = new ArrayList<>(farmland);
-        sorted.sort(Comparator.comparingInt(Cell::x).thenComparingInt(Cell::z));
-        int[] parent = new int[sorted.size()];
-        for (int i = 0; i < parent.length; i++) {
-            parent[i] = i;
-        }
-        for (int i = 0; i < sorted.size(); i++) {
-            for (int j = i + 1; j < sorted.size() && sorted.get(j).x() - sorted.get(i).x() <= FIELD_GAP; j++) {
-                Cell a = sorted.get(i);
-                Cell b = sorted.get(j);
-                if (Math.abs(a.z() - b.z()) <= FIELD_GAP && Math.abs(a.y() - b.y()) <= 2) {
-                    parent[root(parent, j)] = root(parent, i);
+        sorted.sort(Comparator.comparingInt(Cell::x).thenComparingInt(Cell::z).thenComparingInt(Cell::y));
+        List<List<Cell>> byAnchor = new ArrayList<>();
+        for (Cell cell : sorted) {
+            List<Cell> home = null;
+            for (List<Cell> field : byAnchor) {
+                Cell anchor = field.get(0);
+                if (Math.abs(anchor.x() - cell.x()) <= FIELD_SPAN && Math.abs(anchor.z() - cell.z()) <= FIELD_SPAN
+                        && Math.abs(anchor.y() - cell.y()) <= 2) {
+                    home = field;
+                    break;
                 }
             }
-        }
-        Map<Integer, List<Cell>> byRoot = new java.util.TreeMap<>();
-        for (int i = 0; i < sorted.size(); i++) {
-            byRoot.computeIfAbsent(root(parent, i), r -> new ArrayList<>()).add(sorted.get(i));
+            if (home == null) {
+                home = new ArrayList<>();
+                byAnchor.add(home);
+            }
+            home.add(cell);
         }
         List<Found> out = new ArrayList<>();
-        for (List<Cell> field : byRoot.values()) {
+        for (List<Cell> field : byAnchor) {
             if (field.size() < MIN_FIELD) {
                 continue;
             }

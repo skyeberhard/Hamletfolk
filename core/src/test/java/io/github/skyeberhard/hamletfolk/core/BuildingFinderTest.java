@@ -40,12 +40,34 @@ class BuildingFinderTest {
 
     @Test
     void bedsCloseTogetherAreOneHouseAndFarOnesAreAnother() {
-        List<BuildingFinder.Found> found = BuildingFinder.find(List.of(site("home", 10, 10), site("home", 13, 12), site("home", 18, 11),
+        List<BuildingFinder.Found> found = BuildingFinder.find(List.of(site("home", 10, 10), site("home", 13, 12), site("home", 22, 11),
                 site("home", 60, 60)), List.of());
-        assertEquals(2, count(found, BuildingType.HOUSE), "three beds chained within ten blocks are one house, the far one another");
+        assertEquals(3, count(found, BuildingType.HOUSE), "two beds three blocks apart are one house; a bed twelve away and a far one are others");
         BuildingFinder.Found first = found.get(0);
         assertEquals(10, first.x(), "found at its first bed");
-        assertTrue(first.footprint().contains(18, 11) && first.footprint().contains(10, 10));
+        assertTrue(first.footprint().contains(13, 12) && first.footprint().contains(10, 10));
+    }
+
+    /** The reviewer's case: a street of houses eight blocks apart must not be chained into one house that fills every lot. */
+    @Test
+    void aGridOfHousesIsManyHousesNotOne() {
+        List<BuildingFinder.Site> beds = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            for (int j = 0; j < 5; j++) {
+                beds.add(site("home", i * 8, j * 8));
+            }
+        }
+        List<BuildingFinder.Found> found = BuildingFinder.find(beds, List.of());
+        assertEquals(25, count(found, BuildingType.HOUSE));
+        assertTrue(found.stream().allMatch(f -> f.footprint().width() <= 2 * BuildingFinder.FOOTPRINT_RADIUS + 2),
+                "no footprint spans a street");
+    }
+
+    @Test
+    void aVeryLargeFieldIsSeveralFarmsOfBoundedSize() {
+        List<BuildingFinder.Found> found = BuildingFinder.find(List.of(), field(0, 0, 40, 40));
+        assertTrue(count(found, BuildingType.FARM) >= 4, "a field forty blocks across is not one farm");
+        assertTrue(found.stream().allMatch(f -> f.footprint().width() <= 2 * BuildingFinder.FIELD_SPAN + 3));
     }
 
     @Test
@@ -154,5 +176,31 @@ class BuildingFinderTest {
         Rect over = new Rect(62 - r, 4 - r, 2 * r + 1, 2 * r + 1);
         assertTrue(s.plan().lots().stream().filter(l -> l.status() == VillagePlan.LotStatus.RESERVED)
                 .noneMatch(l -> l.rect().overlaps(over)), "no reserved lot is left over the old house");
+    }
+
+    @Test
+    void aBuildingSignedBesideAFoundOneTakesItsPlace() {
+        Settlement s = village();
+        s.syncFound(BuildingFinder.find(List.of(site("toolsmith", 5, 5)), List.of()), b -> true, 10);
+        assertEquals(1, s.buildingCount(BuildingType.SMITHY));
+        s.registerBuilding(new Building(BuildingType.SMITHY, 9, 64, 9, 11, "Skye"));
+        assertEquals(1, s.buildingCount(BuildingType.SMITHY), "not counted twice");
+        assertEquals("Skye", s.buildings().iterator().next().registeredBy());
+        s.syncFound(BuildingFinder.find(List.of(site("toolsmith", 5, 5)), List.of()), b -> true, 20);
+        assertEquals(1, s.buildingCount(BuildingType.SMITHY), "and finding it again does not bring the old one back");
+    }
+
+    @Test
+    void manyHousesLeaveRoomInTheRegistryForOtherBuildings() {
+        Settlement s = village();
+        List<BuildingFinder.Site> sites = new ArrayList<>();
+        for (int i = 0; i < 300; i++) {
+            sites.add(site("home", i * 20, 0));
+        }
+        sites.add(site("toolsmith", 7, 500));
+        s.syncFound(BuildingFinder.find(sites, List.of()), b -> true, 10);
+        assertEquals(1, s.buildingCount(BuildingType.SMITHY), "the smithy is registered ahead of the houses");
+        assertTrue(s.buildings().size() <= Settlement.MAX_BUILDINGS - Settlement.FOUND_RESERVE);
+        assertEquals(Settlement.Registration.REGISTERED, s.registerBuilding(new Building(BuildingType.MINE, 1, 64, 1, 1, "Skye")));
     }
 }

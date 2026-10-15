@@ -239,6 +239,10 @@ public final class Settlement {
         if (existing == null && buildings.size() >= MAX_BUILDINGS) {
             return Registration.TOO_MANY;
         }
+        // R2.8: a building signed (or built) where one of its kind was found stands in its place, not beside it
+        buildings.values().removeIf(b -> BuildingFinder.FOUND_BY.equals(b.registeredBy()) && b.type() == building.type()
+                && !b.key().equals(building.key()) && Math.abs(b.x() - building.x()) <= BuildingFinder.SAME_BUILDING
+                && Math.abs(b.z() - building.z()) <= BuildingFinder.SAME_BUILDING);
         buildings.put(building.key(), building);
         if (plan != null) {
             plan.fillFor(building.type(), building.x(), building.z()); // R8.3: the lot it stands on is built on
@@ -258,7 +262,10 @@ public final class Settlement {
     public void syncFound(java.util.List<BuildingFinder.Found> found, java.util.function.Predicate<Building> covered, long day) {
         java.util.Set<String> kept = new java.util.HashSet<>();
         java.util.Map<BuildingType, Integer> added = new java.util.EnumMap<>(BuildingType.class);
-        for (BuildingFinder.Found f : found) {
+        // (houses last, and never the last places in the registry: a village of many houses keeps room for its other buildings)
+        java.util.List<BuildingFinder.Found> ordered = new java.util.ArrayList<>(found);
+        ordered.sort(java.util.Comparator.comparingInt(f -> f.type() == BuildingType.HOUSE ? 1 : 0));
+        for (BuildingFinder.Found f : ordered) {
             Building near = null;
             for (Building b : buildings.values()) {
                 if (b.type() == f.type() && Math.abs(b.x() - f.x()) <= BuildingFinder.SAME_BUILDING
@@ -269,7 +276,7 @@ public final class Settlement {
             }
             if (near != null) {
                 kept.add(near.key());
-            } else if (buildings.size() < MAX_BUILDINGS) {
+            } else if (buildings.size() < MAX_BUILDINGS - FOUND_RESERVE) {
                 Building building = new Building(f.type(), f.x(), f.y(), f.z(), day, BuildingFinder.FOUND_BY);
                 buildings.put(building.key(), building);
                 kept.add(building.key());
@@ -296,6 +303,9 @@ public final class Settlement {
             record(day, HistoryEvent.Kind.BUILDING, "It was no longer there: " + describe(gone) + " in " + name + ".");
         }
     }
+
+    /** R2.8: places in the registry that finding buildings leaves for signs. */
+    static final int FOUND_RESERVE = 40;
 
     private static String describe(java.util.Map<BuildingType, Integer> counts) {
         java.util.List<String> parts = new java.util.ArrayList<>();

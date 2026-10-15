@@ -589,9 +589,14 @@ public final class SettlementSimulator {
         return resting;
     }
 
+    private static final Map<Occupation, String> RESTING_KEYS = new java.util.EnumMap<>(Map.of(
+            Occupation.LUMBERJACK, RESTING + Occupation.LUMBERJACK.name(), Occupation.MINER, RESTING + Occupation.MINER.name(),
+            Occupation.MASON, RESTING + Occupation.MASON.name()));
+
     /** R4.24: true if this resident's trade is resting because the stores are full of what it makes. */
     public static boolean isResting(Settlement settlement, Resident resident) {
-        return resident.adult() && settlement.hasCondition(RESTING + resident.occupation().name());
+        String key = RESTING_KEYS.get(resident.occupation());
+        return resident.adult() && key != null && settlement.hasCondition(key);
     }
 
     /**
@@ -1257,6 +1262,10 @@ public final class SettlementSimulator {
         for (ResourceType material : List.of(ResourceType.WOOD, ResourceType.STONE, ResourceType.METAL)) {
             Occupation trade = SUPPLIERS.get(material);
             // R4.41: a trade given up for the farms (its stores were full) is taken up again once its stores run below the wanted level
+            boolean held = settlement.residents().stream().anyMatch(r -> r.adult() && r.occupation() == trade);
+            if (held) {
+                settlement.removeCondition(GAVE_UP + trade.name()); // (someone took it up some other way, or never left it)
+            }
             boolean givenUp = settlement.hasCondition(GAVE_UP + trade.name()) && coverOf(settlement, material) < 1.0;
             if (!(lacking.contains(material) || givenUp) || !workstationFree.test(settlement, trade)
                     || settlement.residents().stream().anyMatch(r -> r.adult() && r.occupation() == trade)) {
@@ -1326,7 +1335,7 @@ public final class SettlementSimulator {
             return; // (a builder is not moved off while a project waits for one)
         }
         String was = moved.occupation().title();
-        if (target.produces() == ResourceType.FOOD && SUPPLIERS.containsValue(moved.occupation())) {
+        if (SUPPLIERS.containsValue(moved.occupation())) {
             settlement.conditions().put(GAVE_UP + moved.occupation().name(), day); // R4.41: taken up again when its stores run low
         }
         moved.setOccupation(target);

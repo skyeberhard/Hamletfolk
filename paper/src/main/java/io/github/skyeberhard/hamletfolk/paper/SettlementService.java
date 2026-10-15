@@ -934,7 +934,7 @@ final class SettlementService {
     // ----- R2.8: buildings already standing -----
 
     /** How far from the centre farmland is looked for. */
-    private static final int FOUND_FARM_RADIUS = 80;
+    private static final int FOUND_FARM_RADIUS = 64;
 
     /**
      * R2.8: reads the beds and job sites the game knows of (its points of interest) and the farmland in the chunks that are loaded,
@@ -986,9 +986,27 @@ final class SettlementService {
             }
         }
         settlement.syncFound(io.github.skyeberhard.hamletfolk.core.BuildingFinder.find(sites, cells),
-                b -> world.isChunkLoaded(b.x() >> 4, b.z() >> 4), day);
+                b -> lookedAt(world, settlement, b), day);
         io.github.skyeberhard.hamletfolk.core.BuildingFinder.scanned(settlement, day);
         plugin.requestSave();
+    }
+
+    /**
+     * R2.8: whether a found building's whole surroundings were read in the last look (every chunk within the distance that makes a
+     * find the same building is loaded, and it is inside what was scanned), so one that was not seen again is really gone and not
+     * merely out of sight.
+     */
+    private boolean lookedAt(World world, Settlement settlement, io.github.skyeberhard.hamletfolk.core.Building building) {
+        int reach = io.github.skyeberhard.hamletfolk.core.BuildingFinder.SAME_BUILDING;
+        for (int cx = (building.x() - reach) >> 4; cx <= (building.x() + reach) >> 4; cx++) {
+            for (int cz = (building.z() - reach) >> 4; cz <= (building.z() + reach) >> 4; cz++) {
+                if (!world.isChunkLoaded(cx, cz)) {
+                    return false;
+                }
+            }
+        }
+        long limit = building.type() == BuildingType.FARM ? FOUND_FARM_RADIUS - reach : config.settlementRadius();
+        return settlement.distanceSquared(building.x(), building.z()) <= limit * limit;
     }
 
     // ----- R5.9: golems -----

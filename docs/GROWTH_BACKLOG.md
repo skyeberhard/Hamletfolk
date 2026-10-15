@@ -46,6 +46,9 @@ places, but its other three people are a lumberjack, a miner and a toolsmith, ea
 trade, so `SettlementSimulator.spareWorker` never moves them. Testford makes 9 and eats 9. With nothing left
 over, `newcomerDue` (food per head) and `Births` (bread) never fire.
 
+Built (2026-10-15): the aim became stock-driven: a village whose stores hold less food than the wanted level (10 per head) keeps moving
+workers onto free food places until they do, which is what makes production exceed consumption; the 'quarter more' figure was dropped.
+
 Approach:
 - Read `SettlementSimulator.cover`, `staffShortages`, `spareWorker` and `onlySupplier`. Find where "food is
   short" is decided and add the aim: food made over the last few days (the `flow` record) should be at least
