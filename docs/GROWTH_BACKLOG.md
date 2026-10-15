@@ -30,9 +30,11 @@ Follow CLAUDE.md and the loop in docs/WORKPLAN.md:
 
 1. **R4.41** food surplus, then **R4.42** tools first: they decide whether a village can grow at all.
 2. **R2.8** adopted buildings: gives every vanilla village a true starting point (beds, smithy, farms).
+   Then **R8.19** rough ground kept and **R8.20** villagers prepare it (both need R2.8 first).
 3. **R4.43** stuck projects, **R4.40** requests, **R3.18** selling the surplus.
 4. **R4.44** quieter history, **R1.33** saving on a locked file.
 5. The appearance items **R4.45**, **R4.46**, **R4.47**, after the growth items are played.
+6. **R8.21** foundations and terraces, once R8.19 and R8.20 have been played.
 
 ## The items
 
@@ -199,3 +201,68 @@ whether a villager draws an item in its head slot (the guard's sword in `GuardAr
 whether an item's model can be chosen by a component a pack reads. If it does, a hat or hood item per profile
 gives region, climate and status without a client mod; it must never drop (drop chance 0, as `GuardArms`
 does) and must be tagged so it is removed when the setting is off.
+
+## Unsuitable ground (R8.19 to R8.21)
+
+Evidence: across the ten villages the plans kept 55 lots and dropped 136: Oakford kept 0 of 17, Hollowgate 1 of 25,
+Foxhaven 3 of 35, Redwick 5 of 19. R4.38 grows a full plan, but its new streets cross the same hills and forests, so
+most of the new lots would be dropped too. Three causes, all in `PlanGenerator`:
+
+- `placeLots` keeps a lot only if `buildable` (every column dry, within `SLOPE_LIMIT` = 4 of the others), while the
+  builders can level up to `TerrainPad.MAX_CHANGE` = 8 and fill water up to `MAX_WATER` = 3 deep (`gradable`, R4.37).
+- The Paper height source (`SettlementService`, `MOTION_BLOCKING_NO_LEAVES`) skips leaves but not trunks, so a forest
+  reads as rough ground. Oakford is a forest village and found no farm ground within 64 blocks.
+- A dropped lot is only counted (`VillagePlan.addDropped`); its ground is never looked at again.
+
+### R8.19 Rough ground is kept and used
+
+Approach:
+- Add a lot state for rough ground (a new `LotStatus` value, or a flag on `Lot`). `VillagePlan.toMap/fromMap` must
+  read old plans without it: check whether that needs a `SettlementCodec.FORMAT_VERSION` bump and a `migrate()` step.
+- In `placeLots`, keep a lot as ready when `buildable`, as rough when only `gradable`, and drop it otherwise.
+- `VillagePlan.candidatesFor` and `nextLot` put ready lots first; a rough lot is offered only when no ready lot of the
+  kind is left. `Construction.queue` already grades with `TerrainPad`, so a rough lot within its limits can be built.
+- Heights without trunks: in the Paper height source, walk down past logs that are part of a tree the game grew
+  (`WorldMarksService.fellAt` already tells a grown tree from placed logs: reuse that test, do not write a second one).
+
+Watch for:
+- **Do R2.8 first.** Today a lot over a vanilla house is dropped because its roof reads as steep ground. With the
+  looser check a roof can pass, and grading would cut into the house. R2.8 marks found buildings as taken, so lots
+  are never laid out over them. Add a test with a "roof" in the height source to prove the order holds.
+- Ignoring trunks must not ignore a player's log cabin: only trees the game grew.
+- Re-planning: existing plans keep their dropped count; R8.19 applies to new plans and new stages (R4.38). Decide
+  whether `/settlement admin replan` should also pick up old dropped ground and write it in the row if so.
+- `SimulationPerformanceTest` is unaffected (planning is not daily), but `placeLots` runs on loaded ground on the
+  main thread: keep the extra measuring to the lots it already measures.
+
+### R8.20 Villagers prepare the ground they need
+
+Approach:
+- Core decides which rough lot to prepare (the one the planner wants next, R8.19) and what it needs: trees to fell,
+  ground to cut, hollows to fill. Keep that in `WorldMarks` or a new core class, stored in conditions like the
+  quarry (`quarryX/Z/Y/Bottom`), with tests.
+- Lumberjacks: `WorldMarksService` fells one tree a pass while wood is owed, the nearest outside the plan. Add a
+  target: trees on the lot being prepared first. The wood is already counted by the lumberjack's work; do not
+  count it twice.
+- Miners: the quarry is a 5 by 5 pit beside the mine. A lot that needs cutting can be the quarry instead, dug down
+  to the lot's planned level rather than to `quarryBottom`.
+- Fill: the earth cut is owed to the hollows of another lot before any stone or dirt is taken from the stores. Keep
+  a running balance in core and test that nothing is made from nothing.
+- The lot becomes ready when the height source reads it as `buildable`; re-check it from the world, never from a
+  saved diff (the same rule as construction: the world is the truth).
+
+Watch for:
+- Never change a block a player placed, anything inside an `[Exempt]` area, or ground under a found building.
+- Only work on loaded chunks, or under the holds `ConstructionService.hold` gives with `construction.unattended`.
+- Water: shallow water at a lot's edge only (R4.37 limits). Never drain a lake, river or the sea.
+- Looks: a flattened pad with sheer sides looks wrong. Grade the edges as `TerrainPad` does (its buffer) and leave
+  cut faces no higher than the grading limit.
+- Pacing: one lot at a time, a few blocks a pass, like the quarry, so a village does not reshape a hill overnight.
+
+### R8.21 Buildings that follow the slope
+
+Approach: in `Construction.queue`, when a lot is too steep for `TerrainPad`, add a foundation to the blueprint
+(pillars or a filled base from the floor down to the ground at each column) and charge it like the building. Farms
+on a slope become terraces: split the farm footprint in two or three strips at different levels. This changes
+`Blueprint` handling and the Paper building step, so it needs the reviewer and a look in game. Leave it until R8.19
+and R8.20 have been played: they may make it unnecessary for most villages.

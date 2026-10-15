@@ -139,7 +139,7 @@ Settled 2026-10-02. The village structure library is mostly already in the game.
 ## Growth backlog (2026-10-15)
 
 The log review of the unattended run found why no village grows. R4.38 and R4.39 are built; the rest
-(R1.33, R2.8, R3.18, R4.40 to R4.47) are logged with evidence, approach and traps in
+(R1.33, R2.8, R3.18, R4.40 to R4.47, R8.19 to R8.21) are logged with evidence, approach and traps in
 [GROWTH_BACKLOG.md](GROWTH_BACKLOG.md), in the order to work them.
 
 ## Decisions
