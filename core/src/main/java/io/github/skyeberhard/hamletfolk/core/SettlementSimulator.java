@@ -347,6 +347,7 @@ public final class SettlementSimulator {
         }
 
         spoilAndCap(settlement);
+        tradersCall(settlement, day); // R3.18
         wasteBeyondTreasuryLimit(settlement);
         updateRequests(settlement, day);
 
@@ -408,9 +409,72 @@ public final class SettlementSimulator {
         int spoilage = settlement.buildingCount(BuildingType.GRANARY) > 0 ? GRANARY_SPOILAGE_PERCENT : FOOD_SPOILAGE_PERCENT; // R8.12
         ledger.take(ResourceType.FOOD, ledger.get(ResourceType.FOOD) * spoilage / 100);
         for (ResourceType type : ResourceType.values()) {
-            ledger.take(type, ledger.get(type) - capacity(settlement, type));
+            int over = ledger.get(type) - capacity(settlement, type);
+            if (over > 0) {
+                ledger.take(type, over);
+                // R3.18: what the stores cannot hold is kept aside for the next passing trader (never more than the stores hold)
+                String key = FOR_SALE_KEYS.get(type);
+                long kept = Math.min((long) capacity(settlement, type), settlement.conditions().getOrDefault(key, 0L) + over);
+                settlement.conditions().put(key, kept);
+            }
         }
     }
+
+    private static final Map<ResourceType, String> FOR_SALE_KEYS = forSaleKeys();
+
+    private static Map<ResourceType, String> forSaleKeys() {
+        Map<ResourceType, String> keys = new java.util.EnumMap<>(ResourceType.class);
+        for (ResourceType type : ResourceType.values()) {
+            keys.put(type, "forSale:" + type.name());
+        }
+        return keys;
+    }
+
+    /** R3.18: days between visits of a passing trader. */
+    static final int TRADER_EVERY_DAYS = 7;
+    private static final String TRADERS_AT = "tradersAt";
+
+    /**
+     * R3.18: once a week a passing trader buys what the stores had no room for, at half what a merchant of the village gets for it
+     * (two thirds with a shop and a merchant, a better market), and the emeralds go to the treasury as far as it has room (R2.6);
+     * what it has no room for is lost as before. The history says what was sold.
+     */
+    private void tradersCall(Settlement settlement, long day) {
+        Long last = settlement.conditions().get(TRADERS_AT);
+        if (last == null) {
+            settlement.conditions().put(TRADERS_AT, day);
+            return;
+        }
+        if (day - last < TRADER_EVERY_DAYS) {
+            return;
+        }
+        settlement.conditions().put(TRADERS_AT, day);
+        boolean market = settlement.buildingCount(BuildingType.SHOP) > 0
+                && settlement.residents().stream().anyMatch(r -> r.adult() && r.occupation() == Occupation.MERCHANT);
+        int room = treasuryRoom(settlement);
+        int earned = 0;
+        List<String> sold = new ArrayList<>();
+        for (ResourceType type : ResourceType.values()) {
+            Long kept = settlement.conditions().remove(FOR_SALE_KEYS.get(type));
+            if (kept == null || kept <= 0) {
+                continue;
+            }
+            int units = (int) Math.min(kept, Integer.MAX_VALUE);
+            int emeralds = market ? units * 2 / (3 * unitsPerEmerald(type)) : units / (2 * unitsPerEmerald(type));
+            if (emeralds > 0 && earned < room) {
+                earned += Math.min(emeralds, room - earned);
+                sold.add(type.name().toLowerCase(Locale.ROOT));
+            }
+        }
+        if (earned > 0) {
+            settlement.ledger().addTreasury(earned);
+            settlement.recordQuiet(day, HistoryEvent.Kind.MILESTONE, "A passing trader bought what " + settlement.name()
+                    + "'s full stores could not hold (" + String.join(", ", sold) + ") and paid into the treasury.", TRADER_QUIET_DAYS);
+        }
+    }
+
+    /** R3.18: days before the same sale is written down again. */
+    static final int TRADER_QUIET_DAYS = 60;
 
     /**
      * R4.15: residents past their own maximum age die of old age. They leave the population, the
