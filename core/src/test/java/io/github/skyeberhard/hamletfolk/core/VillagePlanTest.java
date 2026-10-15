@@ -84,9 +84,13 @@ class VillagePlanTest {
     void lotsOnTooSteepGroundAreDroppedAtFoundingAndEveryKeptLotIsWithinTheLimit() {
         HeightSource cliffEast = HeightSource.of((x, z) -> x > 20 ? 64 + (x - 20) * 2 : 64);
         VillagePlan plan = PlanGenerator.generate(0, 0, 1, "plains", cliffEast);
-        assertTrue(plan.dropped() > 0, "some lots are on the slope");
+        assertTrue(plan.dropped() + plan.roughCount() > 0, "some lots are on the slope");
         for (VillagePlan.Lot lot : plan.lots()) {
-            assertTrue(PlanGenerator.buildable(cliffEast, lot.rect()), "lot " + lot.id() + " is too steep");
+            if (lot.status() == VillagePlan.LotStatus.ROUGH) { // R8.19: kept if the builders can level it
+                assertTrue(PlanGenerator.gradable(cliffEast, lot.rect()) && !PlanGenerator.buildable(cliffEast, lot.rect()), "rough lot " + lot.id());
+            } else {
+                assertTrue(PlanGenerator.buildable(cliffEast, lot.rect()), "lot " + lot.id() + " is too steep");
+            }
         }
     }
 
@@ -160,7 +164,8 @@ class VillagePlanTest {
                 }
             }
             for (VillagePlan.Lot lot : plan.lots()) {
-                assertTrue(PlanGenerator.buildable(ground, lot.rect()), "seed " + seed + " lot " + lot.id());
+                assertTrue(lot.status() == VillagePlan.LotStatus.ROUGH ? PlanGenerator.gradable(ground, lot.rect())
+                        : PlanGenerator.buildable(ground, lot.rect()), "seed " + seed + " lot " + lot.id());
             }
             assertNotNull(spine);
         }
@@ -175,6 +180,9 @@ class VillagePlanTest {
             }
         }
         for (VillagePlan.Lot lot : plan.lots()) {
+            if (lot.status() == VillagePlan.LotStatus.ROUGH) {
+                continue; // (R8.19: a rough lot may have a little shallow water for the builders to fill)
+            }
             for (int x = lot.rect().x(); x <= lot.rect().maxX(); x++) {
                 for (int z = lot.rect().z(); z <= lot.rect().maxZ(); z++) {
                     assertFalse(ground.water(x, z), "lot " + lot.id() + " is wet at " + x + "," + z);

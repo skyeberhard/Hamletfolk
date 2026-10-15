@@ -137,6 +137,10 @@ class DistrictsTest {
             }
             assertEquals(4, plan.stage());
             for (VillagePlan.Lot lot : plan.lots()) {
+                if (lot.status() == VillagePlan.LotStatus.ROUGH) {
+                    assertTrue(PlanGenerator.gradable(ground, lot.rect()), "seed " + seed + " rough lot " + lot.id()); // (R8.19: shallow water may be filled)
+                    continue;
+                }
                 for (int x = lot.rect().x(); x <= lot.rect().maxX(); x++) {
                     for (int z = lot.rect().z(); z <= lot.rect().maxZ(); z++) {
                         assertFalse(ground.water(x, z), "seed " + seed + " lot " + lot.id() + " is wet at " + x + "," + z);

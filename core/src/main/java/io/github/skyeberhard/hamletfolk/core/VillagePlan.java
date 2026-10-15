@@ -20,7 +20,11 @@ public final class VillagePlan {
     }
 
     public enum LotStatus {
-        RESERVED, FILLED
+        /** Ground that is ready to build on. */
+        RESERVED,
+        /** R8.19: ground the builders can level (a slope, a little shallow water) but that is not flat or dry enough to build on at once. */
+        ROUGH,
+        FILLED
     }
 
     /** A stretch of road. */
@@ -131,8 +135,14 @@ public final class VillagePlan {
         lots.add(lot);
     }
 
+    /** Lots not yet built on: the ready ones and the rough ones (R8.19). */
     public int reservedCount() {
-        return (int) lots.stream().filter(l -> l.status() == LotStatus.RESERVED).count();
+        return (int) lots.stream().filter(l -> l.status() != LotStatus.FILLED).count();
+    }
+
+    /** R8.19: how many of the lots left are rough ground. */
+    public int roughCount() {
+        return (int) lots.stream().filter(l -> l.status() == LotStatus.ROUGH).count();
     }
 
     public int filledCount() {
@@ -144,8 +154,10 @@ public final class VillagePlan {
      * so a village grows outward from its centre.
      */
     public Optional<Lot> nextLot(BuildingType type) {
-        return lots.stream().filter(l -> l.status() == LotStatus.RESERVED && l.type() == type)
-                .min(Comparator.comparingLong((Lot l) -> distanceSquared(l.rect())).thenComparingInt(Lot::id));
+        // (R8.19: a rough lot only when no ready lot of the kind is left)
+        return lots.stream().filter(l -> l.status() != LotStatus.FILLED && l.type() == type)
+                .min(Comparator.comparingInt((Lot l) -> l.status() == LotStatus.ROUGH ? 1 : 0)
+                        .thenComparingLong(l -> distanceSquared(l.rect())).thenComparingInt(Lot::id));
     }
 
     /**
@@ -154,13 +166,16 @@ public final class VillagePlan {
      * first as there are most of those, then the rest nearest the square; the caller checks the template fits.
      */
     public List<Lot> candidatesFor(BuildingType type) {
-        List<Lot> same = lots.stream().filter(l -> l.status() == LotStatus.RESERVED && l.type() == type)
-                .sorted(Comparator.comparingLong((Lot l) -> distanceSquared(l.rect())).thenComparingInt(Lot::id)).toList();
+        // R8.19: the ready lots of the kind, then its rough ones; only with neither, other kinds' lots (ready first)
+        List<Lot> same = lots.stream().filter(l -> l.status() != LotStatus.FILLED && l.type() == type)
+                .sorted(Comparator.comparingInt((Lot l) -> l.status() == LotStatus.ROUGH ? 1 : 0)
+                        .thenComparingLong(l -> distanceSquared(l.rect())).thenComparingInt(Lot::id)).toList();
         if (!same.isEmpty()) {
             return same;
         }
-        return lots.stream().filter(l -> l.status() == LotStatus.RESERVED)
-                .sorted(Comparator.comparingInt((Lot l) -> l.type() == BuildingType.HOUSE ? 0 : 1)
+        return lots.stream().filter(l -> l.status() != LotStatus.FILLED)
+                .sorted(Comparator.comparingInt((Lot l) -> l.status() == LotStatus.ROUGH ? 1 : 0)
+                        .thenComparingInt(l -> l.type() == BuildingType.HOUSE ? 0 : 1)
                         .thenComparingLong(l -> distanceSquared(l.rect())).thenComparingInt(Lot::id)).toList();
     }
 
@@ -294,7 +309,7 @@ public final class VillagePlan {
     public boolean fillFor(BuildingType type, int x, int z) {
         for (int i = 0; i < lots.size(); i++) {
             Lot lot = lots.get(i);
-            if (lot.status() == LotStatus.RESERVED && lot.type() == type && lot.rect().inflated(2).contains(x, z)) {
+            if (lot.status() != LotStatus.FILLED && lot.type() == type && lot.rect().inflated(2).contains(x, z)) {
                 lots.set(i, lot.filled());
                 return true;
             }
@@ -310,7 +325,7 @@ public final class VillagePlan {
         int filled = 0;
         for (int i = 0; i < lots.size(); i++) {
             Lot lot = lots.get(i);
-            if (lot.status() == LotStatus.RESERVED && lot.rect().overlaps(footprint)) {
+            if (lot.status() != LotStatus.FILLED && lot.rect().overlaps(footprint)) {
                 lots.set(i, lot.filled());
                 filled++;
             }

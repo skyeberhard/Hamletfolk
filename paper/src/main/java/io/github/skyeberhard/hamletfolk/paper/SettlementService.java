@@ -153,9 +153,17 @@ final class SettlementService {
         return new HeightSource() {
             @Override
             public int height(int x, int z) {
-                // Leaves are skipped, so a tree or a roof is not mistaken for the ground.
-                return world.isChunkLoaded(x >> 4, z >> 4)
-                        ? world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES) : HeightSource.UNKNOWN;
+                // Leaves are skipped, so a tree or a roof is not mistaken for the ground; so is the trunk of a tree the game grew (R8.19).
+                if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+                    return HeightSource.UNKNOWN;
+                }
+                int y = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES);
+                if (Tag.LOGS.isTagged(world.getBlockAt(x, y, z).getType()) && leavesNear(world, x, y, z)) {
+                    while (y > world.getMinHeight() && Tag.LOGS.isTagged(world.getBlockAt(x, y, z).getType())) {
+                        y--;
+                    }
+                }
+                return y;
             }
 
             @Override
@@ -165,6 +173,26 @@ final class SettlementService {
                         && world.getHighestBlockAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES).isLiquid();
             }
         };
+    }
+
+    /**
+     * R8.19: whether a log at the top of a column belongs to a tree: leaves within two blocks of it (reading only loaded chunks),
+     * which a cabin of logs does not have. A trunk is then looked through to the ground, and a lot among trees is not read as rough.
+     */
+    private static boolean leavesNear(World world, int x, int y, int z) {
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dz = -2; dz <= 2; dz++) {
+                if (!world.isChunkLoaded((x + dx) >> 4, (z + dz) >> 4)) {
+                    continue;
+                }
+                for (int dy = -1; dy <= 2; dy++) {
+                    if (Tag.LEAVES.isTagged(world.getBlockAt(x + dx, y + dy, z + dz).getType())) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     /** True if every chunk within {@code radius} blocks of a point is loaded, so the ground there can be measured. */

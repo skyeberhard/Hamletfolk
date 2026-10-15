@@ -228,6 +228,7 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   `Construction.wantedStage` (not `PlanGenerator.stageFor`) is the stage `ensurePlan` lays out, and `planGrew` clears the call. A want gets the R4.37
   ground search only at `MAX_STAGE`. A village's first mine leaves stone out of its price (`Construction.priceFor`, `stoneFree`) and `charge` takes none.
   The rest of the growth fixes are in docs/GROWTH_BACKLOG.md.
+- **Rough lots (R8.19):** `VillagePlan.LotStatus.ROUGH` is a lot the builders can level (`PlanGenerator.gradable`) that is not `buildable`; everything that means "a lot not yet built on" is `status() != FILLED`, not `== RESERVED`. `nextLot`/`candidatesFor` offer ready lots first. Plans made before R8.19 have none.
 - **Found buildings (R2.8):** `BuildingFinder` (core) turns points of interest (`home` beds, villager job sites by name) and farmland cells into `Found`
   buildings; `Settlement.syncFound` registers them with `registeredBy` `BuildingFinder.FOUND_BY` ("found"): they have NO sign, so anything that checks a
   building's sign (`pruneBuildings`) must skip them, and they are dropped only by the next look, when their chunk is loaded. A signed or village-built

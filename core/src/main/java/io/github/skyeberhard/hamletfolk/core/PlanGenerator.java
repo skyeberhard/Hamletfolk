@@ -312,13 +312,15 @@ public final class PlanGenerator {
                         cursor += size[0] + 2;
                         continue;
                     }
-                    if (!buildable(terrain, candidate)) {
+                    // R8.19: ground the builders can level is kept, as rough; only what they could not build on is dropped
+                    boolean ready = buildable(terrain, candidate);
+                    if (!ready && !gradable(terrain, candidate)) {
                         plan.addDropped(1);
                         cursor += size[0] + 2;
                         continue;
                     }
                     plan.addLot(new VillagePlan.Lot(plan.newId(), candidate, type, plan.biomeSet(), stage,
-                            VillagePlan.LotStatus.RESERVED));
+                            ready ? VillagePlan.LotStatus.RESERVED : VillagePlan.LotStatus.ROUGH));
                     pool.remove(type);
                     cursor += size[0] + 2;
                 }
@@ -466,7 +468,8 @@ public final class PlanGenerator {
         if (best == null) {
             return java.util.Optional.empty();
         }
-        VillagePlan.Lot lot = new VillagePlan.Lot(plan.newId(), best, type, plan.biomeSet(), plan.stage(), VillagePlan.LotStatus.RESERVED);
+        VillagePlan.Lot lot = new VillagePlan.Lot(plan.newId(), best, type, plan.biomeSet(), plan.stage(),
+                grading ? VillagePlan.LotStatus.ROUGH : VillagePlan.LotStatus.RESERVED); // (R8.19: ground that needs levelling is rough)
         plan.addLot(lot);
         return java.util.Optional.of(lot);
     }

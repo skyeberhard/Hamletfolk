@@ -371,6 +371,7 @@ final class SettlementCommand implements TabExecutor {
             }
         }
         player.sendMessage(Component.text("Reserved lots in " + s.name() + ": " + (byType.isEmpty() ? "none" : byType.toString())
+                + (layout.roughCount() > 0 ? "; " + layout.roughCount() + " more on rough ground (brown dust: the builders level it)" : "")
                 + ". Outlines on; /settlement lots again turns them off.", NamedTextColor.GOLD));
         player.sendMessage(Component.text("Colours: ", NamedTextColor.GRAY)
                 .append(Component.text("house ", TextColor.color(255, 140, 0)))
@@ -400,10 +401,13 @@ final class SettlementCommand implements TabExecutor {
             java.util.Map<io.github.skyeberhard.hamletfolk.core.BuildingType, List<Rect>> reserved = new java.util.EnumMap<>(
                     io.github.skyeberhard.hamletfolk.core.BuildingType.class);
             List<Rect> built = new ArrayList<>();
+            List<Rect> rough = new ArrayList<>(); // R8.19
             for (VillagePlan.Lot lot : current.lots()) {
                 if (Math.hypot(lot.rect().centerX() - here.getX(), lot.rect().centerZ() - here.getZ()) <= 64) {
                     if (lot.status() == VillagePlan.LotStatus.RESERVED) {
                         reserved.computeIfAbsent(lot.type(), t -> new ArrayList<>()).add(lot.rect());
+                    } else if (lot.status() == VillagePlan.LotStatus.ROUGH) {
+                        rough.add(lot.rect());
                     } else {
                         built.add(lot.rect());
                     }
@@ -413,6 +417,7 @@ final class SettlementCommand implements TabExecutor {
             current.roads().forEach(r -> streets.add(r.rect()));
             // Each kind of lot has its own colour (see the legend sent when the outlines are switched on).
             reserved.forEach((type, rects) -> outline(player, world, rects, lotColour(type)));
+            outline(player, world, rough, org.bukkit.Color.fromRGB(110, 70, 30));
             outline(player, world, built, org.bukkit.Particle.HAPPY_VILLAGER);
             outline(player, world, streets, org.bukkit.Color.fromRGB(150, 105, 60));
             outline(player, world, List.of(current.square()), org.bukkit.Color.fromRGB(255, 255, 255));
