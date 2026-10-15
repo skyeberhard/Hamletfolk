@@ -51,8 +51,15 @@ aging:
 # life stage, and that does reach clients, so a plain resource pack that redraws those types can
 # show it with no client mod. It replaces the biome look of tracked villagers (the original is
 # remembered and put back if you turn this off again), so leave it off unless you ship such a pack.
+#
+# profession-follows-occupation (R4.45) makes a villager wear, and be labelled with, the profession of the work the village's
+# records say it does (a builder is not left in a farmer's apron). A job with no vanilla profession (lumberjack, miner, builder,
+# guard, merchant) shows the plain robe. The game's own job changes that disagree are refused, and a villager a player has
+# traded with (or that has levelled) keeps the profession it has, as the game never lets one change. Turn it off to leave
+# professions to the game.
 appearance:
   villager-type: false
+  profession-follows-occupation: true
 
 # Villager trade prices follow the settlement's stores (R3.1). A villager selling something the
 # village is short of charges up to half as much again, and one buying it asks for fewer of them;

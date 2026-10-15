@@ -58,6 +58,7 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   simulation tests with repeated `--rerun` runs, checking Gradle's own exit code.
 - **Save format changes need a migration.** Bump `SettlementCodec.FORMAT_VERSION` and add a
   step in `migrate()` with a test using a hand-built old-format map.
+- **The vanilla profession follows the simulation (R4.45):** `SettlementService.applyAppearance` sets it from `Appearance.profession`, `VillagerListener.guardCareerChange` cancels the game's own changes that disagree (not for an unplaced jobless resident), and nothing may change the profession of a villager with experience or a level above 1 (`professionLocked`). `applyLevel` raises the vanilla level only for the resident's real trade.
 - **The simulation owns occupations** (R4.3). The vanilla profession may only fill in an
   UNEMPLOYED resident (`Resident.seedOccupation`); never call `setOccupation` from `SettlementService`
   or `VillagerListener`. Whether a job can be *assigned* comes from registered buildings

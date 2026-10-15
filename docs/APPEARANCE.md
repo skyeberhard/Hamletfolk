@@ -76,6 +76,16 @@ mod.
 - *Unverified:* how a Bedrock player (through Geyser) sees the type changes. Treat the pack as
   Java-only until T26 says otherwise.
 
+## 2b. Profession follows occupation (R4.45, on by default)
+
+With `appearance.profession-follows-occupation: true` the plugin sets a grown-up tracked villager's vanilla profession to the one that
+stands for its simulated occupation (`Appearance.profession` in `core`, unit tested): its own trade where the game has it, and `none` (the
+plain robe) for lumberjack, miner, builder, guard, merchant, beekeeper, horse trainer, glassblower and the jobless. A profession brings its
+trades, so those jobs are not given the nearest apron. The game's own job changes that disagree are refused, and a villager that has
+traded or levelled keeps the profession it has (the game allows no change, and a change would reset its trades). Clothes and the job label
+shown by client mods and by Geyser both read this profession. Turning the setting off leaves professions to the game; it does not restore
+what they were.
+
 ## 3. Building the pack
 
 The type and profession skins are in the vanilla client jar under

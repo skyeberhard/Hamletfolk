@@ -70,6 +70,28 @@ final class VillagerListener implements Listener {
         }
     }
 
+    /**
+     * R4.45: the game's own job changes that disagree with the work the village's records give a villager are refused, so it keeps
+     * the profession it shows (and does not claim a workstation for a trade it does not do). A jobless resident the simulation
+     * has not placed is left to take a vanilla job, which seeds its occupation below (R4.3).
+     */
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
+    public void guardCareerChange(VillagerCareerChangeEvent event) {
+        if (!service.professionFollows() || !event.getEntity().isAdult() || SettlementService.professionLocked(event.getEntity())) {
+            return;
+        }
+        service.registry().resident(event.getEntity().getUniqueId()).ifPresent(resident -> {
+            boolean pinned = service.registry().settlementOf(resident.id()).filter(s -> s.isPinned(resident.id())).isPresent();
+            if (resident.occupation() == Occupation.UNEMPLOYED && !pinned) {
+                return;
+            }
+            String wanted = io.github.skyeberhard.hamletfolk.core.Appearance.profession(resident.occupation());
+            if (!event.getProfession().getKey().getKey().equals(wanted)) {
+                event.setCancelled(true);
+            }
+        });
+    }
+
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onCareerChange(VillagerCareerChangeEvent event) {
         // R4.3: seeds an unemployed resident only; never replaces an occupation the simulation gave.

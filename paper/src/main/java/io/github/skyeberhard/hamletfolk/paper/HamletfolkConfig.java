@@ -3,7 +3,7 @@ package io.github.skyeberhard.hamletfolk.paper;
 import io.github.skyeberhard.hamletfolk.core.WorldFilter;
 import org.bukkit.configuration.ConfigurationSection;
 
-record HamletfolkConfig(int settlementRadius, int maxCatchUpDays, boolean showNames, boolean oldAgeDeaths, boolean appearanceTypes,
+record HamletfolkConfig(int settlementRadius, int maxCatchUpDays, boolean showNames, boolean oldAgeDeaths, boolean appearanceTypes, boolean professionFollows,
                        double lifespanScale, boolean pricesFollowSupply, boolean toolPenalty, boolean tradesNeedStock, boolean migration, boolean membershipFollows, int treasuryBase,
                        WorldFilter worlds) {
 
@@ -17,6 +17,7 @@ record HamletfolkConfig(int settlementRadius, int maxCatchUpDays, boolean showNa
                 config.getBoolean("show-names", true),
                 config.getBoolean("aging.old-age-deaths", false),
                 config.getBoolean("appearance.villager-type", false),
+                config.getBoolean("appearance.profession-follows-occupation", true),
                 config.getDouble("aging.lifespan-scale", DEFAULT_LIFESPAN_SCALE),
                 config.getBoolean("prices.follow-supply", true),
                 config.getBoolean("economy.tool-penalty", true),

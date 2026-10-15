@@ -1609,6 +1609,32 @@ final class SettlementService {
             villager.setVillagerType(villagerType(original));
             data.remove(originalKey);
         }
+        // R4.45: the profession shown is the work the village's records give (a grown-up only; a child has none)
+        if (config.professionFollows() && villager.isAdult() && !professionLocked(villager)) {
+            Villager.Profession wanted = professionOf(Appearance.profession(resident.occupation()));
+            if (villager.getProfession() != wanted) {
+                villager.setProfession(wanted);
+            }
+        }
+    }
+
+    /** R4.45: whether the village's records say villagers should show their work (the setting). */
+    boolean professionFollows() {
+        return config.professionFollows();
+    }
+
+    /** R4.45: the vanilla profession with this key ({@code none} if there is no such). */
+    static Villager.Profession professionOf(String key) {
+        Villager.Profession found = org.bukkit.Registry.VILLAGER_PROFESSION.get(NamespacedKey.minecraft(key));
+        return found == null ? Villager.Profession.NONE : found;
+    }
+
+    /**
+     * R4.45: the game never changes the profession of a villager that has traded or levelled (and changing it would throw away its
+     * trades), so neither does the plugin.
+     */
+    static boolean professionLocked(Villager villager) {
+        return villager.getVillagerExperience() > 0 || villager.getVillagerLevel() > 1;
     }
 
     private static Villager.Type villagerType(String key) {
@@ -1655,8 +1681,11 @@ final class SettlementService {
                 }
             }
         }
+        // (only when the villager shows the trade the resident really has: raising the level of another profession locks it in, R4.45)
         if (!resident.occupation().simOwned() && villager.getProfession() != Villager.Profession.NONE
-                && villager.getProfession() != Villager.Profession.NITWIT && villager.getVillagerLevel() < level) {
+                && villager.getProfession() != Villager.Profession.NITWIT
+                && Occupation.fromVanillaKey(villager.getProfession().getKey().getKey()) == resident.occupation()
+                && villager.getVillagerLevel() < level) {
             villager.increaseLevel(level - villager.getVillagerLevel());
         }
     }
