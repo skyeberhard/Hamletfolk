@@ -248,6 +248,71 @@ public final class Settlement {
         return Registration.REGISTERED;
     }
 
+    /**
+     * R2.8: brings the buildings found standing in the village (see {@link BuildingFinder}) into line with what was last read. A
+     * building found that no building of its kind within {@link BuildingFinder#SAME_BUILDING} blocks already stands for (a sign's, or
+     * an earlier find) is registered; a found building that was not found again and whose place was read ({@code covered}: its ground
+     * is loaded, so nothing is dropped for want of looking) is dropped. The lots over every building found are marked as built on.
+     * One line in the history says what changed.
+     */
+    public void syncFound(java.util.List<BuildingFinder.Found> found, java.util.function.Predicate<Building> covered, long day) {
+        java.util.Set<String> kept = new java.util.HashSet<>();
+        java.util.Map<BuildingType, Integer> added = new java.util.EnumMap<>(BuildingType.class);
+        for (BuildingFinder.Found f : found) {
+            Building near = null;
+            for (Building b : buildings.values()) {
+                if (b.type() == f.type() && Math.abs(b.x() - f.x()) <= BuildingFinder.SAME_BUILDING
+                        && Math.abs(b.z() - f.z()) <= BuildingFinder.SAME_BUILDING) {
+                    near = b;
+                    break;
+                }
+            }
+            if (near != null) {
+                kept.add(near.key());
+            } else if (buildings.size() < MAX_BUILDINGS) {
+                Building building = new Building(f.type(), f.x(), f.y(), f.z(), day, BuildingFinder.FOUND_BY);
+                buildings.put(building.key(), building);
+                kept.add(building.key());
+                added.merge(f.type(), 1, Integer::sum);
+            }
+            if (plan != null) {
+                plan.fillOverlapping(f.footprint());
+            }
+        }
+        java.util.Map<BuildingType, Integer> gone = new java.util.EnumMap<>(BuildingType.class);
+        for (Building b : new java.util.ArrayList<>(buildings.values())) {
+            if (BuildingFinder.FOUND_BY.equals(b.registeredBy()) && !kept.contains(b.key()) && covered.test(b)) {
+                buildings.remove(b.key());
+                gone.merge(b.type(), 1, Integer::sum);
+            }
+        }
+        if (plan != null) {
+            plan.syncFound(buildings.values());
+        }
+        if (!added.isEmpty()) {
+            record(day, HistoryEvent.Kind.BUILDING, name + " took stock of what already stands: " + describe(added) + ".");
+        }
+        if (!gone.isEmpty()) {
+            record(day, HistoryEvent.Kind.BUILDING, "It was no longer there: " + describe(gone) + " in " + name + ".");
+        }
+    }
+
+    private static String describe(java.util.Map<BuildingType, Integer> counts) {
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        counts.forEach((type, n) -> {
+            String label = type.label().toLowerCase(java.util.Locale.ROOT);
+            parts.add(n + " " + (n == 1 ? label : label.endsWith("y") ? label.substring(0, label.length() - 1) + "ies" : label + "s"));
+        });
+        return String.join(", ", parts);
+    }
+
+    /** R2.8: the lots over buildings that were found are marked as built on again (the plan has just grown or been made). */
+    public void fillFoundLots() {
+        if (plan != null) {
+            plan.syncFound(buildings.values());
+        }
+    }
+
     /** R2.1: removes the building whose sign is at a position (it was broken or changed), and notes it in the history. */
     public Optional<Building> removeBuilding(int x, int y, int z, long day) {
         Building removed = buildings.remove(Building.key(x, y, z));

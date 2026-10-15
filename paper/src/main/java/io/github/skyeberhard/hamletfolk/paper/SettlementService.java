@@ -225,9 +225,13 @@ final class SettlementService {
         if (plan == null) {
             long seed = settlement.id().getMostSignificantBits() ^ settlement.id().getLeastSignificantBits();
             settlement.setPlan(PlanGenerator.generate(settlement.centerX(), settlement.centerZ(), seed, "plains", terrainOf(world)));
+            findBuildings(settlement, true); // R2.8: what already stands is read before anything is decided about the lots
+            settlement.fillFoundLots();
             plugin.requestSave();
         } else if (PlanGenerator.extend(plan, terrainOf(world))) {
             io.github.skyeberhard.hamletfolk.core.Construction.planGrew(settlement);
+            findBuildings(settlement, true); // R2.8: the new streets' lots keep off what already stands
+            settlement.fillFoundLots();
             java.util.List<io.github.skyeberhard.hamletfolk.core.Districts.District> districts =
                     io.github.skyeberhard.hamletfolk.core.Districts.of(plan);
             if (!districts.isEmpty() && districts.get(districts.size() - 1).stage() == plan.stage()) {
@@ -626,8 +630,9 @@ final class SettlementService {
     private void pruneBuildings(Settlement settlement, World world) {
         boolean pruned = false;
         for (Building building : new ArrayList<>(settlement.buildings())) {
-            if (!world.isChunkLoaded(building.x() >> 4, building.z() >> 4)) {
-                continue;
+            if (!world.isChunkLoaded(building.x() >> 4, building.z() >> 4)
+                    || io.github.skyeberhard.hamletfolk.core.BuildingFinder.FOUND_BY.equals(building.registeredBy())) {
+                continue; // (a building that was found has no sign: findBuildings drops it when it is gone)
             }
             if (!Tag.ALL_SIGNS.isTagged(world.getBlockAt(building.x(), building.y(), building.z()).getType())) {
                 settlement.removeBuilding(building.x(), building.y(), building.z(), settlement.effectiveDay(day(world)));
@@ -720,6 +725,11 @@ final class SettlementService {
                 surveyLand(settlement); // R8.13
             } catch (RuntimeException e) {
                 plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not survey the land round " + settlement.name(), e);
+            }
+            try {
+                findBuildings(settlement, false); // R2.8
+            } catch (RuntimeException e) {
+                plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not look for the buildings of " + settlement.name(), e);
             }
             placeGolems(settlement); // R5.9
             releaseExemptResidents(settlement); // R1.30
@@ -918,6 +928,66 @@ final class SettlementService {
         }
         io.github.skyeberhard.hamletfolk.core.LandCounts.record(settlement, found, day);
         io.github.skyeberhard.hamletfolk.core.Trades.noteOpened(settlement, day);
+        plugin.requestSave();
+    }
+
+    // ----- R2.8: buildings already standing -----
+
+    /** How far from the centre farmland is looked for. */
+    private static final int FOUND_FARM_RADIUS = 80;
+
+    /**
+     * R2.8: reads the beds and job sites the game knows of (its points of interest) and the farmland in the chunks that are loaded,
+     * and has the settlement register the houses, smithy, farms and so on that they stand for (see
+     * {@link io.github.skyeberhard.hamletfolk.core.BuildingFinder}), so a vanilla village starts out with its own buildings. Only
+     * with the village's centre loaded, never loading a chunk, at most once in ten village days unless forced.
+     */
+    void findBuildings(Settlement settlement, boolean force) {
+        World world = Bukkit.getWorld(settlement.world());
+        if (world == null || !inScope(world) || settlement.isAbandoned() || settlement.population() == 0) {
+            return;
+        }
+        long day = settlement.lastSimulatedDay();
+        if (!force && !io.github.skyeberhard.hamletfolk.core.BuildingFinder.due(settlement, day)) {
+            return;
+        }
+        int cx = settlement.centerX();
+        int cz = settlement.centerZ();
+        if (!world.isChunkLoaded(cx >> 4, cz >> 4)) {
+            return;
+        }
+        int radius = config.settlementRadius();
+        long radiusSquared = (long) radius * radius;
+        int y = world.getHighestBlockYAt(cx, cz, HeightMap.MOTION_BLOCKING_NO_LEAVES);
+        int search = (int) Math.ceil(Math.sqrt((double) radius * radius + (double) BED_HEIGHT * BED_HEIGHT));
+        java.util.Set<String> kinds = new java.util.HashSet<>(io.github.skyeberhard.hamletfolk.core.BuildingFinder.workKinds());
+        kinds.add("home");
+        List<io.github.skyeberhard.hamletfolk.core.BuildingFinder.Site> sites = new ArrayList<>();
+        for (PoiSearchResult poi : world.locateAllPoiInRange(new Location(world, cx + 0.5, y, cz + 0.5),
+                type -> kinds.contains(type.getKey().getKey()), search, PoiType.Occupancy.ANY)) {
+            Location at = poi.location();
+            if (Math.abs(at.getBlockY() - y) <= BED_HEIGHT && settlement.distanceSquared(at.getBlockX(), at.getBlockZ()) <= radiusSquared) {
+                sites.add(new io.github.skyeberhard.hamletfolk.core.BuildingFinder.Site(poi.poiType().getKey().getKey(),
+                        at.getBlockX(), at.getBlockY(), at.getBlockZ()));
+            }
+        }
+        List<io.github.skyeberhard.hamletfolk.core.BuildingFinder.Cell> cells = new ArrayList<>();
+        for (int x = cx - FOUND_FARM_RADIUS; x <= cx + FOUND_FARM_RADIUS; x++) {
+            for (int z = cz - FOUND_FARM_RADIUS; z <= cz + FOUND_FARM_RADIUS; z++) {
+                if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+                    continue;
+                }
+                int top = world.getHighestBlockYAt(x, z, HeightMap.WORLD_SURFACE);
+                if (world.getBlockAt(x, top, z).getType() == Material.FARMLAND) {
+                    cells.add(new io.github.skyeberhard.hamletfolk.core.BuildingFinder.Cell(x, top, z));
+                } else if (world.getBlockAt(x, top - 1, z).getType() == Material.FARMLAND) { // (a crop on it)
+                    cells.add(new io.github.skyeberhard.hamletfolk.core.BuildingFinder.Cell(x, top - 1, z));
+                }
+            }
+        }
+        settlement.syncFound(io.github.skyeberhard.hamletfolk.core.BuildingFinder.find(sites, cells),
+                b -> world.isChunkLoaded(b.x() >> 4, b.z() >> 4), day);
+        io.github.skyeberhard.hamletfolk.core.BuildingFinder.scanned(settlement, day);
         plugin.requestSave();
     }
 

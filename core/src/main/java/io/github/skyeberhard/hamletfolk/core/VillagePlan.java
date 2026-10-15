@@ -302,6 +302,34 @@ public final class VillagePlan {
         return false;
     }
 
+    /**
+     * R2.8: marks every reserved lot of any kind that a footprint covers as built on, so nothing is built over a building that already
+     * stands. Returns how many lots were filled.
+     */
+    public int fillOverlapping(Rect footprint) {
+        int filled = 0;
+        for (int i = 0; i < lots.size(); i++) {
+            Lot lot = lots.get(i);
+            if (lot.status() == LotStatus.RESERVED && lot.rect().overlaps(footprint)) {
+                lots.set(i, lot.filled());
+                filled++;
+            }
+        }
+        return filled;
+    }
+
+    /** R2.8: fills the lots over every building that was found rather than signed (a fixed margin round its place). */
+    public int syncFound(java.util.Collection<Building> buildings) {
+        int filled = 0;
+        int r = BuildingFinder.FOOTPRINT_RADIUS;
+        for (Building building : buildings) {
+            if (BuildingFinder.FOUND_BY.equals(building.registeredBy())) {
+                filled += fillOverlapping(new Rect(building.x() - r, building.z() - r, 2 * r + 1, 2 * r + 1));
+            }
+        }
+        return filled;
+    }
+
     /** Marks every lot that already has a registered building on it. */
     public void syncBuildings(java.util.Collection<Building> buildings) {
         for (Building building : buildings) {

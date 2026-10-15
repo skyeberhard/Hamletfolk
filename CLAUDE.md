@@ -227,6 +227,11 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   `Construction.wantedStage` (not `PlanGenerator.stageFor`) is the stage `ensurePlan` lays out, and `planGrew` clears the call. A want gets the R4.37
   ground search only at `MAX_STAGE`. A village's first mine leaves stone out of its price (`Construction.priceFor`, `stoneFree`) and `charge` takes none.
   The rest of the growth fixes are in docs/GROWTH_BACKLOG.md.
+- **Found buildings (R2.8):** `BuildingFinder` (core) turns points of interest (`home` beds, villager job sites by name) and farmland cells into `Found`
+  buildings; `Settlement.syncFound` registers them with `registeredBy` `BuildingFinder.FOUND_BY` ("found"): they have NO sign, so anything that checks a
+  building's sign (`pruneBuildings`) must skip them, and they are dropped only by the next look, when their chunk is loaded. A signed or village-built
+  building within 12 blocks of the same kind stands for a find. Lots under a found building are filled (`VillagePlan.syncFound` uses a fixed 11 by 11 margin
+  after the plan grows). Composters and barrels are deliberately not read.
 - **`SettlementService.track()` returns null** for a world excluded by `worlds.allow/deny`
   (R1.10); callers must handle it.
 - **Line endings:** working copies are CRLF (autocrlf) while the repo stores LF, so git warns
