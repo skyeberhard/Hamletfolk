@@ -40,7 +40,7 @@ public final class SaveRetry {
                 action.run();
                 return attempt;
             } catch (FileSystemException e) {
-                if (attempt >= attempts) {
+                if (attempt >= attempts || !lockedFile(e)) {
                     throw e;
                 }
             }
@@ -52,6 +52,18 @@ public final class SaveRetry {
             }
             wait *= 2;
         }
+    }
+
+    /**
+     * Whether a file-system failure may be a file another program holds for a moment: access denied, or a sharing violation
+     * (which Windows reports as a plain file-system error). A file that is missing, a directory in the way, or a move the system
+     * cannot do atomically will not get better by waiting.
+     */
+    static boolean lockedFile(FileSystemException e) {
+        return !(e instanceof java.nio.file.NoSuchFileException || e instanceof java.nio.file.AtomicMoveNotSupportedException
+                || e instanceof java.nio.file.NotDirectoryException || e instanceof java.nio.file.FileAlreadyExistsException
+                || e instanceof java.nio.file.DirectoryNotEmptyException || e instanceof java.nio.file.FileSystemLoopException
+                || e instanceof java.nio.file.NotLinkException);
     }
 
     /** As above with the usual number of tries and pauses, really waiting. */

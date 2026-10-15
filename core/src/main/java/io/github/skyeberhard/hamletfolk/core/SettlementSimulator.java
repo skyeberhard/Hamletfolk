@@ -925,6 +925,12 @@ public final class SettlementSimulator {
                         + (emptied ? " was withdrawn: no one is left in " + settlement.name()
                         : covered ? " was withdrawn: the stores recovered" : " lapsed")
                         + (request.unpaid() > 0 ? ", and " + request.unpaid() + " emeralds went back to the treasury." : "."), REQUEST_QUIET_DAYS);
+            } else if (request.thanksOnly() && request.filled() == 0) {
+                // R4.40: nobody has helped yet and the treasury can pay now: the request pays after all
+                int reward = (int) Math.ceil((double) request.wanted() * REQUEST_PREMIUM / unitsPerEmerald(request.type()));
+                if (settlement.ledger().spendTreasury(reward)) {
+                    settlement.requestMap().put(request.type(), new Request(request.type(), request.wanted(), 0, reward, 0, request.postedDay()));
+                }
             }
         }
         if (settlement.population() == 0) {
@@ -994,11 +1000,16 @@ public final class SettlementSimulator {
      * reputation, when the request offers none (and 0 when it pays, or when there is none). Ask before {@link #fulfil}.
      */
     public static int thanksFor(Settlement settlement, ResourceType type, int units) {
+        return thanksFor(settlement, type, units, Integer.MAX_VALUE);
+    }
+
+    /** As above, never more than {@code maxPayout} (R3.13: a worn tool is worth no more in thanks than it would have been in emeralds). */
+    public static int thanksFor(Settlement settlement, ResourceType type, int units, int maxPayout) {
         Request request = settlement.requestMap().get(type);
         if (request == null || !request.thanksOnly() || units <= 0) {
             return 0;
         }
-        return Math.min(units, request.remaining()) * REQUEST_PREMIUM / unitsPerEmerald(type);
+        return Math.min(maxPayout, Math.min(units, request.remaining()) * REQUEST_PREMIUM / unitsPerEmerald(type));
     }
 
     /**

@@ -1661,7 +1661,12 @@ final class SettlementService {
      * R4.45: the game never changes the profession of a villager that has traded or levelled (and changing it would throw away its
      * trades), so neither does the plugin.
      */
-    static boolean professionLocked(Villager villager) {
+    boolean professionLocked(Villager villager) {
+        Integer raisedAt = villager.getPersistentDataContainer().get(new NamespacedKey(plugin, "level_xp"), PersistentDataType.INTEGER);
+        if (raisedAt != null) {
+            // the plugin raised its level (R4.29): it is locked once a player has traded with it, which gives it more experience
+            return villager.getVillagerExperience() > raisedAt;
+        }
         return villager.getVillagerExperience() > 0 || villager.getVillagerLevel() > 1;
     }
 
@@ -1693,7 +1698,7 @@ final class SettlementService {
      * R4.29: what a resident's level shows on their villager: a little faster on their feet with each level, more health
      * for a guard, and the vanilla level of a vanilla trade raised to match (never lowered), so its trades unlock.
      */
-    private static void applyLevel(Villager villager, Resident resident) {
+    private void applyLevel(Villager villager, Resident resident) {
         int level = resident.adult() ? resident.level() : 1;
         org.bukkit.attribute.AttributeInstance speed = villager.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED);
         if (speed != null) {
@@ -1715,6 +1720,9 @@ final class SettlementService {
                 && Occupation.fromVanillaKey(villager.getProfession().getKey().getKey()) == resident.occupation()
                 && villager.getVillagerLevel() < level) {
             villager.increaseLevel(level - villager.getVillagerLevel());
+            // (remembered, so a level the plugin gave does not lock the profession; only experience gained from trading does, R4.45)
+            villager.getPersistentDataContainer().set(new NamespacedKey(plugin, "level_xp"), PersistentDataType.INTEGER,
+                    villager.getVillagerExperience());
         }
     }
 

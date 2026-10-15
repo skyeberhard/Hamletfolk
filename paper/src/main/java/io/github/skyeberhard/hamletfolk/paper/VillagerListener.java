@@ -77,18 +77,21 @@ final class VillagerListener implements Listener {
      */
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
     public void guardCareerChange(VillagerCareerChangeEvent event) {
-        if (!service.professionFollows() || !event.getEntity().isAdult() || SettlementService.professionLocked(event.getEntity())) {
+        if (!service.professionFollows() || !event.getEntity().isAdult()) {
             return;
         }
         service.registry().resident(event.getEntity().getUniqueId()).ifPresent(resident -> {
-            boolean pinned = service.registry().settlementOf(resident.id()).filter(s -> s.isPinned(resident.id())).isPresent();
-            if (resident.occupation() == Occupation.UNEMPLOYED && !pinned) {
+            String wanted = io.github.skyeberhard.hamletfolk.core.Appearance.profession(resident.occupation());
+            if (event.getProfession().getKey().getKey().equals(wanted) || service.professionLocked(event.getEntity())) {
                 return;
             }
-            String wanted = io.github.skyeberhard.hamletfolk.core.Appearance.profession(resident.occupation());
-            if (!event.getProfession().getKey().getKey().equals(wanted)) {
-                event.setCancelled(true);
+            if (resident.occupation() == Occupation.UNEMPLOYED
+                    && service.registry().settlementOf(resident.id()).filter(s -> s.isPinned(resident.id())).isEmpty()) {
+                return;
             }
+            // (changed, not cancelled: the game has already given the villager the workstation, and a cancelled change would
+            // leave it holding that and trying again; this way it simply shows the work it really does)
+            event.setProfession(SettlementService.professionOf(wanted));
         });
     }
 

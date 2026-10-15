@@ -816,7 +816,7 @@ final class SettlementCommand implements TabExecutor {
         if (toolCap != Integer.MAX_VALUE) {
             toolCap = (int) Math.min(Integer.MAX_VALUE, (long) toolCap * amount); // the cap is per tool; a stack is several
         }
-        int thanks = emeralds > 0 ? 0 : SettlementSimulator.thanksFor(s, value.get().type(), credited); // R4.40
+        int thanks = emeralds > 0 ? 0 : SettlementSimulator.thanksFor(s, value.get().type(), credited, toolCap); // R4.40, R3.13
         int paid = emeralds > 0 ? 0 : service.fulfilRequest(s, value.get().type(), credited, today, player.getName(),
                 toolCap);
         s.adjustReputation(player.getUniqueId(), Reputation.requestGain(paid + thanks)); // R3.4

@@ -44,6 +44,19 @@ class SaveRetryTest {
     }
 
     @Test
+    void aFileThatIsMissingOrAMoveTheSystemCannotDoIsNotRetriedEither() {
+        assertThrows(java.nio.file.NoSuchFileException.class, () -> runFailing(1, new java.nio.file.NoSuchFileException("x")));
+        assertThrows(java.nio.file.AtomicMoveNotSupportedException.class,
+                () -> runFailing(1, new java.nio.file.AtomicMoveNotSupportedException("a", "b", "no")));
+        assertTrue(pauses.isEmpty());
+    }
+
+    @Test
+    void aSharingViolationThatWindowsReportsAsAPlainFileSystemErrorIsRetried() throws IOException {
+        assertEquals(2, runFailing(1, new java.nio.file.FileSystemException("a", "b", "The process cannot access the file because it is being used by another process")));
+    }
+
+    @Test
     void aFailureThatIsNotALockedFileIsNotRetried() {
         assertThrows(IOException.class, () -> runFailing(1, new IOException("disk full")));
         assertTrue(pauses.isEmpty());

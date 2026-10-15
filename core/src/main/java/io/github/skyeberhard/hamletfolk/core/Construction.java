@@ -304,6 +304,7 @@ public final class Construction {
      * gone (left, died, or been called up as a guard) goes back in the queue.
      */
     static void staffBuilders(Settlement settlement, long day, boolean famine) {
+        settlement.forgetOldCancelledProjects(day); // R4.43
         for (ConstructionProject project : settlement.projects()) {
             if (project.status() == ConstructionProject.Status.ACTIVE
                     && ((famine && !endsFamine(settlement, project.type()))
@@ -376,9 +377,18 @@ public final class Construction {
         }
         // R4.43: a project nobody could be spared for does not hold up the rest of the village's building for ever
         if (queued.get().builder() == null && day - queued.get().queuedDay() >= STUCK_DAYS && neverStarted(queued.get())) {
+            settlement.conditions().put(STUCK + queued.get().type().name(), day); // so it is not queued again at once
             cancel(settlement, queued.get(), day, "nobody could be spared to build it", false);
         }
     }
+
+    private static boolean stuckRecently(Settlement settlement, BuildingType type, long day) {
+        Long given = settlement.conditions().get(STUCK + type.name());
+        return given != null && day - given < STUCK_DAYS;
+    }
+
+    /** R4.43: the day a kind of building was given up for want of a builder; it is not proposed again for {@link #STUCK_DAYS}. */
+    static final String STUCK = "stuck:";
 
     /** R4.43: days a project may wait for someone to build it, with nobody out of work and nobody to spare, before it is given up. */
     static final int STUCK_DAYS = 20;
@@ -666,6 +676,9 @@ public final class Construction {
                 continue;
             }
             Optional<BuildingType> type = BuildingType.fromTarget(directive.target());
+            if (type.isPresent() && stuckRecently(settlement, type.get(), day)) {
+                continue; // R4.43: nobody could be spared for it lately
+            }
             if (type.isEmpty() || (needUnmet && (directive.tier() == Planner.Tier.GROWTH
                     || (directive.tier() == Planner.Tier.SUPPLY && type.get() == BuildingType.SMITHY)))) { // R4.37: tools wait for lights and a fence too
                 continue; // (a want waits for a need the village is saving up for)

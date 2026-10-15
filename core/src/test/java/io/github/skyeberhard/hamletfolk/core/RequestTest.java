@@ -245,4 +245,26 @@ class RequestTest {
         assertTrue(said);
         assertFalse(s.requests().isEmpty());
     }
+
+    @Test
+    void aFreeRequestNobodyHasHelpedWithPaysOnceTheTreasuryCanPay() {
+        Settlement s = village(3);
+        simulator.simulateTo(s, 5, 100);
+        Request free = s.requests().iterator().next();
+        assertTrue(free.thanksOnly());
+        s.ledger().addTreasury(100);
+        simulator.simulateTo(s, 6, 100);
+        Request now = s.requestMap().get(free.type());
+        assertTrue(now != null && !now.thanksOnly(), "it pays now");
+        assertEquals(free.wanted(), now.wanted());
+    }
+
+    @Test
+    void theThanksForAWornToolAreCappedLikeThePayout() {
+        Settlement s = village(3);
+        simulator.simulateTo(s, 5, 100);
+        Request free = s.requests().iterator().next();
+        assertEquals(1, SettlementSimulator.thanksFor(s, free.type(), free.remaining(), 1));
+        assertEquals(0, SettlementSimulator.thanksFor(s, free.type(), free.remaining(), 0));
+    }
 }

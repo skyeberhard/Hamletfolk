@@ -83,4 +83,15 @@ class StuckProjectTest {
         Construction.staffBuilders(s, 1 + Construction.STUCK_DAYS + 5, false);
         assertEquals(ConstructionProject.Status.QUEUED, project.status());
     }
+
+    @Test
+    void aKindGivenUpIsNotProposedAgainForTwentyDaysAndOldGivenUpProjectsAreForgotten() {
+        Settlement s = tightVillage();
+        ConstructionProject project = queue(s, BuildingType.HOUSE, 1);
+        Construction.staffBuilders(s, 1 + Construction.STUCK_DAYS, false);
+        assertTrue(s.hasCondition(Construction.STUCK + "HOUSE"));
+        assertEquals(ConstructionProject.Status.CANCELLED, project.status());
+        Construction.staffBuilders(s, 1 + Construction.STUCK_DAYS + Settlement.CANCELLED_KEPT_DAYS + 1, false);
+        assertTrue(s.projects().isEmpty(), "forgotten after a while, so the list does not grow for ever");
+    }
 }

@@ -323,6 +323,14 @@ public final class Settlement {
         }
     }
 
+    /** R4.43: how long a given-up project stays on record (for the rules that look back at it), in days. */
+    static final int CANCELLED_KEPT_DAYS = 100;
+
+    /** R4.43: forgets projects given up more than {@link #CANCELLED_KEPT_DAYS} days ago, so the list does not grow for ever. */
+    public void forgetOldCancelledProjects(long day) {
+        projects.removeIf(p -> p.status() == ConstructionProject.Status.CANCELLED && day - p.finishedDay() > CANCELLED_KEPT_DAYS);
+    }
+
     /** R2.1: removes the building whose sign is at a position (it was broken or changed), and notes it in the history. */
     public Optional<Building> removeBuilding(int x, int y, int z, long day) {
         Building removed = buildings.remove(Building.key(x, y, z));
