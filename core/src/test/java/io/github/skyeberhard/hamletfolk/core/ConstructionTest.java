@@ -141,7 +141,7 @@ class ConstructionTest {
     void aBuilderWaitsWhenTheStoresRunOut() {
         Settlement s = new Settlement(VILLAGE, "Poorham", "world", 0, 0, 0);
         s.ledger().add(ResourceType.STONE, 1);
-        ConstructionProject p = new ConstructionProject(1, BuildingType.MINE, 1, 0, "plains", 0, 64, 0, 1, 0);
+        ConstructionProject p = new ConstructionProject(1, BuildingType.HOUSE, 1, 0, "plains", 0, 64, 0, 1, 0); // (not a first mine: R4.39)
         assertTrue(Construction.charge(s, p, "COBBLESTONE", 1));
         assertFalse(Construction.charge(s, p, "COBBLESTONE", 1));
         assertEquals(ResourceType.STONE, p.waitingFor());
@@ -1298,8 +1298,10 @@ class ConstructionTest {
         }
         s.ledger().add(ResourceType.FOOD, 1000);
         s.housing().setChunk(0, 0, 20);
-        // Mines cost stone (generated, tier 1 needs 4), which it has none of and no way to make; the farm's tier 2 costs wood here.
-        Function<TemplateCatalog.Template, Optional<Blueprint>> designs = t -> t.type() == BuildingType.MINE ? blueprints(t)
+        // Mines here cost metal, which it has none of and no way to make (a first mine's stone is free, R4.39); the farm's tier 2 costs wood.
+        Function<TemplateCatalog.Template, Optional<Blueprint>> designs = t -> t.type() == BuildingType.MINE
+                ? Optional.of(new Blueprint(t.key(), 5, 1, 5, java.util.stream.IntStream.range(0, 25)
+                        .mapToObj(i -> new Blueprint.Block(i % 5, 0, i / 5, "IRON_BLOCK")).toList()))
                 : Optional.of(new Blueprint(t.key(), 5, 1, 5, java.util.stream.IntStream.range(0, 25)
                         .mapToObj(i -> new Blueprint.Block(i % 5, 0, i / 5, "OAK_PLANKS")).toList()));
         s.ledger().add(ResourceType.WOOD, 100);

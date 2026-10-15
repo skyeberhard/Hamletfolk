@@ -158,6 +158,10 @@ public final class Construction {
             return true;
         }
         ResourceType type = cost.get().type();
+        if (type == ResourceType.STONE && stoneFree(settlement, project.type(), project.isUpgrade())) {
+            project.setWaitingFor(null);
+            return true; // R4.39: dug out of the mine itself
+        }
         // Credit is counted in 1/200ths of a unit: a half-unit is 100, so a block costs halves x percent of those.
         int price = cost.get().halves() * costPercent;
         int have = project.credit().getOrDefault(type, 0);
@@ -495,6 +499,60 @@ public final class Construction {
     private static final java.util.Set<BuildingType> PROTECTED_LOTS =
             java.util.EnumSet.of(BuildingType.SMITHY, BuildingType.MINE, BuildingType.FARM);
 
+    /** R4.37: whether a building may go on this lot (its own kind, or a lot not kept for a smithy, mine or farm the village lacks). */
+    private static boolean mayUse(Settlement settlement, VillagePlan.Lot lot, BuildingType type) {
+        return lot.type() == type || !PROTECTED_LOTS.contains(lot.type()) || settlement.buildingCount(lot.type()) > 0;
+    }
+
+    /** Whether the plan has a reserved lot this building may go on. */
+    private static boolean hasLotFor(VillagePlan plan, Settlement settlement, BuildingType type) {
+        return plan.candidatesFor(type).stream().anyMatch(lot -> mayUse(settlement, lot, type));
+    }
+
+    /** R4.38: the last day a building the village wanted found no lot left in its plan. */
+    static final String OUTGROWN = "planOutgrown";
+    /** R4.38: how long a building that found no lot keeps asking for the plan to grow. */
+    static final int OUTGROWN_DAYS = 10;
+
+    /**
+     * R4.38: the plan stage the village should have: the one its people call for (25, 50, 100), or one more than it has when a
+     * building it wanted lately found no lot left. A village grows its streets when it runs out of room, not only at a head count.
+     */
+    public static int wantedStage(Settlement settlement, long day) {
+        VillagePlan plan = settlement.plan();
+        int byPeople = PlanGenerator.stageFor(settlement.population());
+        if (plan == null) {
+            return byPeople;
+        }
+        Long outgrown = settlement.conditions().get(OUTGROWN);
+        boolean full = outgrown != null && day >= outgrown && day - outgrown <= OUTGROWN_DAYS;
+        return Math.min(PlanGenerator.MAX_STAGE, Math.max(byPeople, full ? plan.stage() + 1 : 1));
+    }
+
+    /** R4.38: the plan has grown a stage: the call for room is answered (a building that still finds none asks again). */
+    public static void planGrew(Settlement settlement) {
+        settlement.conditions().remove(OUTGROWN);
+    }
+
+    /**
+     * R4.39: a village's first mine costs no stone: the stone it is built with comes out of the ground as it is dug. Without
+     * this a village with no stone could never build the mine that makes stone.
+     */
+    static boolean stoneFree(Settlement settlement, BuildingType type, boolean upgrade) {
+        // (only the first it ever builds: a village whose mine's sign was broken pays for the next one)
+        return type == BuildingType.MINE && !upgrade && settlement.buildingCount(BuildingType.MINE) == 0
+                && settlement.projects().stream().noneMatch(p -> p.type() == BuildingType.MINE && p.status() == ConstructionProject.Status.DONE);
+    }
+
+    /** What a design costs this village: {@link #priceOf} less the stone of a first mine (R4.39). */
+    static Map<ResourceType, Integer> priceFor(Settlement settlement, BuildingType type, boolean upgrade, Blueprint blueprint) {
+        Map<ResourceType, Integer> price = priceOf(blueprint);
+        if (stoneFree(settlement, type, upgrade)) {
+            price.remove(ResourceType.STONE);
+        }
+        return price;
+    }
+
     /**
      * R4.37: whether the village is about to look for ground for a building its plan has no lot for, so the Paper layer should have
      * the chunks round the whole search area loaded for the decision (the plan's own chunks do not reach that far).
@@ -506,7 +564,8 @@ public final class Construction {
         }
         for (Planner.Directive directive : Planner.directives(settlement, day, treasuryLimit)) {
             Optional<BuildingType> type = BuildingType.fromTarget(directive.target());
-            if (directive.kind() != Planner.Kind.BUILD || directive.tier() == Planner.Tier.GROWTH || type.isEmpty()
+            if (directive.kind() != Planner.Kind.BUILD || type.isEmpty()
+                    || (directive.tier() == Planner.Tier.GROWTH && (plan.stage() < PlanGenerator.MAX_STAGE || hasLotFor(plan, settlement, type.get())))
                     || type.get().isWorks() || type.get().isPart() || type.get() == BuildingType.SQUARE
                     || plan.nextLot(type.get()).isPresent()) {
                 continue;
@@ -615,8 +674,10 @@ public final class Construction {
                         return works;
                     }
                     // Lights and a fence are saved up for ahead of everything else; a stronger wall is not worth stopping the
-                    // village's other building for (it still notes what it lacks, so a lumberjack is taken on).
-                    needUnmet |= type.get() != BuildingType.RAMPART;
+                    // village's other building for (it still notes what it lacks, so a lumberjack is taken on). Nor are the works of a
+                    // stage the plan grew to for room (R4.38) before the village's people reached it: the houses come first.
+                    needUnmet |= type.get() != BuildingType.RAMPART
+                            && plan.stage() <= PlanGenerator.stageFor(settlement.population());
                 }
                 continue;
             }
@@ -638,7 +699,7 @@ public final class Construction {
             boolean first = true;
             for (VillagePlan.Lot lot : plan.candidatesFor(type.get())) {
                 // R4.37: the lot of a smithy, mine or farm is left for it while the village has none (a house must not take the smithy's)
-                if (lot.type() != type.get() && PROTECTED_LOTS.contains(lot.type()) && settlement.buildingCount(lot.type()) == 0) {
+                if (!mayUse(settlement, lot, type.get())) {
                     continue;
                 }
                 Optional<ConstructionProject> project = queue(settlement, day, biome, type.get(), 0, lot, 1, catalog,
@@ -648,13 +709,19 @@ public final class Construction {
                 }
                 first = false;
             }
-            if (directive.tier() != Planner.Tier.GROWTH && plan.nextLot(type.get()).isEmpty()) {
+            if (first) {
+                // R4.38: no lot left that it may use: the village has outgrown its plan, which grows a stage (the Paper layer lays it out)
+                settlement.conditions().put(OUTGROWN, day);
+            }
+            if ((directive.tier() != Planner.Tier.GROWTH || (first && plan.stage() >= PlanGenerator.MAX_STAGE))
+                    && plan.nextLot(type.get()).isEmpty()) {
+                // (a want only once the plan can grow no further and nothing is left for it)
                 setAsideReplacementLot(settlement, day, type.get(), searchGround); // (used from the next day, if there was ground for it)
             }
             // R4.20: a need with somewhere to go that the village cannot pay for yet, for want of something it can make, is
             // saved up for, not spent past. Not the mine: a village with no stone and no mine could never make the stone.
             needUnmet |= !first && directive.tier() != Planner.Tier.GROWTH && directive.tier() != Planner.Tier.SUPPLY
-                    && savingFor(settlement, catalog.ladder(type.get(), biome), blueprints);
+                    && savingFor(settlement, type.get(), catalog.ladder(type.get(), biome), blueprints);
             // No lot, or no way to pay for another: the need is met by improving a building the village already has, if it can.
             if (directive.tier() != Planner.Tier.GROWTH) { // a want (a shop, a treasury) is not a reason to spend everything
                 Optional<ConstructionProject> improved = upgrade(settlement, day, biome, catalog, blueprints, terrain,
@@ -928,7 +995,7 @@ public final class Construction {
         // The plainest design the village can pay for: a village spends on what it lacks, not on the grandest version of it.
         // A house is the exception (R4.26): the one with the most beds for its cost, and an upgrade only to more beds.
         Function<TemplateCatalog.Template, Map<ResourceType, Integer>> costOf =
-                t -> oriented.apply(t).map(o -> priceOf(o.blueprint())).orElse(UNBUILDABLE);
+                t -> oriented.apply(t).map(o -> priceFor(settlement, type, replacing != null, o.blueprint())).orElse(UNBUILDABLE);
         Function<TemplateCatalog.Template, Integer> bedsOf = t -> oriented.apply(t).map(o -> o.blueprint().beds()).orElse(0);
         boolean anyBeds = ladder.stream().anyMatch(t -> bedsOf.apply(t) > 0);
         Optional<TemplateCatalog.Template> best = type == BuildingType.HOUSE && anyBeds
@@ -1002,7 +1069,7 @@ public final class Construction {
      * will pay for it: wood and food always, stone where a mine has places or a mason works, metal where a mine has places.
      * A lot that cannot be graded, or a material nobody can make, is not something to save up for.
      */
-    private static boolean savingFor(Settlement settlement, List<TemplateCatalog.Template> ladder,
+    private static boolean savingFor(Settlement settlement, BuildingType type, List<TemplateCatalog.Template> ladder,
             Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints) {
         if (ladder.isEmpty()) {
             return false;
@@ -1011,7 +1078,7 @@ public final class Construction {
         if (plainest.isEmpty()) {
             return false;
         }
-        for (Map.Entry<ResourceType, Integer> cost : priceOf(plainest.get()).entrySet()) {
+        for (Map.Entry<ResourceType, Integer> cost : priceFor(settlement, type, false, plainest.get()).entrySet()) {
             if (settlement.ledger().get(cost.getKey()) < cost.getValue() && canMake(settlement, cost.getKey())) {
                 return true;
             }
@@ -1050,7 +1117,7 @@ public final class Construction {
             text = settlement.name() + " wants a " + name + " but its lot is too small for the plainest design.";
         } else {
             StringBuilder lacks = new StringBuilder();
-            priceOf(first.get()).forEach((resource, units) -> {
+            priceFor(settlement, type, false, first.get()).forEach((resource, units) -> {
                 int have = settlement.ledger().get(resource);
                 if (have < units) {
                     settlement.conditions().put(LACKS + resource.name(), day);

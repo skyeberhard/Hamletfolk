@@ -185,8 +185,8 @@ final class SettlementService {
     }
 
     /**
-     * R8.3: gives a village its plan of streets and lots once the ground around it is loaded, and lengthens it when the
-     * village reaches {@link #STAGE_TWO_POPULATION}. Lots over bad ground are dropped for good, so this waits until the
+     * R8.3: gives a village its plan of streets and lots once the ground around it is loaded, and lengthens it a stage when the
+     * village reaches 25, 50 or 100 people or has run out of lots (R4.38, {@code Construction.wantedStage}). Lots over bad ground are dropped for good, so this waits until the
      * whole area can be measured instead of planning from part of it.
      */
     void ensurePlan(Settlement settlement) {
@@ -196,8 +196,9 @@ final class SettlementService {
             return;
         }
         VillagePlan plan = settlement.plan();
-        // R8.14: up to four stages, at 25, 50 and 100 residents; one at a time, each only once the ground it needs is loaded
-        int wantedStage = plan == null ? 1 : PlanGenerator.stageFor(settlement.population());
+        // R8.14: up to four stages, at 25, 50 and 100 residents; one at a time, each only once the ground it needs is loaded.
+        // R4.38: or sooner, when a building the village wants has no lot left in the plan
+        int wantedStage = plan == null ? 1 : io.github.skyeberhard.hamletfolk.core.Construction.wantedStage(settlement, settlement.lastSimulatedDay());
         if (plan != null && plan.stage() >= wantedStage) {
             releasePlanGround(settlement);
             return;
@@ -226,6 +227,7 @@ final class SettlementService {
             settlement.setPlan(PlanGenerator.generate(settlement.centerX(), settlement.centerZ(), seed, "plains", terrainOf(world)));
             plugin.requestSave();
         } else if (PlanGenerator.extend(plan, terrainOf(world))) {
+            io.github.skyeberhard.hamletfolk.core.Construction.planGrew(settlement);
             java.util.List<io.github.skyeberhard.hamletfolk.core.Districts.District> districts =
                     io.github.skyeberhard.hamletfolk.core.Districts.of(plan);
             if (!districts.isEmpty() && districts.get(districts.size() - 1).stage() == plan.stage()) {

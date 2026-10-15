@@ -223,6 +223,10 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   player has one, `BrainService.fit` sets or clears it each second, and every place that detaches the behaviours also calls `arms.clearAll()`.
   Gotcha: the game's idle chat (a trade gate, `lockGazeAndWalkToEachOther`) resets WALK_TARGET every tick, so `Journey` waits 2 seconds when the
   brain replaces a path within 10 ticks (`QUICK_TICKS`), rather than retrying at once; stopping the gates or clearing INTERACTION_TARGET made it worse.
+- **Room to grow (R4.38) and the first mine (R4.39):** a building `Construction.propose` wanted but found no lot it may use (`mayUse`) records `planOutgrown`;
+  `Construction.wantedStage` (not `PlanGenerator.stageFor`) is the stage `ensurePlan` lays out, and `planGrew` clears the call. A want gets the R4.37
+  ground search only at `MAX_STAGE`. A village's first mine leaves stone out of its price (`Construction.priceFor`, `stoneFree`) and `charge` takes none.
+  The rest of the growth fixes are in docs/GROWTH_BACKLOG.md.
 - **`SettlementService.track()` returns null** for a world excluded by `worlds.allow/deny`
   (R1.10); callers must handle it.
 - **Line endings:** working copies are CRLF (autocrlf) while the repo stores LF, so git warns
