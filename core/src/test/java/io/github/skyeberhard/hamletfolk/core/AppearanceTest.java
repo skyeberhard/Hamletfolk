@@ -61,4 +61,20 @@ class AppearanceTest {
         assertEquals("female", Appearance.tags(child, 100).get(Appearance.GENDER));
         assertEquals("adult", Appearance.tags(person(Gender.MALE, Occupation.FARMER, true, 90), 100).get("life_stage"));
     }
+
+    @Test
+    void everyOccupationShowsAProfessionThatReadsBackAsItselfOrAsNoJob() {
+        for (Occupation occupation : Occupation.values()) {
+            String shown = Appearance.profession(occupation);
+            if (occupation.simOwned()) {
+                assertEquals("none", shown, occupation + " has no vanilla profession, so the plain robe");
+                assertEquals(Occupation.UNEMPLOYED, Occupation.fromVanillaKey(shown));
+            } else {
+                assertEquals(occupation, Occupation.fromVanillaKey(shown), occupation + " is read back from what it shows");
+            }
+        }
+        assertEquals("none", Appearance.profession(Occupation.UNEMPLOYED));
+        assertEquals("toolsmith", Appearance.profession(Occupation.TOOLSMITH));
+        assertEquals("none", Appearance.profession(Occupation.BUILDER), "Dara, a builder, does not wear a farmer's apron");
+    }
 }

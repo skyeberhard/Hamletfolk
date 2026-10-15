@@ -37,6 +37,16 @@ public final class Appearance {
     }
 
     /**
+     * R4.45: the vanilla profession (its lowercase key) that shows a resident's simulated occupation: its own for a trade the game
+     * has, and {@code none} for a jobless adult and for every occupation no vanilla profession backs (lumberjack, miner, builder,
+     * guard, merchant, beekeeper, horse trainer, glassblower). Those get the plain robe, not the nearest apron, because a
+     * profession brings that profession's trades with it.
+     */
+    public static String profession(Occupation occupation) {
+        return occupation.simOwned() ? "none" : occupation.vanillaKey();
+    }
+
+    /**
      * The vanilla villager type that stands for a gender and life stage. Children share the
      * adult's type, because the game already draws a child with the baby model; elders get their own.
      * <pre>

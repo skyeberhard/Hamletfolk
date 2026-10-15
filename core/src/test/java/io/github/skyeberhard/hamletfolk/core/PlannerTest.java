@@ -203,7 +203,8 @@ class PlannerTest {
         s.recordDecision(7, Planner.Tier.GROWTH, "GROWTH|BUILD|treasury", "Build a treasury: 134 of 200.", 10); // new numbers, same decision
         assertEquals(2, s.decisions().size(), "numbers in the reason do not make it a new decision");
         s.recordDecision(12, Planner.Tier.FOOD, "FOOD|BUILD|farm", "Build a farm: food is short.", 10); // a reminder after ten days
-        assertEquals(3, s.decisions().size());
+        assertEquals(2, s.decisions().size(), "R4.44: the older record of it gives way, so each decision is held once");
+        assertEquals(12, s.decisions().get(1).day());
         for (int i = 0; i < Settlement.MAX_DECISIONS + 30; i++) {
             s.recordDecision(100 + i, Planner.Tier.GROWTH, "k" + i, "Decision " + i, 10);
         }

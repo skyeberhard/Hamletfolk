@@ -84,6 +84,11 @@ public enum Occupation {
         return UNEMPLOYED;
     }
 
+    /** The key of the vanilla profession this occupation mirrors ({@code none} for the jobless); see {@link Appearance#profession}. */
+    public String vanillaKey() {
+        return vanillaKey;
+    }
+
     /** True for occupations no vanilla profession backs, so the simulation alone hands them out (R4.3). */
     public boolean simOwned() {
         return this == LUMBERJACK || this == MERCHANT || this == MINER || this == GUARD || this == BUILDER

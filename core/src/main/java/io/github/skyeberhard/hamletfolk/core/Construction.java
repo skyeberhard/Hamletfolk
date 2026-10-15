@@ -608,8 +608,8 @@ public final class Construction {
             settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " set aside ground at " + lot.get().rect().x() + ", "
                     + lot.get().rect().z() + " for a " + type.label().toLowerCase(Locale.ROOT) + ", as its plan had no lot for one.");
         } else {
-            settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " looked for ground for a " + type.label().toLowerCase(Locale.ROOT)
-                    + " and found none flat, dry and clear enough within " + PlanGenerator.REPLACEMENT_RADIUS + " blocks of its square.");
+            settlement.recordQuiet(day, HistoryEvent.Kind.BUILDING, settlement.name() + " looked for ground for a " + type.label().toLowerCase(Locale.ROOT)
+                    + " and found none flat, dry and clear enough within " + PlanGenerator.REPLACEMENT_RADIUS + " blocks of its square.", QUIET_DAYS);
         }
     }
 
@@ -1039,6 +1039,9 @@ public final class Construction {
         return Optional.of(project);
     }
 
+    /** R4.44: days before the village says the very same thing again about a building it cannot build. */
+    static final int QUIET_DAYS = 60;
+
     /** Days between reminders that the village wants a building it cannot build. */
     static final int BLOCKED_REMINDER_DAYS = 5;
     static final String BLOCKED = "constructionBlocked";
@@ -1133,7 +1136,7 @@ public final class Construction {
             return;
         }
         settlement.conditions().put(BLOCKED + ":" + type.name(), day);
-        settlement.record(day, HistoryEvent.Kind.BUILDING, text);
+        settlement.recordQuiet(day, HistoryEvent.Kind.BUILDING, text, QUIET_DAYS); // R4.44
     }
 
     /** The blocks of blended edge round a graded building. */

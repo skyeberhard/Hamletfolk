@@ -85,6 +85,9 @@ public final class SettlementSimulator {
     /** R3.3: a request asks for at least this many units, and pays this many times the merchant's rate. */
     static final int REQUEST_MIN_UNITS = 8;
     static final int REQUEST_PREMIUM = 2;
+    /** R4.44: days before a request that comes and lapses again, with the same words, is written down again. */
+    static final int REQUEST_QUIET_DAYS = 120;
+
     /** R3.3: a request lapses (and its unpaid reward returns to the treasury) after this many days. */
     static final int REQUEST_EXPIRY_DAYS = 30;
     /** R3.3: after a request closes, the same resource waits this long before asking again. */
@@ -847,10 +850,10 @@ public final class SettlementSimulator {
                 settlement.requestMap().remove(request.type());
                 settlement.ledger().addTreasury(request.unpaid());
                 settlement.conditions().put(closedKey(request.type()), day);
-                settlement.record(day, HistoryEvent.Kind.MILESTONE, "The request for " + request.describe()
+                settlement.recordQuiet(day, HistoryEvent.Kind.MILESTONE, "The request for " + request.describe()
                         + (emptied ? " was withdrawn: no one is left in " + settlement.name()
                         : covered ? " was withdrawn: the stores recovered" : " lapsed")
-                        + (request.unpaid() > 0 ? ", and " + request.unpaid() + " emeralds went back to the treasury." : "."));
+                        + (request.unpaid() > 0 ? ", and " + request.unpaid() + " emeralds went back to the treasury." : "."), REQUEST_QUIET_DAYS);
             }
         }
         if (settlement.population() == 0) {
@@ -874,8 +877,8 @@ public final class SettlementSimulator {
             }
             Request request = new Request(type, units, 0, reward, 0, day);
             settlement.requestMap().put(type, request);
-            settlement.record(day, HistoryEvent.Kind.MILESTONE, settlement.name() + " is asking for "
-                    + request.describe() + " and will pay " + reward + " emeralds for it.");
+            settlement.recordQuiet(day, HistoryEvent.Kind.MILESTONE, settlement.name() + " is asking for "
+                    + request.describe() + " and will pay " + reward + " emeralds for it.", REQUEST_QUIET_DAYS);
         }
     }
 

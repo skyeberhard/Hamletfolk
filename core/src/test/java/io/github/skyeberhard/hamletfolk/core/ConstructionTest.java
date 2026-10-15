@@ -814,7 +814,10 @@ class ConstructionTest {
         assertTrue(propose(poor, 8).isEmpty());
         assertEquals(1, poor.history().stream().filter(e -> e.text().contains("cannot afford")).count(), "not every day");
         assertTrue(propose(poor, 11).isEmpty());
-        assertEquals(2, poor.history().stream().filter(e -> e.text().contains("cannot afford")).count(), "a reminder after five days");
+        assertEquals(1, poor.history().stream().filter(e -> e.text().contains("cannot afford")).count(),
+                "the same words are not written again for " + Construction.QUIET_DAYS + " days (R4.44)");
+        assertTrue(propose(poor, 5 + Construction.QUIET_DAYS).isEmpty());
+        assertEquals(2, poor.history().stream().filter(e -> e.text().contains("cannot afford")).count(), "but are, once that time has passed");
     }
 
     @Test

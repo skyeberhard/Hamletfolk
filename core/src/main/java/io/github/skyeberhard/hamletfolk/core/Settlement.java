@@ -393,6 +393,8 @@ public final class Settlement {
                 return;
             }
         }
+        // R4.44: an older record of the same decision gives way to this one, so the log holds each decision once, with its last day
+        decisions.removeIf(earlier -> earlier.key().equals(key));
         decisions.add(new Planner.Decision(day, tier, key, text));
         while (decisions.size() > MAX_DECISIONS) {
             decisions.remove(0);
@@ -516,6 +518,24 @@ public final class Settlement {
 
     public void record(long day, HistoryEvent.Kind kind, String text) {
         add(new HistoryEvent(effectiveDay(day), kind, text));
+    }
+
+    /**
+     * R4.44: as {@link #record}, unless the very same words were written in the last {@code quietDays} days (a village that is
+     * waiting for something says so, but does not say it again and again; a change in the numbers is a new line).
+     */
+    public void recordQuiet(long day, HistoryEvent.Kind kind, String text, int quietDays) {
+        long effective = effectiveDay(day);
+        for (int i = history.size() - 1; i >= 0; i--) {
+            HistoryEvent earlier = history.get(i);
+            if (effective - earlier.day() >= quietDays) {
+                break;
+            }
+            if (earlier.kind() == kind && earlier.text().equals(text)) {
+                return;
+            }
+        }
+        add(new HistoryEvent(effective, kind, text));
     }
 
     /**
