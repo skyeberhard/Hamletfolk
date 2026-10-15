@@ -31,9 +31,10 @@ Follow CLAUDE.md and the loop in docs/WORKPLAN.md:
 1. **R4.41** food surplus, then **R4.42** tools first: they decide whether a village can grow at all.
 2. **R2.8** adopted buildings: gives every vanilla village a true starting point (beds, smithy, farms).
    Then **R8.19** rough ground kept and **R8.20** villagers prepare it (both need R2.8 first).
+   Then **R4.45** clothes show the real work: players are already confused by it (see its notes).
 3. **R4.43** stuck projects, **R4.40** requests, **R3.18** selling the surplus.
 4. **R4.44** quieter history, **R1.33** saving on a locked file.
-5. The appearance items **R4.45**, **R4.46**, **R4.47**, after the growth items are played.
+5. The other appearance items **R4.46** and **R4.47**, after the growth items are played.
 6. **R8.21** foundations and terraces, once R8.19 and R8.20 have been played.
 
 ## The items
@@ -174,6 +175,25 @@ Context: the simulation owns occupations (R4.3) but leaves the vanilla professio
 simulation made a farmer can still wear a weaponsmith's apron (Oakford has two). Any resource-pack clothing
 (R4.46) would show the wrong job.
 
+Evidence from play (2026-10-15): Testford's Dara is a journeyman BUILDER in `/settlement residents` and the
+history, but wears a farmer's clothes and the label over her head says farmer; several others show as unemployed
+over their heads while the simulation gives them a trade. In the live save 20 of 89 residents have a job with no
+vanilla profession at all (12 lumberjacks, 5 miners, 2 builders, 1 merchant), so the game shows them as jobless
+or with whatever job site they last claimed; and residents moved between trades by R4.35 keep the old look.
+The label is not ours: the plugin only sets the villager's name (`SettlementService` around line 1486, hidden
+unless looked at). Ask the user which client shows the job label (a client mod such as Jade, or Bedrock through
+Geyser); either reads the vanilla profession.
+
+A bug to fix in the same item: `SettlementService` (around line 1570) raises the vanilla level to the simulated
+trade level for any occupation that is not `simOwned()`, without checking that the vanilla profession is the same
+trade. A resident R4.35 moved from farmer to toolsmith therefore gets its vanilla FARMER levelled up, and a
+villager with experience can never lose its profession in vanilla, so the wrong look is locked in. Only raise the
+level when `Occupation.fromVanillaKey(profession)` equals the simulated occupation.
+
+Decision for the user before building: this is now about players being told the truth, not only about a resource
+pack, so consider making the setting on by default (the row says off). Ask, then keep the row text and the issue
+body the same.
+
 Approach: a table in core from `Occupation` to a vanilla profession name (or none), with a test, documented in
 docs/APPEARANCE.md. The Paper layer applies it behind `appearance.profession-follows-occupation` (off by
 default), next to the R4.16 villager-type code in `SettlementService`.
@@ -183,7 +203,11 @@ Watch for:
   traded with it (it has experience). Never change a locked villager; check how 26.2 exposes this with javap
   before relying on any method.
 - The game also changes professions itself when a villager claims or loses a job site; setting it once is not
-  enough, and fighting the game every tick is wrong. Decide when to apply it (on enrolment, on a job change, on
+  enough, and fighting the game every tick is wrong. `VillagerCareerChangeEvent` is cancellable and already
+  listened to (`VillagerListener.onCareerChange`, which seeds an unemployed resident): cancelling a change that
+  disagrees with the simulated occupation is likely the right hook, but check with javap whether the job-site
+  memory and the POI claim are set before the event, or a cancelled villager keeps a claimed workstation that no
+  one else can take. Decide when to apply it (on enrolment, on a job change, on
   chunk load) and test it on the console test server described in the memory notes, never on the live world.
 - Occupations with no vanilla match (lumberjack, miner, builder, guard, merchant, mason, ...) need a decision
   for the table; the nearest look or none (NONE shows the plain robe).
