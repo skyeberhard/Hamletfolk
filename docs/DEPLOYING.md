@@ -39,3 +39,11 @@ If something goes wrong after a deploy:
    or check R1.13's migration guarantees before assuming it's fine either way.
 4. Update PRODUCTION.md's "live" line back down.
 5. File what went wrong as a roadmap item before trying the deploy again.
+
+## Keep the server folder out of a synced folder (R1.33)
+
+Do not run the server from a folder that OneDrive, Dropbox or a similar program syncs. They hold files open while they upload them, and
+Windows then refuses the plugin's save (`AccessDeniedException` moving `settlements.json.tmp` over `settlements.json`). The plugin now
+tries five times over about a second and a half before giving up, and the next autosave tries again, so a brief lock costs nothing,
+but a sync client that holds the file for long can still make a save fail. If the log says "Failed to save settlements" more than
+now and then, move the server out of the synced folder (the repository's `paper/run` is inside it on a OneDrive machine).

@@ -69,7 +69,9 @@ final class SettlementStore {
             Files.createDirectories(file.getParent());
             Path temp = file.resolveSibling(file.getFileName() + ".tmp");
             Files.writeString(temp, snapshot.json(), StandardCharsets.UTF_8);
-            Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            // R1.33: a sync client or scanner may hold the save file for a moment; Windows then refuses the replace, so try again
+            io.github.skyeberhard.hamletfolk.core.SaveRetry.run(
+                    () -> Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE));
         });
     }
 
