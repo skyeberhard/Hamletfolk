@@ -313,3 +313,18 @@ Approach: in `Construction.queue`, when a lot is too steep for `TerrainPad`, add
 on a slope become terraces: split the farm footprint in two or three strips at different levels. This changes
 `Blueprint` handling and the Paper building step, so it needs the reviewer and a look in game. Leave it until R8.19
 and R8.20 have been played: they may make it unnecessary for most villages.
+
+### R4.48 A house lot holds the biggest house of its style
+
+Evidence (docs/BUILDING_REQUIREMENTS.md, section 3; sizes and beds from the jar): a house lot is 9 by 9 and a template must fit inside its
+lot, so in plains and savanna only the 1-bed small house ever fits (the medium is 13x11 and 8x15, the plains big house 7x11); desert, snowy and
+taiga fit their 2-bed medium house. A stage 1 plan has 7 house lots, so 7 beds. Growth needs a free bed, so housing is the real ceiling after
+R4.38 gave the plan room. Also `SettlementService.ensurePlan` calls `PlanGenerator.generate(..., "plains", ...)` whatever the biome, so every plan
+is laid out as plains.
+
+Approach: give `PlanGenerator.size` a style (`size(type, style)`), pass the village's `BiomeSet.forBiome(...)` into `generate`/`extend` (the plan
+already stores `biomeSet`), and size HOUSE as the bounding box of the style's biggest ladder piece (read the piece sizes into a small core table
+with a test that compares it with `python tools/piece_sizes.py`). Check that `Construction.orient` fits the piece and that `mostBedsAffordable`
+then chooses the bigger house when affordable: a bigger house costs more, so a poor village builds the plainest first. Bigger house lots mean
+fewer lots per street: look at how many a stage still holds, and let the planner count the beds a lot will hold (`Planner.shelter` says "N more beds").
+Watch for `fillOverlapping` (R2.8) and replacement lots (R4.37), which use `size`. A plan already made keeps its lots until `admin replan`.

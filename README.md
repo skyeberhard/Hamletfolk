@@ -154,7 +154,7 @@ struggled and remembered.
 2. **Building (M4, M8).** A catalogue of building templates (the game's own village pieces plus generated
    ones for what it does not ship), a builder who places the planned buildings over time, and players
    founding villages. Design: [docs/VILLAGE_PLANNING.md](docs/VILLAGE_PLANNING.md) and
-   [docs/BUILDING_LIBRARY.md](docs/BUILDING_LIBRARY.md).
+   [docs/BUILDING_LIBRARY.md](docs/BUILDING_LIBRARY.md); what each building needs: [docs/BUILDING_REQUIREMENTS.md](docs/BUILDING_REQUIREMENTS.md).
 3. **Defense and society.** Walls and lighting that reduce damage, calls for help, villages that prepare
    before danger peaks, then households, businesses, leadership and trade between villages.
 

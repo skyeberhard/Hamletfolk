@@ -4,6 +4,8 @@ Paper server plugin (Minecraft **26.2**, **Java 25**) that turns vanilla village
 simulated communities: persistent residents, a per-settlement resource ledger, daily
 production/consumption, and a written history. Server-side only (works for Bedrock via Geyser).
 
+For what each building needs (lot size, beds, places, when it is asked for) see [docs/BUILDING_REQUIREMENTS.md](docs/BUILDING_REQUIREMENTS.md).
+
 Start with [README.md](README.md) (what it does), [ROADMAP.md](ROADMAP.md) (what's next) and
 [docs/DESIGN.md](docs/DESIGN.md) (principles).
 
