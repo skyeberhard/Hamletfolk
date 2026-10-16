@@ -28,6 +28,8 @@ public final class Settlement {
     private final Map<UUID, Resident> residents = new LinkedHashMap<>();
     private final Ledger ledger = new Ledger();
     private final List<HistoryEvent> history = new ArrayList<>();
+    /** How many lines have been added to the history since this object was made (not saved; R1.39's feed follows it). */
+    private long historyWritten;
     private final ResourceFlow flow = new ResourceFlow();
     /** Residents turned into zombie villagers, keyed by the zombie's entity id. They can be cured. */
     private final Map<UUID, Resident> turned = new LinkedHashMap<>();
@@ -534,6 +536,11 @@ public final class Settlement {
         return Collections.unmodifiableList(history);
     }
 
+    /** How many lines {@link #add} has added since this object was made, loading included; a line merged into another is not counted. */
+    public long historyWritten() {
+        return historyWritten;
+    }
+
     public void record(long day, HistoryEvent.Kind kind, String text) {
         add(new HistoryEvent(effectiveDay(day), kind, text));
     }
@@ -591,6 +598,7 @@ public final class Settlement {
     /** Adds an event as given (loading a save uses this) and, if the history is over {@code MAX_HISTORY}, drops the oldest minor one, else the oldest non-founding one. */
     void add(HistoryEvent event) {
         history.add(event);
+        historyWritten++;
         while (history.size() > MAX_HISTORY) {
             int drop = -1;
             for (int i = 0; i < history.size(); i++) {

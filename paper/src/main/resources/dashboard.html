@@ -6,109 +6,228 @@
 <title>Hamletfolk</title>
 <style>
 :root {
-  --bg: #f6f3ec; --panel: #ffffff; --ink: #2a2620; --muted: #766f63; --line: #ddd5c6; --accent: #3b6e4d;
-  --ok: #3b8f5a; --watch: #c98a1b; --bad: #b8433a; --chip: #ece6d8;
+  --bg: #121110; --bg2: #1a1816; --panel: #201e1b; --panel2: #282521; --ink: #ece6da; --muted: #9a9284; --faint: #6d665b;
+  --line: #34302a; --accent: #d7a95c; --accent2: #7fc096; --ok: #6fc28a; --watch: #e0a83a; --bad: #e06a60; --info: #6ea8e0;
+  --chip: #2b2823; --shadow: 0 10px 30px rgba(0,0,0,.35); --radius: 10px;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #1a1814; --panel: #24211c; --ink: #ece6d8; --muted: #9a9283; --line: #3a362e; --accent: #7fc096;
-    --ok: #6fc28a; --watch: #e0a83a; --bad: #e06a60; --chip: #302c25;
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f4f1ea; --bg2: #ebe6db; --panel: #ffffff; --panel2: #f7f4ee; --ink: #26221c; --muted: #6e675c; --faint: #9a9284;
+    --line: #ddd6c8; --accent: #a06d1e; --accent2: #2f7a4c; --ok: #2f8f55; --watch: #b8781a; --bad: #b8433a; --info: #2f6db0;
+    --chip: #efeadf; --shadow: 0 10px 30px rgba(60,40,10,.12);
   }
 }
-:root[data-theme="dark"] {
-  --bg: #1a1814; --panel: #24211c; --ink: #ece6d8; --muted: #9a9283; --line: #3a362e; --accent: #7fc096;
-  --ok: #6fc28a; --watch: #e0a83a; --bad: #e06a60; --chip: #302c25;
+:root[data-theme="light"] {
+  --bg: #f4f1ea; --bg2: #ebe6db; --panel: #ffffff; --panel2: #f7f4ee; --ink: #26221c; --muted: #6e675c; --faint: #9a9284;
+  --line: #ddd6c8; --accent: #a06d1e; --accent2: #2f7a4c; --ok: #2f8f55; --watch: #b8781a; --bad: #b8433a; --info: #2f6db0;
+  --chip: #efeadf; --shadow: 0 10px 30px rgba(60,40,10,.12);
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; }
-header { display: flex; align-items: baseline; gap: 16px; padding: 14px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-header h1 { margin: 0; font-size: 20px; }
-header .meta { color: var(--muted); font-size: 13px; }
-header button { margin-left: auto; }
-button { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; }
-main { padding: 16px 20px 40px; max-width: 1200px; margin: 0 auto; }
-table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--chip); }
-tr:last-child td { border-bottom: 0; }
-tr.village { cursor: pointer; }
-tr.village:hover td { background: var(--chip); }
-.num { text-align: right; font-variant-numeric: tabular-nums; }
-.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; background: var(--ok); }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+button, input, select { font: inherit; color: inherit; }
+button { background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 11px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+button.primary { background: var(--accent); color: #1b1407; border-color: var(--accent); font-weight: 600; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+input, select { background: var(--bg2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; }
+input[type=number] { width: 68px; }
+.app { display: grid; grid-template-columns: 270px minmax(0, 1fr); grid-template-rows: 54px 1fr; height: 100vh; }
+.top { grid-column: 1 / -1; min-width: 0; overflow: hidden; display: flex; align-items: center; gap: 14px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--bg2); }
+.brand { font-weight: 700; letter-spacing: .02em; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.brand i { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); display: inline-block; transform: rotate(45deg); }
+.top .totals { display: flex; gap: 8px; flex-wrap: wrap; }
+.top .spacer { flex: 1; }
+.live { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.live b { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); display: inline-block; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
+.live.down b { background: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad) 25%, transparent); }
+.side { border-right: 1px solid var(--line); background: var(--bg2); overflow: auto; padding: 10px 8px 20px; }
+.side input { width: 100%; margin-bottom: 8px; }
+.side h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin: 14px 8px 6px; }
+.nav { display: grid; grid-template-columns: 12px 1fr auto; gap: 2px 8px; align-items: center; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
+.nav:hover { background: var(--panel); }
+.nav.sel { background: var(--panel2); box-shadow: inset 2px 0 0 var(--accent); }
+.nav .n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav .p { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.nav .s { grid-column: 2 / 4; height: 18px; }
+.nav .s svg { width: 100%; height: 18px; display: block; }
+.main { min-width: 0; overflow: auto; padding: 18px 22px 40px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: var(--ok); flex: none; }
 .dot.h1 { background: var(--watch); } .dot.h2 { background: var(--bad); }
+.chip { display: inline-flex; align-items: center; gap: 5px; background: var(--chip); border-radius: 999px; padding: 2px 9px; font-size: 12px; margin: 2px 4px 2px 0; }
+.chip.bad { color: var(--bad); } .chip.watch { color: var(--watch); }
+h1 { font-size: 22px; margin: 0; display: flex; align-items: center; gap: 10px; }
+.sub { color: var(--muted); font-size: 13px; }
+.grid { display: grid; gap: 14px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin: 14px 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+.card .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.card .k { color: var(--muted); font-size: 12px; }
+.card svg { width: 100%; height: 26px; display: block; margin-top: 4px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+.panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+.panel h2 .grow { flex: 1; }
+.two { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 14px; align-items: start; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 14px 0; overflow-x: auto; }
+.tab { padding: 8px 14px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; }
+.tab:hover { color: var(--ink); } .tab.sel { color: var(--ink); border-bottom-color: var(--accent); }
+.vcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
+.vcard { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; cursor: pointer; transition: border-color .15s, transform .15s; }
+.vcard:hover { border-color: var(--accent); transform: translateY(-1px); }
+.vcard .t { display: flex; align-items: center; gap: 8px; font-weight: 650; font-size: 15px; }
+.vcard .t .pop { margin-left: auto; color: var(--muted); font-weight: 500; font-size: 13px; }
+.bars { display: grid; grid-template-columns: 46px 1fr 38px; gap: 3px 8px; align-items: center; margin: 8px 0; font-size: 12px; color: var(--muted); }
+.bar { height: 6px; background: var(--bg2); border-radius: 4px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent2); border-radius: 4px; }
+.bar i.low { background: var(--bad); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); position: sticky; top: 0; background: var(--panel); }
+tr:last-child td { border-bottom: 0; }
 .low { color: var(--bad); font-weight: 600; }
-.chip { display: inline-block; background: var(--chip); border-radius: 10px; padding: 1px 8px; margin: 1px 3px 1px 0; font-size: 12px; }
-.chip.block { color: var(--bad); }
-.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-top: 16px; }
-section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
-section h2 { margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
-section.wide { grid-column: 1 / -1; }
-ul { margin: 0; padding-left: 18px; }
-li { margin: 2px 0; }
-.small { font-size: 13px; color: var(--muted); }
-.back { margin-bottom: 12px; }
-canvas { width: 100%; max-width: 720px; height: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
-.scroll { max-height: 360px; overflow: auto; }
-.cards { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; min-width: 96px; }
-.card b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
-.card span { color: var(--muted); font-size: 12px; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.actions .group { display: flex; gap: 4px; align-items: center; border: 1px solid var(--line); border-radius: 6px; padding: 3px; }
-.actions input, td select, .actions select { background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; font: inherit; }
-.actions input[type=number] { width: 64px; }
-button.danger { border-color: var(--bad); color: var(--bad); }
-button:disabled { opacity: .5; cursor: wait; }
-#toast { position: fixed; right: 16px; bottom: 16px; max-width: 420px; padding: 10px 14px; border-radius: 8px; background: var(--panel);
-  border: 1px solid var(--line); box-shadow: 0 6px 24px rgba(0,0,0,.25); display: none; }
-#toast.ok { border-color: var(--ok); } #toast.bad { border-color: var(--bad); }
-@media (max-width: 700px) { main { padding: 12px 12px 40px; } th.hide, td.hide { display: none; } }
+.meter { width: 56px; height: 6px; background: var(--bg2); border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 6px; }
+.meter i { display: block; height: 100%; background: var(--accent2); } .meter i.low { background: var(--bad); }
+.scroll { max-height: 560px; overflow: auto; }
+.feed { display: flex; flex-direction: column; max-height: 680px; overflow: auto; }
+.ev { display: grid; grid-template-columns: 6px 1fr; gap: 10px; padding: 7px 4px; border-bottom: 1px solid var(--line); }
+.ev:last-child { border-bottom: 0; }
+.ev .k { border-radius: 4px; background: var(--faint); }
+.ev .k.good { background: var(--ok); } .ev .k.bad { background: var(--bad); } .ev .k.build { background: var(--info); } .ev .k.watch { background: var(--watch); }
+.ev .m { font-size: 12px; color: var(--muted); }
+.ev .m a { color: var(--accent); cursor: pointer; }
+.ev.new { animation: flash 2.5s ease-out; }
+.ev.earlier { opacity: .6; }
+@keyframes flash { from { background: color-mix(in srgb, var(--accent) 22%, transparent); } to { background: transparent; } }
+ul.plain { list-style: none; margin: 0; padding: 0; }
+ul.plain li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+ul.plain li:last-child { border-bottom: 0; }
+.tier { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); margin-right: 6px; }
+.empty { color: var(--muted); font-style: italic; }
+.mapwrap { position: relative; }
+canvas.map { width: 100%; height: 560px; display: block; border-radius: 8px; background: var(--bg2); cursor: grab; touch-action: none; }
+canvas.map.drag { cursor: grabbing; }
+.tip { position: absolute; pointer-events: none; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font-size: 12px;
+  box-shadow: var(--shadow); display: none; max-width: 260px; z-index: 5; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.act { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.act .d { color: var(--muted); font-size: 12px; flex: 1; }
+.act .row { display: flex; gap: 6px; align-items: center; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 20; }
+.modal .box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; width: min(440px, 92vw); box-shadow: var(--shadow); }
+.modal .box p { margin: 0 0 14px; }
+.modal .box .row { display: flex; gap: 8px; justify-content: flex-end; }
+#toast { position: fixed; right: 18px; bottom: 18px; max-width: 440px; padding: 10px 14px; border-radius: 10px; background: var(--panel2);
+  border: 1px solid var(--line); box-shadow: var(--shadow); display: none; z-index: 30; }
+#toast.ok { border-left: 4px solid var(--ok); } #toast.bad { border-left: 4px solid var(--bad); }
+.menu-btn { display: none; }
+@media (max-width: 900px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .cards { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+  .side { display: none; position: fixed; top: 54px; bottom: 0; left: 0; width: 280px; z-index: 10; box-shadow: var(--shadow); }
+  .side.open { display: block; }
+  .menu-btn { display: inline-block; }
+  .two { grid-template-columns: 1fr; }
+  .top .totals { display: none; }
+  .main { padding: 14px 14px 40px; }
+}
 </style>
 </head>
 <body>
-<header>
-  <h1>Hamletfolk</h1>
-  <span class="meta" id="meta">loading</span>
-  <button id="theme" type="button">Theme</button>
-</header>
-<main id="main"></main>
+<div class="app">
+  <header class="top">
+    <button class="menu-btn" id="menu" type="button" aria-label="villages">&#9776;</button>
+    <div class="brand"><i></i>Hamletfolk</div>
+    <div class="totals" id="totals"></div>
+    <div class="spacer"></div>
+    <div class="live" id="live"><b></b><span>connecting</span></div>
+    <button id="theme" type="button" aria-label="switch theme">&#9680;</button>
+  </header>
+  <nav class="side" id="side"></nav>
+  <main class="main" id="main"></main>
+</div>
+<div class="modal" id="modal"><div class="box"><p id="modal-text"></p><div class="row"><button id="modal-no" type="button">Cancel</button><button id="modal-yes" class="primary" type="button">Go ahead</button></div></div></div>
 <div id="toast" role="status"></div>
 <script>
 "use strict";
+// ----- what the server writes in -----
 const TOKEN = "__HAMLETFOLK_TOKEN__";
 const ACTIONS = __HAMLETFOLK_ACTIONS__;
-let catalogue = null;
-const main = document.getElementById("main");
-const meta = document.getElementById("meta");
-let current = location.hash.slice(1) || null;
-let timer = null;
 
+// ----- state -----
+const state = {
+  villages: [], villagesText: "", detail: null, detailText: "", trends: {}, events: [], latest: 0, catalogue: null,
+  current: null, tab: "overview", filter: "", feedFilter: "all", seenFeed: 0, map: null, busy: false,
+};
+const $ = (id) => document.getElementById(id);
+const main = $("main");
+
+// ----- helpers -----
 function el(tag, attrs, ...kids) {
   const e = document.createElement(tag);
   if (attrs) for (const [k, v] of Object.entries(attrs)) {
-    if (k === "class") e.className = v; else if (k === "onclick") e.onclick = v; else e.setAttribute(k, v);
+    if (v == null || v === false) continue;
+    if (k === "class") e.className = v; else if (k.startsWith("on")) e[k] = v; else e.setAttribute(k, v === true ? "" : v);
   }
-  for (const kid of kids.flat()) if (kid != null) e.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  return fill(e, kids, true);
+}
+/** Puts children in a node (arrays flattened, null and false skipped); replaces what was there unless {@code keep}. */
+function fill(e, kids, keep) {
+  if (!keep) e.replaceChildren();
+  for (const kid of [kids].flat(Infinity)) if (kid != null && kid !== false) e.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
   return e;
 }
-const get = async (url) => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
-const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-
+function svg(tag, attrs, ...kids) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v);
+  for (const kid of kids) e.append(kid);
+  return e;
+}
+const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+const fmt = (n) => n == null ? "-" : Number(n) >= 10000 ? (n / 1000).toFixed(1) + "k" : String(n);
+const ago = (ms) => { const s = Math.max(0, Math.round((Date.now() - ms) / 1000)); return s < 60 ? s + "s ago" : s < 3600 ? Math.round(s / 60) + "m ago" : Math.round(s / 3600) + "h ago"; };
+async function get(url) { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.text(); }
 function toast(text, ok) {
-  const t = document.getElementById("toast");
-  t.textContent = text; t.className = ok ? "ok" : "bad"; t.style.display = "block";
+  const t = $("toast"); t.textContent = text; t.className = ok ? "ok" : "bad"; t.style.display = "block";
   clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.style.display = "none"; }, 7000);
 }
+function ask(text) {
+  return new Promise((done) => {
+    $("modal-text").textContent = text; $("modal").style.display = "flex";
+    const close = (v) => { $("modal").style.display = "none"; $("modal-yes").onclick = $("modal-no").onclick = null; done(v); };
+    $("modal-yes").onclick = () => close(true); $("modal-no").onclick = () => close(false);
+    $("modal-yes").focus();
+  });
+}
 
-/** R1.36: one action. Asks first when the server says it must; the server checks everything again. */
-async function act(body, label, askAnyway) {
-  const info = catalogue && catalogue.actions.find((a) => a.action === body.action);
-  if ((info && info.confirm) || askAnyway) {
-    if (!confirm((askAnyway || label || info.label) + "?\n\nThis is written to the audit log.")) return;
+/** A small line graph of one column of a village's samples (0 people, 1 food, 2 wood, 3 stone, 4 tools, 5 treasury, 6 beds). */
+function spark(id, column, colour) {
+  const points = (state.trends[id] || []).map((p) => p[column]);
+  const box = svg("svg", { viewBox: "0 0 100 24", preserveAspectRatio: "none" });
+  if (points.length < 2) return box;
+  const lo = Math.min(...points), hi = Math.max(...points), span = hi - lo || 1;
+  const d = points.map((v, i) => (i ? "L" : "M") + (i * 100 / (points.length - 1)).toFixed(1) + "," + (22 - (v - lo) * 20 / span).toFixed(1)).join(" ");
+  box.append(svg("path", { d, fill: "none", stroke: colour || "var(--accent)", "stroke-width": "1.6", "vector-effect": "non-scaling-stroke" }));
+  return box;
+}
+
+// what a kind of history line means, for its colour and the "important" filter
+const KIND = { birth: "good", arrival: "good", recovery: "good", cure: "good", founded: "good", donation: "good", death: "bad", famine: "bad", raid: "bad", abandoned: "bad",
+  departure: "watch", shortage: "watch", building: "build" };
+const IMPORTANT = new Set(["birth", "arrival", "death", "famine", "recovery", "raid", "shortage", "abandoned", "departure", "cure", "founded"]);
+
+// ----- actions (R1.36): the server checks everything again -----
+async function act(body, question) {
+  const info = state.catalogue && state.catalogue.actions.find((a) => a.action === body.action);
+  if ((info && info.confirm) || question) {
+    if (!await ask((question || info.label) + "? This is written to the audit log.")) return;
     body.confirm = true;
   }
-  act.busy = true;
-  document.querySelectorAll("button, select, input").forEach((b) => { b.disabled = true; });
+  state.busy = true;
+  main.querySelectorAll("button, select, input").forEach((b) => { b.disabled = true; });
   try {
     const r = await fetch("/api/action", { method: "POST", headers: { "Content-Type": "application/json", "X-Hamletfolk-Token": TOKEN },
       body: JSON.stringify(body), cache: "no-store" });
@@ -117,151 +236,342 @@ async function act(body, label, askAnyway) {
   } catch (e) {
     toast("Could not reach the server: " + e.message, false);
   } finally {
-    act.busy = false;
-    await show();
+    state.busy = false;
+    state.villagesText = state.detailText = "";
+    await poll(true);
   }
 }
 
-async function show() {
-  // do not redraw under a control someone is using, or while an action runs
-  if (act.busy || (document.activeElement && main.contains(document.activeElement) && /SELECT|INPUT/.test(document.activeElement.tagName))) return;
-  if (ACTIONS && !catalogue) { try { catalogue = await get("/api/actions"); } catch (e) { /* the page still shows */ } }
+// ----- polling: the feed every time, the rest only redrawn when it changed -----
+let ticks = 0;
+async function poll(force) {
+  if (state.busy && !force) return;
   try {
-    if (current) await village(current); else await overview();
-    meta.textContent = "updated " + new Date().toLocaleTimeString();
+    if (ACTIONS && !state.catalogue) state.catalogue = JSON.parse(await get("/api/actions"));
+    let feed = JSON.parse(await get("/api/events?since=" + state.latest));
+    if (state.start && feed.start !== state.start) { // the server restarted: its numbers began again
+      state.events = []; state.latest = 0; state.seenFeed = 0;
+      feed = JSON.parse(await get("/api/events?since=0"));
+    }
+    state.start = feed.start;
+    if (feed.events.length) { state.events = state.events.concat(feed.events).slice(-400); state.latest = feed.latest; }
+    if (force || ticks % 20 === 0) state.trends = JSON.parse(await get("/api/trends"));
+    const villagesText = await get("/api/villages");
+    let changed = villagesText !== state.villagesText;
+    if (changed) { state.villagesText = villagesText; state.villages = JSON.parse(villagesText); }
+    if (state.current) {
+      const t = await get("/api/village/" + encodeURIComponent(state.current)).catch(() => null);
+      if (t && t !== state.detailText) { state.detailText = t; state.detail = JSON.parse(t); changed = true; }
+    }
+    setLive(true);
+    renderTop();
+    if (changed || force) renderSide();
+    const feedShown = !state.current || state.tab === "overview";
+    if (changed || force || (feed.events.length && feedShown) || !main.firstChild) renderMain();
   } catch (e) {
-    meta.textContent = "cannot reach the server (" + e.message + ")";
+    setLive(false, e.message);
   }
+  ticks++;
+}
+function setLive(up, why) {
+  $("live").className = "live" + (up ? "" : " down");
+  $("live").lastChild.textContent = up ? "live" : "cannot reach the server" + (why ? " (" + why + ")" : "");
 }
 
-async function overview() {
-  const rows = await get("/api/villages");
-  const total = rows.reduce((n, r) => n + r.population, 0);
-  const table = el("table", null,
-    el("thead", null, el("tr", null,
-      el("th", null, "Village"), el("th", { class: "num" }, "People"), el("th", { class: "num" }, "Food"), el("th", { class: "num hide" }, "Wood"),
-      el("th", { class: "num hide" }, "Stone"), el("th", { class: "num hide" }, "Tools"), el("th", { class: "num hide" }, "Treasury"),
-      el("th", { class: "num" }, "Beds"), el("th", { class: "hide" }, "Building"), el("th", null, "In the way"))),
-    el("tbody", null, rows.map((r) => el("tr", { class: "village", onclick: () => go(r.id) },
-      el("td", null, el("span", { class: "dot h" + r.health }), el("b", null, r.name), el("div", { class: "small" }, r.character)),
-      el("td", { class: "num" }, r.population + (r.children ? " (" + r.children + ")" : "")),
-      el("td", { class: "num" }, r.stores.food), el("td", { class: "num hide" }, r.stores.wood), el("td", { class: "num hide" }, r.stores.stone),
-      el("td", { class: "num hide" }, r.stores.tools), el("td", { class: "num hide" }, r.treasury + "/" + r.treasuryLimit),
-      el("td", { class: "num" }, r.beds + " (" + r.freeBeds + " free)"), el("td", { class: "hide" }, r.building || "-"),
-      el("td", null, r.blockers.slice(0, 3).map((b) => el("span", { class: "chip block" }, b)),
-        r.blockers.length > 3 ? el("span", { class: "small" }, "+" + (r.blockers.length - 3) + " more") : null)))));
-  main.replaceChildren(el("div", { class: "small" }, rows.length + " villages, " + total + " people. Worst off first; click a village."), table);
+// ----- top bar and village list -----
+function renderTop() {
+  const v = state.villages, people = v.reduce((n, x) => n + x.population, 0), kids = v.reduce((n, x) => n + x.children, 0);
+  const trouble = v.filter((x) => x.health === 2).length, watch = v.filter((x) => x.health === 1).length;
+  fill($("totals"), [
+    el("span", { class: "chip" }, v.length + " villages"), el("span", { class: "chip" }, people + " people"), el("span", { class: "chip" }, kids + " children"),
+    trouble ? el("span", { class: "chip bad" }, trouble + " in trouble") : null, watch ? el("span", { class: "chip watch" }, watch + " held back") : null]);
+}
+function renderSide() {
+  const f = state.filter.toLowerCase();
+  const list = state.villages.filter((v) => !f || v.name.toLowerCase().includes(f));
+  let search = $("side").querySelector("input");
+  if (!search) {
+    search = el("input", { type: "search", placeholder: "Find a village", "aria-label": "find a village" });
+    search.oninput = () => { state.filter = search.value; renderSide(); };
+    $("side").append(search, el("div", { id: "nav" }));
+  }
+  fill($("nav"), [
+    el("div", { class: "nav" + (state.current ? "" : " sel"), onclick: () => go(null) }, el("span", null, "⌂"), el("span", { class: "n" }, "All villages"), el("span", { class: "p" })),
+    el("h3", null, "Villages"),
+    list.map((v) => el("div", { class: "nav" + (state.current === v.id ? " sel" : ""), onclick: () => go(v.id), title: v.blockers.join("; ") },
+      el("span", { class: "dot h" + v.health }), el("span", { class: "n" }, v.name), el("span", { class: "p" }, v.population),
+      el("span", { class: "s" }, spark(v.id, 0, "var(--faint)")))),
+    // R1.38: panels added by other plugins will be listed here
+    el("h3", null, "More"), el("div", { class: "sub", style: "padding: 0 8px" }, "Panels from other plugins will appear here.")]);
 }
 
-async function village(id) {
-  const v = await get("/api/village/" + encodeURIComponent(id));
-  const back = el("button", { class: "back", onclick: () => go(null) }, "All villages");
-  const cards = el("div", { class: "cards" },
-    [["people", v.population + (v.children ? " (" + v.children + " children)" : "")], ["food", v.stores.food], ["wood", v.stores.wood], ["stone", v.stores.stone],
-     ["metal", v.stores.metal], ["tools", v.stores.tools], ["treasury", v.treasury + " / " + v.treasuryLimit], ["beds", v.beds + " (" + v.freeBeds + " free)"],
-     ["day", v.day]].map(([k, n]) => el("div", { class: "card" }, el("b", null, n), el("span", null, k))));
-  const jobs = Object.entries(v.jobs).map(([k, n]) => el("span", { class: "chip" }, n + " " + k));
-  const sections = el("div", { class: "cols" },
-    el("section", null, el("h2", null, "In the way"),
-      v.blockers.length ? el("ul", null, v.blockers.map((b) => el("li", null, b))) : el("div", { class: "small" }, "Nothing.")),
-    el("section", null, el("h2", null, "What it wants next"),
-      v.wants.length ? el("ul", null, v.wants.map((w) => el("li", null, el("b", null, "[" + w.tier + "] "), cap(w.kind) + " " + w.target.replace(/_/g, " ") + ": " + w.reason)))
-        : el("div", { class: "small" }, "Nothing: it is in good order.")),
-    el("section", null, el("h2", null, "Work"), el("div", null, jobs), el("div", { class: "small" }, "Building: " + (v.building || "nothing")),
-      el("ul", null, v.projects.map((p) => el("li", null, cap(p.type) + " tier " + p.tier + ": " + p.status + (p.finished > 0 ? " (day " + p.finished + ")" : ""))))),
-    el("section", null, el("h2", null, "Requests"),
-      v.requestList.length ? el("ul", null, v.requestList.map((r) => el("li", null, r.filled + "/" + r.wanted + " " + r.item + " - " + (r.thanksOnly ? "thanks only" : r.reward + " emeralds"))))
-        : el("div", { class: "small" }, "None.")),
-    ACTIONS ? controls(v) : null,
-    el("section", { class: "wide" }, el("h2", null, "Plan"), planMap(v), el("div", { class: "small" }, v.plan ? "Stage " + v.plan.stage + ", " + v.plan.dropped + " lots dropped. Lots: outline = ready, dashed = rough ground, filled = built on. Dots are buildings." : "")),
-    el("section", { class: "wide" }, el("h2", null, "Residents (" + v.residents.length + ")"), residents(v)),
-    el("section", null, el("h2", null, "Buildings (" + v.buildings.length + ")"), el("div", { class: "scroll" },
-      el("ul", null, v.buildings.map((b) => el("li", null, b.type + (b.tier > 1 ? " tier " + b.tier : "") + " at " + b.x + ", " + b.z + " (" + b.by + ")"))))),
-    el("section", null, el("h2", null, "Recent decisions"), el("ul", null, v.decisions.slice().reverse().map((d) => el("li", null, "day " + d.day + ": " + d.text)))),
-    el("section", { class: "wide" }, el("h2", null, "History"), el("div", { class: "scroll" },
-      el("ul", null, v.history.slice().reverse().map((h) => el("li", null, el("span", { class: "small" }, "day " + h.day + " "), h.text))))));
-  main.replaceChildren(back, el("h2", null, el("span", { class: "dot h" + v.health }), v.name, " ", el("span", { class: "small" }, v.world + " at " + v.x + ", " + v.z + " - " + v.character)), cards, sections);
+// ----- main area -----
+function renderMain() {
+  const a = document.activeElement;
+  if (a && main.contains(a) && /SELECT|INPUT/.test(a.tagName)) return; // never redraw under a control in use
+  if (state.current && state.tab === "plan" && state.map && state.map.dragging) return;
+  const scroll = main.scrollTop;
+  afterRender.length = 0;
+  if (!state.current) fill(main, overview());
+  else if (state.detail && state.detail.id === state.current) fill(main, village(state.detail));
+  else if (state.villages.length && !state.villages.some((v) => v.id === state.current))
+    fill(main, [el("h1", null, "No such village"), el("div", { class: "sub" }, "It may have been removed. "), el("button", { onclick: () => go(null) }, "All villages")]);
+  main.scrollTop = scroll;
+  for (const f of afterRender.splice(0)) f(); // drawing that needs the new elements in the page (the map)
+}
+const afterRender = [];
+
+function storeBars(v) {
+  const rows = [["food", v.stores.food, v.population * 20], ["wood", v.stores.wood, v.population * 3], ["stone", v.stores.stone, v.population * 3], ["tools", v.stores.tools, v.population * 3]];
+  return el("div", { class: "bars" }, rows.map(([k, n, want]) => {
+    const pct = Math.max(2, Math.min(100, want ? n * 50 / want : 0));
+    return [el("span", null, k), el("div", { class: "bar" }, el("i", { class: n < want ? "low" : "", style: "width:" + pct + "%" })), el("span", { class: "num" }, fmt(n))];
+  }));
 }
 
-/** R1.36: the admin actions for one village. */
-function controls(v) {
-  const num = (value, min, max) => el("input", { type: "number", value: String(value), min: String(min), max: String(max) });
-  const days = num(5, 1, 60), speed = num(10, 1, 100), travellers = num(3, 1, 6);
-  const name = el("input", { type: "text", maxlength: "32", placeholder: "new name" });
-  const id = v.id;
-  const b = (text, fn, cls) => el("button", cls ? { class: cls, onclick: fn } : { onclick: fn }, text);
-  return el("section", { class: "wide" }, el("h2", null, "Admin"),
-    el("div", { class: "actions" },
-      el("div", { class: "group" }, b("Warp", () => act({ action: "warp", village: id, days: days.value }, "Run " + v.name + " " + days.value + " days ahead")), days, el("span", { class: "small" }, "days")),
-      el("div", { class: "group" }, b("Speed", () => act({ action: "fastforward", village: id, speed: speed.value }, null, Number(speed.value) > 20 ? "Run " + v.name + " at " + speed.value + "x (heavy on the server)" : null)), speed, el("span", { class: "small" }, "x (1 = normal)")),
-      b("Unstick villagers", () => act({ action: "unstick", village: id })),
-      b("Mend palisade", () => act({ action: "regrade", village: id })),
-      b("Cancel project", () => act({ action: "cancel-project", village: id }, "Give up " + v.name + "'s " + (v.building || "project")), "danger"),
-      b("Replan", () => act({ action: "replan", village: id }, "Forget " + v.name + "'s plan and lay it out again"), "danger"),
-      el("div", { class: "group" }, b("Resettle", () => act({ action: "resettle", village: id, travellers: travellers.value }, "Send " + travellers.value + " travellers to " + v.name), "danger"), travellers),
-      el("div", { class: "group" }, name, b("Rename", () => act({ action: "rename", village: id, name: name.value }, "Rename " + v.name + " to " + name.value), "danger")),
-      b("Save all", () => act({ action: "save" }))),
-    el("div", { class: "small" }, "Every action is checked by the server, runs the same code as /settlement admin and is written to plugins/Hamletfolk/audit.log."));
+function overview() {
+  const v = state.villages;
+  const cards = el("div", { class: "vcards" }, v.map((x) => el("div", { class: "vcard", onclick: () => go(x.id) },
+    el("div", { class: "t" }, el("span", { class: "dot h" + x.health }), x.name, el("span", { class: "pop" }, x.population + " people")),
+    el("div", { class: "sub" }, x.character || x.world),
+    storeBars(x),
+    el("div", null, el("span", { class: "chip" }, x.beds + " beds, " + x.freeBeds + " free"), x.building ? el("span", { class: "chip" }, "⚒ " + x.building) : null,
+      x.idle ? el("span", { class: "chip watch" }, x.idle + " idle") : null),
+    el("div", null, x.blockers.slice(0, 2).map((b) => el("span", { class: "chip bad" }, b)), x.blockers.length > 2 ? el("span", { class: "sub" }, " +" + (x.blockers.length - 2) + " more") : null))));
+  return [el("h1", null, "All villages"), el("div", { class: "sub" }, "Worst off first. Bars are half full at what a village wants; red is short."),
+    el("div", { class: "two", style: "margin-top:14px" }, cards, feedPanel(null))];
 }
 
-/** R1.36: a resident's job, as a picker when actions are on (choosing one pins them), with a button to hand them back. */
+function feedPanel(villageId) {
+  const filter = el("select", { "aria-label": "which lines" }, el("option", { value: "all" }, "Everything"), el("option", { value: "important" }, "Births, deaths, trouble"));
+  filter.value = state.feedFilter;
+  filter.onchange = () => { state.feedFilter = filter.value; filter.blur(); renderMain(); };
+  const lines = state.events.filter((e) => (!villageId || e.village === villageId) && (state.feedFilter === "all" || IMPORTANT.has(e.kind))).slice().reverse();
+  const fresh = state.seenFeed;
+  state.seenFeed = state.latest;
+  return el("div", { class: "panel" }, el("h2", null, "As it happens", el("span", { class: "grow" }), filter),
+    lines.length ? el("div", { class: "feed" }, lines.slice(0, 200).map((e) => el("div", { class: "ev" + (e.earlier ? " earlier" : "") + (fresh && e.seq > fresh ? " new" : "") },
+      el("span", { class: "k " + (KIND[e.kind] || "") }),
+      el("div", null, el("div", null, e.text), el("div", { class: "m" },
+        villageId ? null : [el("a", { onclick: () => go(e.village) }, e.name), " · "], "day " + e.day + " · " + (e.earlier ? "earlier" : ago(e.at)))))))
+      : el("div", { class: "empty" }, "Nothing yet. Lines appear here as the villages live."));
+}
+
+// ----- one village: tabs are a list, so a new one is one line -----
+const TABS = [
+  { id: "overview", label: "Overview", render: tabOverview },
+  { id: "plan", label: "Plan", render: tabPlan },
+  { id: "residents", label: "Residents", render: tabResidents },
+  { id: "buildings", label: "Buildings", render: tabBuildings },
+  { id: "history", label: "History", render: tabHistory },
+  { id: "admin", label: "Admin", render: tabAdmin, when: () => ACTIONS },
+];
+
+function village(v) {
+  const tabs = TABS.filter((t) => !t.when || t.when());
+  if (!tabs.some((t) => t.id === state.tab)) state.tab = "overview";
+  const stat = (k, n, col, colour) => el("div", { class: "card" }, el("div", { class: "v" }, n), el("div", { class: "k" }, k), col != null ? spark(v.id, col, colour) : null);
+  return [
+    el("h1", null, el("span", { class: "dot h" + v.health }), v.name),
+    el("div", { class: "sub" }, (v.character ? v.character + " · " : "") + v.world + " at " + v.x + ", " + v.z + " · day " + v.day + (v.building ? " · building " + v.building : "")),
+    el("div", { class: "cards" },
+      stat(v.children ? "people (" + v.children + " children)" : "people", v.population, 0), stat("food", fmt(v.stores.food), 1, "var(--accent2)"),
+      stat("wood", fmt(v.stores.wood), 2), stat("stone", fmt(v.stores.stone), 3), stat("tools", fmt(v.stores.tools), 4),
+      stat("treasury of " + v.treasuryLimit, v.treasury, 5), stat("beds, " + v.freeBeds + " free", v.beds, 6)),
+    el("div", { class: "tabs", role: "tablist" }, tabs.map((t) => el("div", { class: "tab" + (state.tab === t.id ? " sel" : ""), role: "tab", onclick: () => { state.tab = t.id; location.hash = v.id + "/" + t.id; renderMain(); } }, t.label))),
+    tabs.find((t) => t.id === state.tab).render(v)];
+}
+
+function tabOverview(v) {
+  const left = el("div", { class: "grid" },
+    el("div", { class: "panel" }, el("h2", null, "In the way"),
+      v.blockers.length ? el("ul", { class: "plain" }, v.blockers.map((b) => el("li", null, b))) : el("div", { class: "empty" }, "Nothing is holding it back.")),
+    el("div", { class: "panel" }, el("h2", null, "What it wants next"),
+      v.wants.length ? el("ul", { class: "plain" }, v.wants.map((w) => el("li", null, el("span", { class: "tier" }, w.tier), cap(w.kind.replace(/_/g, " ")) + " " + w.target.replace(/_/g, " ") + ": " + w.reason)))
+        : el("div", { class: "empty" }, "Nothing: it is in good order.")),
+    el("div", { class: "panel" }, el("h2", null, "Work"), Object.entries(v.jobs).map(([k, n]) => el("span", { class: "chip" }, n + " " + k)),
+      v.requestList.length ? el("div", { style: "margin-top:10px" }, el("div", { class: "sub" }, "Asking players for:"),
+        v.requestList.map((r) => el("span", { class: "chip" }, r.filled + "/" + r.wanted + " " + r.item + (r.thanksOnly ? " (thanks only)" : " (" + r.reward + " emeralds)")))) : null),
+    el("div", { class: "panel" }, el("h2", null, "Recent decisions"),
+      v.decisions.length ? el("ul", { class: "plain" }, v.decisions.slice().reverse().map((d) => el("li", null, el("span", { class: "sub" }, "day " + d.day + " "), d.text))) : el("div", { class: "empty" }, "None yet.")));
+  return el("div", { class: "two" }, left, feedPanel(v.id));
+}
+
+function tabHistory(v) {
+  return el("div", { class: "panel" }, el("h2", null, "History (latest " + v.history.length + ")"),
+    el("ul", { class: "plain" }, v.history.slice().reverse().map((h) => el("li", null, el("span", { class: "sub" }, "day " + h.day + " "), h.text))));
+}
+
+function tabBuildings(v) {
+  const rows = v.buildings.slice().sort((a, b) => a.type.localeCompare(b.type));
+  return el("div", { class: "two" },
+    el("div", { class: "panel" }, el("h2", null, "Buildings (" + v.buildings.length + ")"), el("div", { class: "scroll" }, el("table", null,
+      el("thead", null, el("tr", null, el("th", null, "Kind"), el("th", null, "Tier"), el("th", null, "Where"), el("th", null, "Made by"))),
+      el("tbody", null, rows.map((b) => el("tr", null, el("td", null, b.type), el("td", null, b.tier), el("td", null, b.x + ", " + b.z), el("td", { class: "sub" }, b.by))))))),
+    el("div", { class: "panel" }, el("h2", null, "Building projects"),
+      v.projects.length ? el("ul", { class: "plain" }, v.projects.map((p) => el("li", null, cap(p.type) + " tier " + p.tier + " ", el("span", { class: "chip" + (p.status === "cancelled" ? " bad" : "") }, p.status),
+        el("span", { class: "sub" }, p.finished > 0 ? " day " + p.finished : " queued day " + p.queued)))) : el("div", { class: "empty" }, "Nothing built yet.")));
+}
+
+function meter(n) { return el("span", null, el("span", { class: "meter" }, el("i", { class: n < 40 ? "low" : "", style: "width:" + Math.max(3, n) + "%" })), el("span", { class: n < 40 ? "low" : "sub" }, n)); }
+
+function tabResidents(v) {
+  const rows = v.residents.slice().sort((a, b) => (b.adult - a.adult) || a.job.localeCompare(b.job) || a.name.localeCompare(b.name));
+  return el("div", { class: "panel" }, el("h2", null, "Residents (" + v.residents.length + ")", el("span", { class: "grow" }), ACTIONS ? el("span", { class: "sub" }, "choosing a job pins them to it") : null),
+    el("div", { class: "scroll" }, el("table", null,
+      el("thead", null, el("tr", null, ["Name", "Work", "Level", "Age", "Wealth", "Food", "Safety", "Purpose"].map((h) => el("th", null, h)))),
+      el("tbody", null, rows.map((r) => el("tr", null,
+        el("td", null, r.name, " ", r.pinned ? el("span", { class: "chip watch", title: "pinned by an admin" }, "pinned") : null),
+        jobCell(v, r), el("td", { class: "sub" }, (r.level || "") + (r.resting ? " · resting" : "")),
+        el("td", null, r.age + (r.stage === "elder" ? " · elder" : r.adult ? "" : " · child")), el("td", { class: "sub" }, r.wealth),
+        el("td", null, meter(r.food)), el("td", null, meter(r.safety)), el("td", null, meter(r.purpose))))))));
+}
 function jobCell(v, r) {
-  const text = r.adult ? (r.level ? r.level + " " : "") + r.job + (r.resting ? " (resting)" : "") + (r.pinned ? " (pinned)" : "") : "child";
-  if (!ACTIONS || !catalogue || !r.adult) return el("td", null, text);
+  if (!r.adult) return el("td", { class: "sub" }, "child");
+  if (!ACTIONS || !state.catalogue) return el("td", null, r.job);
   const pick = el("select", { "aria-label": "work for " + r.name },
-    catalogue.occupations.map((o) => { const opt = el("option", { value: o }, o.replace(/_/g, " ")); if (o === r.occupation) opt.selected = true; return opt; }));
-  pick.onchange = () => act({ action: "job", village: v.id, resident: r.id, occupation: pick.value });
-  return el("td", null, pick, " ", el("span", { class: "small" }, (r.level || "") + (r.resting ? " resting" : "")),
-    r.pinned ? el("button", { onclick: () => act({ action: "unpin", village: v.id, resident: r.id }) }, "Unpin") : null);
+    state.catalogue.occupations.map((o) => el("option", { value: o, selected: o === r.occupation }, o.replace(/_/g, " "))));
+  pick.onchange = () => { pick.blur(); act({ action: "job", village: v.id, resident: r.id, occupation: pick.value }); };
+  return el("td", null, pick, r.pinned ? el("button", { style: "margin-left:6px", onclick: () => act({ action: "unpin", village: v.id, resident: r.id }) }, "Unpin") : null);
 }
 
-function residents(v) {
-  return el("div", { class: "scroll" }, el("table", null,
-    el("thead", null, el("tr", null, ["Name", "Job", "Age", "Wealth", "Food", "Safety", "Purpose"].map((h) => el("th", null, h)))),
-    el("tbody", null, v.residents.map((r) => el("tr", null,
-      el("td", null, r.name), jobCell(v, r),
-      el("td", null, r.age + (r.stage === "elder" ? " (elder)" : "")), el("td", null, r.wealth),
-      el("td", { class: r.food < 40 ? "low" : "" }, r.food), el("td", { class: r.safety < 40 ? "low" : "" }, r.safety), el("td", { class: r.purpose < 40 ? "low" : "" }, r.purpose))))));
+function tabAdmin(v) {
+  const n = (value, min, max) => el("input", { type: "number", value: String(value), min: String(min), max: String(max) });
+  const days = n(5, 1, 60), speed = n(10, 1, 100), travellers = n(3, 1, 6), name = el("input", { type: "text", maxlength: "32", placeholder: "new name" });
+  const card = (title, about, ...controls) => el("div", { class: "act" }, el("b", null, title), el("div", { class: "d" }, about), el("div", { class: "row" }, controls));
+  const id = v.id;
+  return el("div", { class: "grid" },
+    el("div", { class: "actions" },
+      card("Run ahead", "Simulate this village a number of days at once.", days, el("span", { class: "sub" }, "days"),
+        el("button", { onclick: () => act({ action: "warp", village: id, days: days.value }, "Run " + v.name + " " + days.value + " days ahead") }, "Warp")),
+      card("Speed", "Run this village faster than the world (1 is normal).", speed, el("span", { class: "sub" }, "x"),
+        el("button", { onclick: () => act({ action: "fastforward", village: id, speed: speed.value }, Number(speed.value) > 20 ? "Run " + v.name + " at " + speed.value + "x (heavy on the server)" : null) }, "Set")),
+      card("Unstick", "Bring walled-in villagers to the centre.", el("button", { onclick: () => act({ action: "unstick", village: id }) }, "Unstick")),
+      card("Mend palisade", "The builder adds posts where the ground steps.", el("button", { onclick: () => act({ action: "regrade", village: id }, "Mend " + v.name + "'s palisade (it spends wood)") }, "Mend")),
+      card("Cancel project", v.building ? "Give up: " + v.building : "Nothing is being built.",
+        el("button", { class: "danger", disabled: !v.building, onclick: () => act({ action: "cancel-project", village: id }, "Give up " + v.name + "'s " + v.building) }, "Cancel")),
+      card("Replan", "Forget the plan and lay the streets and lots out again.", el("button", { class: "danger", onclick: () => act({ action: "replan", village: id }, "Forget " + v.name + "'s plan and lay it out again") }, "Replan")),
+      card("Resettle", "Send travellers to a village that has lost its people.", travellers,
+        el("button", { class: "danger", onclick: () => act({ action: "resettle", village: id, travellers: travellers.value }, "Send " + travellers.value + " travellers to " + v.name) }, "Send")),
+      card("Rename", "Up to 32 letters, digits, spaces, dashes.", name,
+        el("button", { class: "danger", onclick: () => act({ action: "rename", village: id, name: name.value }, "Rename " + v.name + " to " + name.value) }, "Rename")),
+      card("Save", "Write every village to disk now.", el("button", { onclick: () => act({ action: "save" }) }, "Save all"))),
+    el("div", { class: "sub" }, "Every action is checked by the server, runs the same code as /settlement admin, and is written to plugins/Hamletfolk/audit.log and the village's history."));
 }
 
-const lotColour = { House: "#e08a1e", Farm: "#4fae5a", Shop: "#d8c01a", Mine: "#8a8a8a", Smithy: "#d6483a", Treasury: "#a050d8", "Guard Post": "#4a82e0" };
-function planMap(v) {
+// ----- the plan map: zoom, pan, and details on hover -----
+const LOT = { House: "#e2913a", Farm: "#59b768", Shop: "#dcc53a", Mine: "#9a9a9a", Smithy: "#dc5446", Treasury: "#a65ae0", "Guard Post": "#5a8fe8" };
+const lotColour = (t) => LOT[t] || "#7aa0be";
+function tabPlan(v) {
   const p = v.plan;
-  if (!p) return el("div", { class: "small" }, "No plan yet.");
-  const rects = [...p.roads.map((r) => r.rect), ...p.lots.map((l) => l.rect), ...(p.square ? [p.square] : [])];
-  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
-  for (const [x, z, w, d] of rects) { x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x + w); z1 = Math.max(z1, z + d); }
-  for (const b of v.buildings) { x0 = Math.min(x0, b.x); z0 = Math.min(z0, b.z); x1 = Math.max(x1, b.x); z1 = Math.max(z1, b.z); }
-  const W = 720, pad = 12, scale = Math.min((W - 2 * pad) / (x1 - x0 || 1), 560 / (z1 - z0 || 1));
-  const H = Math.ceil((z1 - z0) * scale + 2 * pad);
-  const c = document.createElement("canvas"); c.width = W; c.height = H;
-  const g = c.getContext("2d");
-  const css = getComputedStyle(document.documentElement);
-  const X = (x) => pad + (x - x0) * scale, Z = (z) => pad + (z - z0) * scale;
-  g.fillStyle = css.getPropertyValue("--bg"); g.fillRect(0, 0, W, H);
-  g.fillStyle = "#9a7b52";
-  for (const r of p.roads) { const [x, z, w, d] = r.rect; g.fillRect(X(x), Z(z), w * scale, d * scale); }
-  if (p.square) { const [x, z, w, d] = p.square; g.fillStyle = "#bdb6a6"; g.fillRect(X(x), Z(z), w * scale, d * scale); }
-  for (const l of p.lots) {
-    const [x, z, w, d] = l.rect, colour = lotColour[l.type] || "#6a8fb0";
-    g.strokeStyle = colour; g.fillStyle = colour; g.lineWidth = 1.5;
-    if (l.status === "filled") { g.globalAlpha = .55; g.fillRect(X(x), Z(z), w * scale, d * scale); g.globalAlpha = 1; }
-    else { g.setLineDash(l.status === "rough" ? [4, 3] : []); g.strokeRect(X(x), Z(z), w * scale, d * scale); g.setLineDash([]); }
-  }
-  g.fillStyle = css.getPropertyValue("--ink");
-  for (const b of v.buildings) { g.beginPath(); g.arc(X(b.x), Z(b.z), 2.5, 0, 7); g.fill(); }
-  return c;
+  if (!p) return el("div", { class: "panel" }, el("div", { class: "empty" }, "No plan yet: it is made once the ground round the village has been loaded."));
+  const canvas = el("canvas", { class: "map", "aria-label": "plan of " + v.name });
+  const tip = el("div", { class: "tip" });
+  const counts = p.lots.reduce((m, l) => { m[l.status] = (m[l.status] || 0) + 1; return m; }, {});
+  afterRender.push(() => drawMap(canvas, tip, v));
+  return el("div", { class: "panel" },
+    el("h2", null, "Plan · stage " + p.stage, el("span", { class: "grow" }),
+      el("span", { class: "sub" }, (counts.reserved || 0) + " ready, " + (counts.rough || 0) + " rough, " + (counts.filled || 0) + " built on, " + p.dropped + " dropped"),
+      el("button", { onclick: () => { state.map = null; renderMain(); } }, "Fit")),
+    el("div", { class: "mapwrap" }, canvas, tip),
+    el("div", { class: "legend" }, Object.entries(LOT).map(([k, c]) => el("span", null, el("i", { style: "background:" + c }), k)),
+      el("span", null, el("i", { style: "background:#7aa0be" }), "trade and other"), el("span", null, "solid = built on · outline = ready · dashed = rough · dot = building (grey: found)")),
+    el("div", { class: "sub", style: "margin-top:6px" }, "Scroll to zoom, drag to move, point at a lot or building for details."));
 }
 
-function go(id) { current = id; location.hash = id || ""; show(); }
-window.addEventListener("hashchange", () => { current = location.hash.slice(1) || null; show(); });
-document.getElementById("theme").onclick = () => {
-  const root = document.documentElement, dark = getComputedStyle(root).getPropertyValue("--bg").trim() === "#1a1814";
+function drawMap(canvas, tip, v) {
+  const p = v.plan, dpr = window.devicePixelRatio || 1, W = canvas.clientWidth, H = canvas.clientHeight;
+  if (!W || !H) return;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const g = canvas.getContext("2d"); g.scale(dpr, dpr);
+  if (!state.map || state.map.id !== v.id) {
+    const rects = [...p.roads.map((r) => r.rect), ...p.lots.map((l) => l.rect), ...(p.square ? [p.square] : [])];
+    let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+    for (const [x, z, w, d] of rects) { x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x + w); z1 = Math.max(z1, z + d); }
+    for (const b of v.buildings) { x0 = Math.min(x0, b.x); z0 = Math.min(z0, b.z); x1 = Math.max(x1, b.x + 1); z1 = Math.max(z1, b.z + 1); }
+    const s = Math.min((W - 40) / (x1 - x0 || 1), (H - 40) / (z1 - z0 || 1));
+    state.map = { id: v.id, s, ox: W / 2 - (x0 + x1) / 2 * s, oz: H / 2 - (z0 + z1) / 2 * s, dragging: false };
+  }
+  const m = state.map, css = getComputedStyle(document.documentElement), col = (n) => css.getPropertyValue(n).trim();
+  const X = (x) => m.ox + x * m.s, Z = (z) => m.oz + z * m.s;
+  function paint(hover) {
+    g.fillStyle = col("--bg2"); g.fillRect(0, 0, W, H);
+    g.fillStyle = "#8a6d48";
+    for (const r of p.roads) { const [x, z, w, d] = r.rect; g.fillRect(X(x), Z(z), w * m.s, d * m.s); }
+    if (p.square) { const [x, z, w, d] = p.square; g.fillStyle = "#b9b1a0"; g.fillRect(X(x), Z(z), w * m.s, d * m.s); }
+    for (const l of p.lots) {
+      const [x, z, w, d] = l.rect, c = lotColour(l.type);
+      g.lineWidth = hover === l ? 3 : 1.5; g.strokeStyle = c; g.fillStyle = c;
+      if (l.status === "filled") { g.globalAlpha = .55; g.fillRect(X(x), Z(z), w * m.s, d * m.s); g.globalAlpha = 1; if (hover === l) g.strokeRect(X(x), Z(z), w * m.s, d * m.s); }
+      else { g.setLineDash(l.status === "rough" ? [5, 4] : []); g.strokeRect(X(x) + .5, Z(z) + .5, w * m.s - 1, d * m.s - 1); g.setLineDash([]); }
+    }
+    for (const b of v.buildings) {
+      g.beginPath(); g.arc(X(b.x + .5), Z(b.z + .5), hover === b ? 5 : 3, 0, 7);
+      g.fillStyle = b.by === "found" ? col("--muted") : col("--ink"); g.fill();
+    }
+  }
+  function at(ex, ey) {
+    const wx = (ex - m.ox) / m.s, wz = (ey - m.oz) / m.s;
+    let best = null, bd = 6 / m.s;
+    for (const b of v.buildings) { const d = Math.hypot(b.x + .5 - wx, b.z + .5 - wz); if (d < bd) { bd = d; best = b; } }
+    if (best) return best;
+    for (const l of p.lots) { const [x, z, w, d] = l.rect; if (wx >= x && wx < x + w && wz >= z && wz < z + d) return l; }
+    return null;
+  }
+  paint(null);
+  let last = null;
+  const pos = (e) => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  canvas.onpointermove = (e) => {
+    const [ex, ey] = pos(e);
+    if (m.dragging) { m.ox += ex - m.lx; m.oz += ey - m.ly; m.lx = ex; m.ly = ey; paint(null); tip.style.display = "none"; return; }
+    const hit = at(ex, ey);
+    if (hit !== last) { last = hit; paint(hit); }
+    if (!hit) { tip.style.display = "none"; return; }
+    fill(tip, (hit.rect
+      ? [el("b", null, hit.type + " lot"), el("div", null, hit.status === "reserved" ? "Ready to build on" : hit.status === "rough" ? "Rough ground (levelled when built on)" : "Built on"),
+         el("div", { class: "sub" }, hit.rect[2] + " by " + hit.rect[3] + " at " + hit.rect[0] + ", " + hit.rect[1])]
+      : [el("b", null, hit.type + (hit.tier > 1 ? " tier " + hit.tier : "")), el("div", { class: "sub" }, "at " + hit.x + ", " + hit.y + ", " + hit.z), el("div", { class: "sub" }, "made by " + hit.by)]));
+    tip.style.display = "block";
+    tip.style.left = Math.min(ex + 14, W - 240) + "px"; tip.style.top = Math.min(ey + 14, H - 70) + "px";
+  };
+  canvas.onpointerleave = () => { tip.style.display = "none"; last = null; paint(null); };
+  canvas.onpointerdown = (e) => { [m.lx, m.ly] = pos(e); m.dragging = true; canvas.classList.add("drag"); canvas.setPointerCapture(e.pointerId); };
+  canvas.onpointerup = canvas.onpointercancel = canvas.onlostpointercapture = () => { m.dragging = false; canvas.classList.remove("drag"); };
+  canvas.onwheel = (e) => {
+    e.preventDefault();
+    const [ex, ey] = pos(e), k = e.deltaY < 0 ? 1.2 : 1 / 1.2, ns = Math.max(.5, Math.min(40, m.s * k)), f = ns / m.s;
+    m.ox = ex - (ex - m.ox) * f; m.oz = ey - (ey - m.oz) * f; m.s = ns; paint(last);
+  };
+}
+
+// ----- moving about -----
+function go(id) {
+  if (state.current !== id) { state.tab = "overview"; state.detail = null; state.detailText = ""; }
+  state.current = id;
+  if (fromHash()[0] !== id) location.hash = id || "";
+  $("side").classList.remove("open");
+  main.scrollTop = 0;
+  poll(true);
+}
+// the address holds the village and tab (#id/plan), so a view can be bookmarked or shared with another admin
+function fromHash() { const [id, tab] = location.hash.slice(1).split("/"); return [id || null, tab || null]; }
+window.addEventListener("hashchange", () => {
+  const [id, tab] = fromHash();
+  if (id !== state.current) { go(id); if (tab) state.tab = tab; } else if ((tab || "overview") !== state.tab) { state.tab = tab || "overview"; renderMain(); }
+});
+$("menu").onclick = () => $("side").classList.toggle("open");
+$("theme").onclick = () => {
+  const root = document.documentElement, dark = getComputedStyle(root).getPropertyValue("--bg").trim() === "#121110";
   root.setAttribute("data-theme", dark ? "light" : "dark");
-  show();
+  try { localStorage.setItem("hamletfolk-theme", dark ? "light" : "dark"); } catch (e) { /* not kept */ }
+  renderMain();
 };
-show();
-timer = setInterval(show, 5000);
+try { const t = localStorage.getItem("hamletfolk-theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (e) { /* default */ }
+window.addEventListener("resize", () => { if (state.tab === "plan") renderMain(); });
+[state.current, state.tab] = fromHash();
+state.tab = state.tab || "overview";
+poll(true);
+setInterval(() => poll(false), 3000);
 </script>
 </body>
 </html>

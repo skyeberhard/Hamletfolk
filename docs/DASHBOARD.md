@@ -25,7 +25,21 @@ Restart the server and open `http://127.0.0.1:8123/` in a browser on the same ma
 - **A village**: its stores, work, requests, what it wants next, the plan as a map (streets, square, lots ready, rough or built on,
   buildings), residents with their jobs and needs, buildings, projects, the planner's decisions and its history.
 
-The page refreshes itself. Nothing is gathered while nobody has it open.
+The page refreshes itself every few seconds.
+
+## As it happens (R1.39)
+
+- **The feed** ("As it happens", on the overview and on each village's page): every new line of every village's history as it is
+  written, newest first, the last 400, with the village and how long ago. When the server starts it shows the last three lines of
+  each village as "earlier". The filter narrows it to births, deaths, arrivals, departures, recoveries and trouble.
+- **Small graphs**: each village's people, food, wood, stone, tools, treasury and beds are sampled once a minute (the last 240, so
+  four hours) and drawn in the village list and on the village's cards.
+- Both are kept in memory and start again when the server restarts. They are gathered even while nobody has the page open (cheap:
+  new history lines and a few numbers a minute); the full village pages are still built only while someone is looking.
+- **Moving about**: the address holds the village and tab (`#<village id>/plan`), so a view can be bookmarked or sent to another admin.
+  The plan map zooms with the wheel, moves when dragged, and says what a lot or building is when pointed at; Fit puts it back.
+- Endpoints: `GET /api/events?since=<n>` (the lines after sequence number n, the latest number and the id of this start of the server, so an open page starts over after a restart) and `GET /api/trends` (each
+  village's samples, oldest first: people, food, wood, stone, tools, treasury, beds; built only while someone is looking).
 
 ## Actions (R1.36)
 
@@ -74,10 +88,13 @@ Until R1.37 is built, reach it from another computer with an SSH tunnel: `ssh -L
 
 ## Room to grow
 
+The page is built to take more without a rewrite: a village's tabs are one list (`TABS` in dashboard.html: an id, a label and a
+function that draws it), the sidebar has a "More" section for other plugins' panels, and the feed and graphs take any village.
+
 - **Panels from other plugins (R1.38, planned):** the dashboard will offer a small extension point through Bukkit's services manager,
   so another plugin (GoodeCraft's portal network, say) can add its own page, data and actions, checked and audited the same way,
   without Hamletfolk depending on it.
 - **Plan overrides (R8.23, planned):** lock a lot, change a lot's kind, forbid a building, put a project first.
 
-Code: `core/Dashboard`, `core/VillageBlockers`, `core/AdminAction` (tested); `paper/DashboardServer`, `paper/DashboardActions`,
+Code: `core/Dashboard`, `core/VillageBlockers`, `core/AdminAction`, `core/DashboardFeed` (tested); `paper/DashboardServer`, `paper/DashboardActions`,
 `paper/src/main/resources/dashboard.html`.

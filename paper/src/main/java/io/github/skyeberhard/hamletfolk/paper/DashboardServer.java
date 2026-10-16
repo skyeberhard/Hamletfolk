@@ -44,6 +44,16 @@ final class DashboardServer {
     private volatile String overview = "[]";
     private volatile Map<String, String> pages = Map.of();
     private volatile byte[] index = new byte[0];
+    /** R1.39: the live feed and trends, fed on the main thread whether or not anyone is looking (it is cheap). */
+    private final io.github.skyeberhard.hamletfolk.core.DashboardFeed feed = new io.github.skyeberhard.hamletfolk.core.DashboardFeed();
+    private volatile List<io.github.skyeberhard.hamletfolk.core.DashboardFeed.Event> events = List.of();
+    private volatile String trends = "{}";
+    private long lastSample;
+    private boolean trendsStale;
+    /** Which start of the dashboard this is: the feed's numbers begin again at each, so an open page that sees it change starts over. */
+    private final long epoch = System.currentTimeMillis();
+    /** How often the trends are sampled. */
+    static final long SAMPLE_EVERY_MS = 60_000;
     /** When (milliseconds) a page was last asked for: nothing is built while nobody is looking. */
     private volatile long lastRequest;
     private int passes;
@@ -132,7 +142,23 @@ final class DashboardServer {
 
     /** As above; {@code now} rebuilds everything at once (after an action, so the page shows what it did). */
     private void refresh(boolean now) {
-        // nothing is built for a page nobody has asked for in the last two minutes (the page asks every five seconds while it is open)
+        try { // R1.39: the feed and the trends first, so they are kept while nobody looks
+            long clock = System.currentTimeMillis();
+            feed.take(service.registry().settlements(), clock);
+            events = feed.since(0);
+            if (clock - lastSample >= SAMPLE_EVERY_MS || lastSample == 0) {
+                lastSample = clock;
+                feed.sample(service.registry().settlements(), clock);
+                trendsStale = true;
+            }
+            if (trendsStale && clock - lastRequest <= 120_000) { // the samples are always taken, the text only built for someone looking
+                trends = gson.toJson(feed.trends());
+                trendsStale = false;
+            }
+        } catch (RuntimeException e) {
+            plugin.getLogger().log(Level.WARNING, "Could not update the dashboard feed", e);
+        }
+        // nothing is built for a page nobody has asked for in the last two minutes (the page asks every few seconds while it is open)
         boolean first = passes == 0;
         if (!now && !first && System.currentTimeMillis() - lastRequest > 120_000) {
             return;
@@ -181,7 +207,26 @@ final class DashboardServer {
                 return;
             }
             lastRequest = System.currentTimeMillis();
-            if (path.equals("/api/actions")) {
+            if (path.equals("/api/events")) {
+                long since = 0;
+                String query = exchange.getRequestURI().getRawQuery();
+                // anything but a plain number of up to 18 digits counts as 0 (all kept lines)
+                if (query != null && query.startsWith("since=") && query.length() > 6 && query.length() <= 24
+                        && query.substring(6).chars().allMatch(c -> c >= '0' && c <= '9')) {
+                    since = Long.parseLong(query.substring(6));
+                }
+                final long after = since;
+                List<io.github.skyeberhard.hamletfolk.core.DashboardFeed.Event> all = events;
+                List<io.github.skyeberhard.hamletfolk.core.DashboardFeed.Event> fresh = all.stream().filter(e -> e.seq() > after).toList();
+                Map<String, Object> out = new java.util.LinkedHashMap<>();
+                // the real newest number, so a page that knew a higher one (from before a restart) can tell and start again
+                out.put("start", epoch);
+                out.put("latest", all.isEmpty() ? 0 : all.get(all.size() - 1).seq());
+                out.put("events", io.github.skyeberhard.hamletfolk.core.DashboardFeed.asData(fresh));
+                send(exchange, 200, "application/json; charset=utf-8", gson.toJson(out).getBytes(StandardCharsets.UTF_8));
+            } else if (path.equals("/api/trends")) {
+                send(exchange, 200, "application/json; charset=utf-8", trends.getBytes(StandardCharsets.UTF_8));
+            } else if (path.equals("/api/actions")) {
                 Map<String, Object> catalogue = new java.util.LinkedHashMap<>();
                 catalogue.put("enabled", allowActions);
                 catalogue.put("actions", AdminAction.catalogue());
