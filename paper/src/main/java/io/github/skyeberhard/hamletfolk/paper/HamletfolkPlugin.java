@@ -19,6 +19,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
     private SettlementStore store;
     private SettlementService service;
     private BrainService brain;
+    private DashboardServer dashboard;
     private TemplateLibrary templates;
     private ConstructionService construction;
     private boolean saveRequested;
@@ -91,6 +92,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
         getServer().getScheduler().runTaskTimer(this, service::simulateAll, SIMULATION_PERIOD_TICKS, SIMULATION_PERIOD_TICKS);
         service.startFastForward(); // R4.27
         startConsoleFeed(); // R1.34
+        startDashboard(); // R1.35
 
         long autosaveTicks = Math.max(1, getConfig().getLong("autosave-minutes", 5)) * 60 * 20;
         getServer().getScheduler().runTaskTimer(this, this::saveAsync, autosaveTicks, autosaveTicks);
@@ -103,6 +105,26 @@ public final class HamletfolkPlugin extends JavaPlugin {
         }
 
         getLogger().info("Tracking " + registry.settlements().size() + " settlements.");
+    }
+
+    /**
+     * R1.35: serves the village dashboard if {@code dashboard.enabled}: a page on {@code dashboard.bind}:{@code dashboard.port}
+     * (the machine the server runs on, by default), refreshed from the main thread every {@code dashboard.refresh-seconds}.
+     */
+    private void startDashboard() {
+        if (!getConfig().getBoolean("dashboard.enabled", false)) {
+            return;
+        }
+        dashboard = new DashboardServer(this, service);
+        try {
+            if (!dashboard.start(getConfig().getString("dashboard.bind", "127.0.0.1"), getConfig().getInt("dashboard.port", 8123),
+                    getConfig().getInt("dashboard.refresh-seconds", 5))) {
+                dashboard = null;
+            }
+        } catch (RuntimeException e) {
+            getLogger().log(java.util.logging.Level.WARNING, "The dashboard could not start", e); // never stops the plugin
+            dashboard = null;
+        }
     }
 
     /**
@@ -126,6 +148,9 @@ public final class HamletfolkPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (dashboard != null) {
+            dashboard.stop();
+        }
         if (brain != null) {
             brain.stop(); // R9.1: every added behaviour off before the world is saved, so the villagers are vanilla
         }

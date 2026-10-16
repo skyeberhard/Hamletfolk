@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hamletfolk</title>
+<style>
+:root {
+  --bg: #f6f3ec; --panel: #ffffff; --ink: #2a2620; --muted: #766f63; --line: #ddd5c6; --accent: #3b6e4d;
+  --ok: #3b8f5a; --watch: #c98a1b; --bad: #b8433a; --chip: #ece6d8;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1a1814; --panel: #24211c; --ink: #ece6d8; --muted: #9a9283; --line: #3a362e; --accent: #7fc096;
+    --ok: #6fc28a; --watch: #e0a83a; --bad: #e06a60; --chip: #302c25;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1a1814; --panel: #24211c; --ink: #ece6d8; --muted: #9a9283; --line: #3a362e; --accent: #7fc096;
+  --ok: #6fc28a; --watch: #e0a83a; --bad: #e06a60; --chip: #302c25;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; }
+header { display: flex; align-items: baseline; gap: 16px; padding: 14px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+header h1 { margin: 0; font-size: 20px; }
+header .meta { color: var(--muted); font-size: 13px; }
+header button { margin-left: auto; }
+button { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; }
+main { padding: 16px 20px 40px; max-width: 1200px; margin: 0 auto; }
+table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--chip); }
+tr:last-child td { border-bottom: 0; }
+tr.village { cursor: pointer; }
+tr.village:hover td { background: var(--chip); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; background: var(--ok); }
+.dot.h1 { background: var(--watch); } .dot.h2 { background: var(--bad); }
+.low { color: var(--bad); font-weight: 600; }
+.chip { display: inline-block; background: var(--chip); border-radius: 10px; padding: 1px 8px; margin: 1px 3px 1px 0; font-size: 12px; }
+.chip.block { color: var(--bad); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-top: 16px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+section h2 { margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+section.wide { grid-column: 1 / -1; }
+ul { margin: 0; padding-left: 18px; }
+li { margin: 2px 0; }
+.small { font-size: 13px; color: var(--muted); }
+.back { margin-bottom: 12px; }
+canvas { width: 100%; max-width: 720px; height: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+.scroll { max-height: 360px; overflow: auto; }
+.cards { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; min-width: 96px; }
+.card b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.card span { color: var(--muted); font-size: 12px; }
+@media (max-width: 700px) { main { padding: 12px 12px 40px; } th.hide, td.hide { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Hamletfolk</h1>
+  <span class="meta" id="meta">loading</span>
+  <button id="theme" type="button">Theme</button>
+</header>
+<main id="main"></main>
+<script>
+"use strict";
+const main = document.getElementById("main");
+const meta = document.getElementById("meta");
+let current = location.hash.slice(1) || null;
+let timer = null;
+
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v; else if (k === "onclick") e.onclick = v; else e.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null) e.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  return e;
+}
+const get = async (url) => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+async function show() {
+  try {
+    if (current) await village(current); else await overview();
+    meta.textContent = "updated " + new Date().toLocaleTimeString();
+  } catch (e) {
+    meta.textContent = "cannot reach the server (" + e.message + ")";
+  }
+}
+
+async function overview() {
+  const rows = await get("/api/villages");
+  const total = rows.reduce((n, r) => n + r.population, 0);
+  const table = el("table", null,
+    el("thead", null, el("tr", null,
+      el("th", null, "Village"), el("th", { class: "num" }, "People"), el("th", { class: "num" }, "Food"), el("th", { class: "num hide" }, "Wood"),
+      el("th", { class: "num hide" }, "Stone"), el("th", { class: "num hide" }, "Tools"), el("th", { class: "num hide" }, "Treasury"),
+      el("th", { class: "num" }, "Beds"), el("th", { class: "hide" }, "Building"), el("th", null, "In the way"))),
+    el("tbody", null, rows.map((r) => el("tr", { class: "village", onclick: () => go(r.id) },
+      el("td", null, el("span", { class: "dot h" + r.health }), el("b", null, r.name), el("div", { class: "small" }, r.character)),
+      el("td", { class: "num" }, r.population + (r.children ? " (" + r.children + ")" : "")),
+      el("td", { class: "num" }, r.stores.food), el("td", { class: "num hide" }, r.stores.wood), el("td", { class: "num hide" }, r.stores.stone),
+      el("td", { class: "num hide" }, r.stores.tools), el("td", { class: "num hide" }, r.treasury + "/" + r.treasuryLimit),
+      el("td", { class: "num" }, r.beds + " (" + r.freeBeds + " free)"), el("td", { class: "hide" }, r.building || "-"),
+      el("td", null, r.blockers.slice(0, 3).map((b) => el("span", { class: "chip block" }, b)),
+        r.blockers.length > 3 ? el("span", { class: "small" }, "+" + (r.blockers.length - 3) + " more") : null)))));
+  main.replaceChildren(el("div", { class: "small" }, rows.length + " villages, " + total + " people. Worst off first; click a village."), table);
+}
+
+async function village(id) {
+  const v = await get("/api/village/" + encodeURIComponent(id));
+  const back = el("button", { class: "back", onclick: () => go(null) }, "All villages");
+  const cards = el("div", { class: "cards" },
+    [["people", v.population + (v.children ? " (" + v.children + " children)" : "")], ["food", v.stores.food], ["wood", v.stores.wood], ["stone", v.stores.stone],
+     ["metal", v.stores.metal], ["tools", v.stores.tools], ["treasury", v.treasury + " / " + v.treasuryLimit], ["beds", v.beds + " (" + v.freeBeds + " free)"],
+     ["day", v.day]].map(([k, n]) => el("div", { class: "card" }, el("b", null, n), el("span", null, k))));
+  const jobs = Object.entries(v.jobs).map(([k, n]) => el("span", { class: "chip" }, n + " " + k));
+  const sections = el("div", { class: "cols" },
+    el("section", null, el("h2", null, "In the way"),
+      v.blockers.length ? el("ul", null, v.blockers.map((b) => el("li", null, b))) : el("div", { class: "small" }, "Nothing.")),
+    el("section", null, el("h2", null, "What it wants next"),
+      v.wants.length ? el("ul", null, v.wants.map((w) => el("li", null, el("b", null, "[" + w.tier + "] "), cap(w.kind) + " " + w.target.replace(/_/g, " ") + ": " + w.reason)))
+        : el("div", { class: "small" }, "Nothing: it is in good order.")),
+    el("section", null, el("h2", null, "Work"), el("div", null, jobs), el("div", { class: "small" }, "Building: " + (v.building || "nothing")),
+      el("ul", null, v.projects.map((p) => el("li", null, cap(p.type) + " tier " + p.tier + ": " + p.status + (p.finished > 0 ? " (day " + p.finished + ")" : ""))))),
+    el("section", null, el("h2", null, "Requests"),
+      v.requestList.length ? el("ul", null, v.requestList.map((r) => el("li", null, r.filled + "/" + r.wanted + " " + r.item + " - " + (r.thanksOnly ? "thanks only" : r.reward + " emeralds"))))
+        : el("div", { class: "small" }, "None.")),
+    el("section", { class: "wide" }, el("h2", null, "Plan"), planMap(v), el("div", { class: "small" }, v.plan ? "Stage " + v.plan.stage + ", " + v.plan.dropped + " lots dropped. Lots: outline = ready, dashed = rough ground, filled = built on. Dots are buildings." : "No plan yet.")),
+    el("section", { class: "wide" }, el("h2", null, "Residents (" + v.residents.length + ")"), residents(v)),
+    el("section", null, el("h2", null, "Buildings (" + v.buildings.length + ")"), el("div", { class: "scroll" },
+      el("ul", null, v.buildings.map((b) => el("li", null, b.type + (b.tier > 1 ? " tier " + b.tier : "") + " at " + b.x + ", " + b.z + " (" + b.by + ")"))))),
+    el("section", null, el("h2", null, "Recent decisions"), el("ul", null, v.decisions.slice().reverse().map((d) => el("li", null, "day " + d.day + ": " + d.text)))),
+    el("section", { class: "wide" }, el("h2", null, "History"), el("div", { class: "scroll" },
+      el("ul", null, v.history.slice().reverse().map((h) => el("li", null, el("span", { class: "small" }, "day " + h.day + " "), h.text))))));
+  main.replaceChildren(back, el("h2", null, el("span", { class: "dot h" + v.health }), v.name, " ", el("span", { class: "small" }, v.world + " at " + v.x + ", " + v.z + " - " + v.character)), cards, sections);
+}
+
+function residents(v) {
+  return el("div", { class: "scroll" }, el("table", null,
+    el("thead", null, el("tr", null, ["Name", "Job", "Age", "Wealth", "Food", "Safety", "Purpose"].map((h) => el("th", null, h)))),
+    el("tbody", null, v.residents.map((r) => el("tr", null,
+      el("td", null, r.name), el("td", null, r.adult ? (r.level ? r.level + " " : "") + r.job + (r.resting ? " (resting)" : "") + (r.pinned ? " (pinned)" : "") : "child"),
+      el("td", null, r.age + (r.stage === "elder" ? " (elder)" : "")), el("td", null, r.wealth),
+      el("td", { class: r.food < 40 ? "low" : "" }, r.food), el("td", { class: r.safety < 40 ? "low" : "" }, r.safety), el("td", { class: r.purpose < 40 ? "low" : "" }, r.purpose))))));
+}
+
+const lotColour = { House: "#e08a1e", Farm: "#4fae5a", Shop: "#d8c01a", Mine: "#8a8a8a", Smithy: "#d6483a", Treasury: "#a050d8", "Guard Post": "#4a82e0" };
+function planMap(v) {
+  const p = v.plan;
+  if (!p) return el("div", { class: "small" }, "No plan yet.");
+  const rects = [...p.roads.map((r) => r.rect), ...p.lots.map((l) => l.rect), ...(p.square ? [p.square] : [])];
+  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+  for (const [x, z, w, d] of rects) { x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x + w); z1 = Math.max(z1, z + d); }
+  for (const b of v.buildings) { x0 = Math.min(x0, b.x); z0 = Math.min(z0, b.z); x1 = Math.max(x1, b.x); z1 = Math.max(z1, b.z); }
+  const W = 720, pad = 12, scale = Math.min((W - 2 * pad) / (x1 - x0 || 1), 560 / (z1 - z0 || 1));
+  const H = Math.ceil((z1 - z0) * scale + 2 * pad);
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d");
+  const css = getComputedStyle(document.documentElement);
+  const X = (x) => pad + (x - x0) * scale, Z = (z) => pad + (z - z0) * scale;
+  g.fillStyle = css.getPropertyValue("--bg"); g.fillRect(0, 0, W, H);
+  g.fillStyle = "#9a7b52";
+  for (const r of p.roads) { const [x, z, w, d] = r.rect; g.fillRect(X(x), Z(z), w * scale, d * scale); }
+  if (p.square) { const [x, z, w, d] = p.square; g.fillStyle = "#bdb6a6"; g.fillRect(X(x), Z(z), w * scale, d * scale); }
+  for (const l of p.lots) {
+    const [x, z, w, d] = l.rect, colour = lotColour[l.type] || "#6a8fb0";
+    g.strokeStyle = colour; g.fillStyle = colour; g.lineWidth = 1.5;
+    if (l.status === "filled") { g.globalAlpha = .55; g.fillRect(X(x), Z(z), w * scale, d * scale); g.globalAlpha = 1; }
+    else { g.setLineDash(l.status === "rough" ? [4, 3] : []); g.strokeRect(X(x), Z(z), w * scale, d * scale); g.setLineDash([]); }
+  }
+  g.fillStyle = css.getPropertyValue("--ink");
+  for (const b of v.buildings) { g.beginPath(); g.arc(X(b.x), Z(b.z), 2.5, 0, 7); g.fill(); }
+  return c;
+}
+
+function go(id) { current = id; location.hash = id || ""; show(); }
+window.addEventListener("hashchange", () => { current = location.hash.slice(1) || null; show(); });
+document.getElementById("theme").onclick = () => {
+  const root = document.documentElement, dark = getComputedStyle(root).getPropertyValue("--bg").trim() === "#1a1814";
+  root.setAttribute("data-theme", dark ? "light" : "dark");
+  show();
+};
+show();
+timer = setInterval(show, 5000);
+</script>
+</body>
+</html>

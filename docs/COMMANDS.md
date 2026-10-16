@@ -48,6 +48,11 @@ Most need you to be standing in (or near) a village. `survey` works anywhere.
 The console also prints the villages' history as it is written, and a one-line summary of each village every few minutes (R1.34; `console.events` and
 `console.digest-minutes` in `config.yml`).
 
+## The dashboard (R1.35)
+
+Not a command: with `dashboard.enabled: true` in `config.yml` the server serves a read-only page at `http://127.0.0.1:8123/` (port, bind address and refresh
+rate are in the config) showing every village, what is in its way, and a page and a map for each. See docs/GUI_PLAN.md section 11.
+
 ## Admin commands (`/settlement admin ...`, op or console)
 
 | Command | What it does |

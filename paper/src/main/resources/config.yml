@@ -180,3 +180,13 @@ brain:
 console:
   events: all
   digest-minutes: 10
+
+# A page that shows every village at a glance (R1.35): people, stores, jobs, beds, what each is building and what is in its
+# way, with a page and a map of the plan for each village. Read only. Off by default. Open http://127.0.0.1:8123/ in a browser on the
+# machine the server runs on. 'bind' is the address it listens on: leave it at 127.0.0.1 unless you know why not (anyone who can reach
+# the address can read the page, and there is no password).
+dashboard:
+  enabled: false
+  port: 8123
+  bind: 127.0.0.1
+  refresh-seconds: 5
