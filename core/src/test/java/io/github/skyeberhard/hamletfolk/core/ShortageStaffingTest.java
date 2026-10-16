@@ -227,4 +227,41 @@ class ShortageStaffingTest {
         assertEquals(1, count(s, Occupation.TOOLSMITH));
         assertEquals(3, count(s, Occupation.FARMER), "the farmers are left to feed the village");
     }
+
+    // ----- R4.49: aim for what a newcomer needs while there is a bed for one -----
+
+    @Test
+    void aVillageWithABedFreeKeepsFillingTheFarmsUntilItHoldsWhatANewcomerNeeds() {
+        Settlement s = village(3, 3);
+        s.housing().setChunk(0, 0, 8); // two beds free
+        s.ledger().add(ResourceType.TOOLS, 50);
+        s.ledger().add(ResourceType.FOOD, 90); // 15 a head: above the usual aim of 10, below the 20 a newcomer needs
+        simulator.simulateDay(s, 1);
+        assertEquals(4, count(s, Occupation.FARMER), "a lumberjack goes to the farm");
+        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("to work as a farmer")));
+    }
+
+    @Test
+    void aVillageWithNoBedFreeKeepsTheUsualAim() {
+        Settlement s = village(3, 3);
+        s.housing().setChunk(0, 0, 6); // every bed taken
+        s.ledger().add(ResourceType.TOOLS, 50);
+        s.ledger().add(ResourceType.FOOD, 90);
+        simulator.simulateDay(s, 1);
+        assertEquals(3, count(s, Occupation.FARMER), "15 a head is enough when nobody could come");
+    }
+
+    @Test
+    void aVillageAtItsAimStopsAndDoesNotMoveAFarmerAwayAgain() {
+        Settlement s = village(4, 2);
+        s.housing().setChunk(0, 0, 8);
+        s.ledger().add(ResourceType.TOOLS, 50);
+        s.ledger().add(ResourceType.FOOD, 130); // 21.7 a head: at the aim, below plentiful
+        s.ledger().take(ResourceType.WOOD, s.ledger().get(ResourceType.WOOD));
+        for (long day = 1; day <= 6; day++) {
+            simulator.simulateDay(s, day);
+            s.ledger().take(ResourceType.WOOD, s.ledger().get(ResourceType.WOOD));
+        }
+        assertEquals(4, count(s, Occupation.FARMER), "no farmer is moved, to the farm or away from it");
+    }
 }

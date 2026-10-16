@@ -119,6 +119,26 @@ public final class SettlementSimulator {
     static final double ELDER_OUTPUT = 0.6;
     /** R4.1: a newcomer needs this much food per resident in store, and at least this many days between arrivals. */
     static final int NEWCOMER_FOOD_PER_HEAD = 20;
+    /**
+     * R4.49: food per head above which a farmer can be spared for another job. Above the most a village aims to hold
+     * ({@link #NEWCOMER_FOOD_PER_HEAD}), so a village that has just reached its aim does not move a farmer away and back.
+     */
+    static final int FOOD_PLENTIFUL_PER_HEAD = 30;
+
+    /**
+     * R4.49: the food a village aims to hold per head. The usual {@link #FOOD_WANTED_PER_HEAD}, but while a bed is free for a
+     * newcomer or a birth and the village is not in danger, what a newcomer needs ({@link #NEWCOMER_FOOD_PER_HEAD}): a village
+     * that stopped at the usual level sat for ever between the two with room to grow and nobody sent to the farms.
+     */
+    static int foodAim(Settlement settlement) {
+        return settlement.freeBeds() > 0 && !inDanger(settlement, settlement.lastSimulatedDay())
+                ? NEWCOMER_FOOD_PER_HEAD : FOOD_WANTED_PER_HEAD;
+    }
+
+    /** R4.49: whether the stores hold less food than the village aims for. */
+    static boolean foodBelowAim(Settlement settlement) {
+        return settlement.ledger().get(ResourceType.FOOD) < (long) settlement.population() * foodAim(settlement);
+    }
     static final int NEWCOMER_COOLDOWN_DAYS = 3;
     /** R4.9: a need at or above this costs no output; below it output falls off linearly. */
     static final int NEED_COMFORTABLE = 50;
@@ -1260,7 +1280,7 @@ public final class SettlementSimulator {
      */
     static Resident spareWorker(Settlement settlement, long day, boolean forFood) {
         boolean foodPlentiful = settlement.ledger().get(ResourceType.FOOD)
-                >= 2 * FOOD_WANTED_PER_HEAD * Math.max(1, settlement.population());
+                >= FOOD_PLENTIFUL_PER_HEAD * Math.max(1, settlement.population());
         long foodWorkers = settlement.residents().stream()
                 .filter(r -> r.adult() && r.occupation().produces() == ResourceType.FOOD).count();
         Resident chosen = null;
@@ -1405,10 +1425,9 @@ public final class SettlementSimulator {
                 && (jobless == null || !foodWorkFree(settlement))) {
             target = Occupation.TOOLSMITH;
         }
-        if (target == null && jobless == null && cover(settlement, Occupation.FARMER) < 1.0) { // (assignJob gives the jobless food work)
+        if (target == null && jobless == null && foodBelowAim(settlement)) { // (assignJob gives the jobless food work)
             for (Occupation candidate : candidates(settlement)) {
-                if (candidate.produces() == ResourceType.FOOD && workstationFree.test(settlement, candidate)
-                        && cover(settlement, candidate) < 1.0) {
+                if (candidate.produces() == ResourceType.FOOD && workstationFree.test(settlement, candidate)) {
                     target = candidate;
                     break;
                 }
