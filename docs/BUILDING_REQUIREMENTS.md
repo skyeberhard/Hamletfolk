@@ -32,7 +32,8 @@ Lot sizes (`PlanGenerator.size`), width by depth in blocks:
 
 | Building | Lot | Notes |
 |---|---|---|
-| House, guard post | 9 by 9 | |
+| House | 11 by 13 in plains, 9 by 15 in savanna, 9 by 9 in desert, snowy and taiga (R4.48) | sized to hold the style's medium house |
+| Guard post | 9 by 9 | |
 | Farm | 17 by 13 | |
 | Smithy, mine | 13 by 13 | the game's smithies are up to 9 by 12 |
 | Shop, sawmill, granary, and every trade building (harbour, pens, smokehouse, tannery, stable, apiary, map room, library, glassworks, trading post, bowyer, masons yard, armoury, chapel) | 11 by 9 | |
@@ -60,21 +61,20 @@ Every vanilla small house variant in the jar has exactly one bed (the catalog us
 A resident needs a bed; a village grows only while it has a free one (a newcomer needs one, and a birth needs one). Housing is
 counted from the beds the game knows of (points of interest), not from the houses.
 
-Which house fits a 9 by 9 lot (the whole template inside the lot):
+Since R4.48 a house lot holds the style's medium house, and a village builds the house with the most beds it can pay for:
 
-| Style | Small (1 bed) | Medium (2 beds) | Big (4 beds) | Beds per house lot |
+| Style | House lot | Small (1 bed) | Medium (2 beds) | Big (4 beds) |
 |---|---|---|---|---|
-| Plains | fits | **does not fit** (13x11) | **does not fit** (7x11) | **1** |
-| Desert | fits | fits (6x7) | none | 2 |
-| Savanna | fits | **does not fit** (8x15) | none | **1** |
-| Snowy | fits | fits (7x8) | none | 2 |
-| Taiga | fits | fits (8x7) | none | 2 |
+| Plains | 11 by 13 | fits | fits (13x11 turned) | fits (7x11) |
+| Savanna | 9 by 15 | fits | fits (8x15) | none |
+| Desert | 9 by 9 | fits | fits (6x7) | none |
+| Snowy | 9 by 9 | fits | fits (7x8) | none |
+| Taiga | 9 by 9 | fits | fits (8x7) | none |
 
-So in the two biggest village biomes a new house lot adds one bed, and the medium and big houses the catalog lists are never
-built there. A stage 1 plan has at most 7 house lots, stage 2 six more, stage 3 five and stage 4 six (`PlanGenerator`; lots on bad ground are
-lost): with 1-bed houses that is 7 beds from new houses at stage 1 and 24 at the most with all four stages, which is why a village
-stops growing at about its houses. This is logged as R4.48 in the roadmap. Beds
-already in an adopted village (vanilla houses, found by R2.8) count in full.
+Before R4.48 the lot was 9 by 9 everywhere, so in plains and savanna only the 1-bed small house fitted, and the village chose the most beds for
+its cost, which is the smallest house. A stage 1 plan has at most 7 house lots, stage 2 six more, stage 3 five and stage 4 six (`PlanGenerator`;
+lots on bad ground are lost). Plans made before R4.48 keep their old lots until `/settlement admin replan`. Beds already in an adopted village
+(vanilla houses, found by R2.8) count in full.
 
 ## 4. What each building is for, and when the village asks for it
 

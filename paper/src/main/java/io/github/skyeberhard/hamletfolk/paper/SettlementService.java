@@ -252,11 +252,14 @@ final class SettlementService {
         }
         if (plan == null) {
             long seed = settlement.id().getMostSignificantBits() ^ settlement.id().getLeastSignificantBits();
-            settlement.setPlan(PlanGenerator.generate(settlement.centerX(), settlement.centerZ(), seed, "plains", terrainOf(world)));
+            // R4.48: laid out in the village's own style (it was always plains), so its lots suit its houses
+            String style = io.github.skyeberhard.hamletfolk.core.BiomeSet.forBiome(
+                    world.getComputedBiome(settlement.centerX(), 64, settlement.centerZ()).getKey().getKey());
+            settlement.setPlan(PlanGenerator.generate(settlement.centerX(), settlement.centerZ(), seed, style, terrainOf(world)));
             findBuildings(settlement, true); // R2.8: what already stands is read before anything is decided about the lots
             settlement.fillFoundLots();
             plugin.requestSave();
-        } else if (PlanGenerator.extend(plan, terrainOf(world))) {
+        } else if (setStyle(plan, settlement, world) && PlanGenerator.extend(plan, terrainOf(world))) {
             io.github.skyeberhard.hamletfolk.core.Construction.planGrew(settlement);
             findBuildings(settlement, true); // R2.8: the new streets' lots keep off what already stands
             settlement.fillFoundLots();
@@ -269,6 +272,13 @@ final class SettlementService {
             }
             plugin.requestSave();
         }
+    }
+
+    /** R4.48: the plan takes the village's real style before it grows (always true: it is a step, not a test). */
+    private static boolean setStyle(VillagePlan plan, Settlement settlement, World world) {
+        plan.setBiomeSet(io.github.skyeberhard.hamletfolk.core.BiomeSet.forBiome(
+                world.getComputedBiome(settlement.centerX(), 64, settlement.centerZ()).getKey().getKey()));
+        return true;
     }
 
     // ----- R8.18: planning with nobody near -----

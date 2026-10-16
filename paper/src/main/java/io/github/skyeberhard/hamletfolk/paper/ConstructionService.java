@@ -310,6 +310,7 @@ final class ConstructionService {
             }
         }
         String style = BiomeSet.forBiome(world.getComputedBiome(settlement.centerX(), 64, settlement.centerZ()).getKey().getKey());
+        settlement.plan().setBiomeSet(style); // R4.48: a plan made as plains takes the village's real style
         Optional<ConstructionProject> queued = Construction.propose(settlement, settlement.lastSimulatedDay(), style,
                 service.treasuryLimit(settlement), plugin.templates().catalog(), plugin.templates()::blueprint,
                 groundOf(world), streetGround(world)); // (R4.37: ground set aside for a lot is not over a roof or a lamp post)

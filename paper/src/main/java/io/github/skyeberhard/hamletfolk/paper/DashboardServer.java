@@ -37,6 +37,9 @@ final class DashboardServer {
     private volatile String overview = "[]";
     private volatile Map<String, String> pages = Map.of();
     private volatile byte[] index = new byte[0];
+    /** When (milliseconds) a page was last asked for: nothing is built while nobody is looking. */
+    private volatile long lastRequest;
+    private int passes;
 
     private HttpServer server;
     private ExecutorService threads;
@@ -72,6 +75,7 @@ final class DashboardServer {
         server.setExecutor(threads);
         server.createContext("/", this::handle);
         server.start();
+        lastRequest = System.currentTimeMillis();
         refresh(); // so the first request has something to show
         long ticks = Math.max(1, refreshSeconds) * 20L;
         refresher = plugin.getServer().getScheduler().runTaskTimer(plugin, this::refresh, ticks, ticks);
@@ -93,19 +97,31 @@ final class DashboardServer {
 
     /** On the main thread: reads every village into text for the HTTP threads to hand out. */
     private void refresh() {
+        // nothing is built for a page nobody has asked for in the last two minutes (the page asks every five seconds while it is open)
+        boolean first = passes == 0;
+        if (!first && System.currentTimeMillis() - lastRequest > 120_000) {
+            return;
+        }
+        // the village pages are rebuilt every third pass (fifteen seconds); the overview every pass
+        boolean pages3 = passes++ % 3 == 0;
         try {
             List<Map<String, Object>> rows = new ArrayList<>();
-            Map<String, String> detail = new HashMap<>();
+            Map<String, String> detail = pages3 ? new HashMap<>() : null;
             for (Settlement s : service.registry().settlements()) {
                 int limit = service.treasuryLimit(s);
-                rows.add(Dashboard.summary(s, limit));
-                detail.put(s.id().toString(), gson.toJson(Dashboard.detail(s, limit)));
+                Map<String, Object> summary = Dashboard.summary(s, limit);
+                rows.add(summary);
+                if (detail != null) {
+                    detail.put(s.id().toString(), gson.toJson(Dashboard.detail(s, limit, summary)));
+                }
             }
             // the villages in most trouble first, then by name
             rows.sort(Comparator.comparingInt((Map<String, Object> r) -> -((Number) r.get("health")).intValue())
                     .thenComparing(r -> String.valueOf(r.get("name"))));
             overview = gson.toJson(rows);
-            pages = detail;
+            if (detail != null) {
+                pages = detail;
+            }
         } catch (RuntimeException e) {
             plugin.getLogger().log(Level.WARNING, "Could not refresh the dashboard", e);
         }
@@ -118,6 +134,7 @@ final class DashboardServer {
                 send(exchange, 403, "text/plain; charset=utf-8", "Forbidden".getBytes(StandardCharsets.UTF_8));
                 return;
             }
+            lastRequest = System.currentTimeMillis();
             String path = exchange.getRequestURI().getPath();
             if (path.equals("/") || path.equals("/index.html")) {
                 send(exchange, 200, "text/html; charset=utf-8", index);

@@ -518,11 +518,6 @@ public final class SettlementSimulator {
         }
     }
 
-    /**
-     * R4.3: one unemployed adult takes the occupation the village is shortest of, if a workstation
-     * is free for it. At most one a day, so a shortage draws people in gradually. The simulation
-     * owns the occupation from here on; the vanilla profession only seeds it (see the Paper layer).
-     */
     /** R4.50: the trade with a free place whose product the village holds the least of, if its stores have room for more; null if none. */
     private Occupation idleFillTrade(Settlement settlement, List<Occupation> candidates) {
         Occupation best = null;
@@ -542,6 +537,11 @@ public final class SettlementSimulator {
         return best;
     }
 
+    /**
+     * R4.3: one unemployed adult takes the occupation the village is shortest of, if a workstation
+     * is free for it. At most one a day, so a shortage draws people in gradually. The simulation
+     * owns the occupation from here on; the vanilla profession only seeds it (see the Paper layer).
+     */
     private void assignJob(Settlement settlement, long day) {
         Resident jobless = null;
         for (Resident resident : workOrder(settlement)) {
@@ -610,8 +610,13 @@ public final class SettlementSimulator {
         }
         // R4.50: nobody idles while a workplace stands empty: with nothing short, the place whose product the village holds least
         // of, where the stores still have room for it. (What the stores cannot hold goes to a passing trader, R3.18.)
-        if (best == null && !famine && !foodShort) {
+        // (not while a project waits for a builder: the jobless are who builds it, R4.8. And not noted as a move, so a builder or a
+        // shortage can take the hand just placed: it was only idle.)
+        boolean idleFill = false;
+        if (best == null && !famine && !foodShort && settlement.projects().stream().noneMatch(
+                p -> p.status() == ConstructionProject.Status.QUEUED)) {
             best = idleFillTrade(settlement, candidates);
+            idleFill = best != null;
         }
         // R4.10: a grown child (one born to residents) follows a parent's trade when it is also needed.
         Occupation parentTrade = parentTrade(settlement, jobless);
@@ -627,7 +632,9 @@ public final class SettlementSimulator {
         }
         if (best != null) {
             jobless.setOccupation(best);
-            noteMoved(settlement, jobless, day); // R4.35: just placed, so not moved again for a few days
+            if (!idleFill) {
+                noteMoved(settlement, jobless, day); // R4.35: just placed, so not moved again for a few days
+            }
             if (apprentice) {
                 settlement.record(day, HistoryEvent.Kind.MILESTONE, jobless.fullName()
                         + " was apprenticed as a " + best.title() + ".");

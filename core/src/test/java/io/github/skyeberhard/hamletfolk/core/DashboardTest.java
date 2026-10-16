@@ -66,6 +66,16 @@ class DashboardTest {
     }
 
     @Test
+    void aVillageWithPeopleButNoPlanYetStillMakesAPage() {
+        Settlement s = village();
+        s.setPlan(null);
+        Map<String, Object> page = Dashboard.detail(s, 200);
+        assertEquals(4, page.get("population"));
+        assertTrue(!page.containsKey("plan"));
+        assertPlainJsonData(page, "unplanned");
+    }
+
+    @Test
     void aVillageWithoutAPlanOrPeopleStillMakesAPage() {
         Settlement s = new Settlement(new UUID(150, 2), "Emptyham", "world", 0, 0, 0);
         Map<String, Object> page = Dashboard.detail(s, 200);

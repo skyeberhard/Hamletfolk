@@ -328,3 +328,5 @@ with a test that compares it with `python tools/piece_sizes.py`). Check that `Co
 then chooses the bigger house when affordable: a bigger house costs more, so a poor village builds the plainest first. Bigger house lots mean
 fewer lots per street: look at how many a stage still holds, and let the planner count the beds a lot will hold (`Planner.shelter` says "N more beds").
 Watch for `fillOverlapping` (R2.8) and replacement lots (R4.37), which use `size`. A plan already made keeps its lots until `admin replan`.
+
+Built (2026-10-16) as 11 by 13 in plains and 9 by 15 in savanna (13 by 11 and 15 long would have left stage 1 plains with one house lot: the house lot's long side has to run across the street, 11 along it), plus the choice of the most beds a village can pay for.

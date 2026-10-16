@@ -172,13 +172,19 @@ public final class TemplateCatalog {
     }
 
     /**
-     * R4.26: of the rungs above {@code currentTier} the stores can pay for, the one with the most beds for its cost (beds
-     * per unit of everything it costs), the plainest of equals first. Only a rung with more beds than {@code currentBeds}
-     * is considered, so an upgrade always adds room. Empty if none.
+     * R4.26, R4.48: of the rungs above {@code currentTier} the stores can pay for, the one with the most beds that they can pay for
+     * twice over (the cheaper of equals); if none is that cheap, the one with the most beds for its cost. Only a rung with more beds
+     * than {@code currentBeds} is considered, so an upgrade always adds room. A village used to take the most beds for its cost, which
+     * was always the smallest house, so a lot that holds a 2 or 4 bed house held one bed. Empty if none.
      */
     public static Optional<Template> mostBedsAffordable(List<Template> ladder, int currentTier,
             Function<Template, Map<ResourceType, Integer>> costOf, Function<Template, Integer> bedsOf,
             Map<ResourceType, Integer> stock, int currentBeds) {
+        // The most beds the village can pay for twice over, so one big house does not take all it has (it keeps the means to go on
+        // building); with none that rich, the most beds for its cost, as before.
+        Template roomy = null;
+        int roomyBeds = -1;
+        long roomyUnits = Long.MAX_VALUE;
         Template best = null;
         double bestValue = -1;
         for (Template rung : ladder) {
@@ -187,17 +193,25 @@ public final class TemplateCatalog {
             }
             Map<ResourceType, Integer> cost = costOf.apply(rung);
             boolean affordable = true;
+            boolean twice = true;
             long units = 0;
             for (Map.Entry<ResourceType, Integer> need : cost.entrySet()) {
-                if (stock.getOrDefault(need.getKey(), 0) < need.getValue()) {
+                int have = stock.getOrDefault(need.getKey(), 0);
+                if (have < need.getValue()) {
                     affordable = false;
                     break;
                 }
+                twice &= (long) have >= 2L * need.getValue();
                 units += need.getValue();
             }
             int beds = bedsOf.apply(rung);
             if (!affordable || beds <= currentBeds) {
                 continue;
+            }
+            if (twice && (beds > roomyBeds || (beds == roomyBeds && units < roomyUnits))) {
+                roomy = rung;
+                roomyBeds = beds;
+                roomyUnits = units;
             }
             double value = (double) beds / Math.max(1, units);
             if (value > bestValue) {
@@ -205,7 +219,7 @@ public final class TemplateCatalog {
                 bestValue = value;
             }
         }
-        return Optional.ofNullable(best);
+        return Optional.ofNullable(roomy != null ? roomy : best);
     }
 
     /**

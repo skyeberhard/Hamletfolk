@@ -44,14 +44,42 @@ class IdleFillTest {
 
     @Test
     void theTradeWithTheLeastInStoreIsTakenFirst() {
+        SettlementSimulator two = new SettlementSimulator(false, (Predicate<Occupation>) o -> o == Occupation.FARMER || o == Occupation.LUMBERJACK);
+        Settlement plentyOfWood = threeIdle();
+        plentyOfWood.ledger().take(ResourceType.FOOD, plentyOfWood.ledger().get(ResourceType.FOOD) - 40); // food 40 of 30 wanted: least
+        two.simulateDay(plentyOfWood, 1);
+        assertEquals(1, count(plentyOfWood, Occupation.FARMER), "the farm, since food is what the village holds least of");
+        Settlement plentyOfFood = threeIdle();
+        plentyOfFood.ledger().take(ResourceType.WOOD, plentyOfFood.ledger().get(ResourceType.WOOD) - 10); // wood 10 of 9 wanted: least
+        two.simulateDay(plentyOfFood, 1);
+        assertEquals(1, count(plentyOfFood, Occupation.LUMBERJACK), "the lumberjack, since wood is");
+    }
+
+    /** Three idle adults (under four, so no permanent lumberjack or miner, R4.24) with plenty of everything. */
+    private Settlement threeIdle() {
         Settlement s = wellStocked();
-        s.ledger().take(ResourceType.GOODS, s.ledger().get(ResourceType.GOODS) - 13); // 13 of 12 wanted: not short, but least
-        SettlementSimulator two = new SettlementSimulator(false, (Predicate<Occupation>) o -> o == Occupation.FARMER || o == Occupation.LEATHERWORKER);
-        // (the leatherworker is only a candidate where the land opens it; here that is not so, so it stays with the farm)
-        two.simulateDay(s, 1);
-        assertEquals(1, count(s, Occupation.FARMER) + count(s, Occupation.LUMBERJACK) + count(s, Occupation.MINER)
-                + count(s, Occupation.MASON) + count(s, Occupation.FISHERMAN) + count(s, Occupation.TOOLSMITH),
-                "one a day takes a place");
+        s.removeResident(s.residents().iterator().next().id());
+        for (ResourceType type : ResourceType.values()) {
+            s.ledger().add(type, 60);
+        }
+        return s;
+    }
+
+    @Test
+    void anIdleHandPlacedByIdleFillIsTheOneADraftedBuilderIsTaken() {
+        Settlement s = threeIdle();
+        VillagePlan plan = PlanGenerator.generate(0, 0, 7L, "plains", HeightSource.flat(64));
+        s.setPlan(plan);
+        SettlementSimulator onlyFarms = new SettlementSimulator(false, (Predicate<Occupation>) o -> o == Occupation.FARMER);
+        for (long day = 1; day <= 3; day++) {
+            onlyFarms.simulateDay(s, day);
+        }
+        assertEquals(3, count(s, Occupation.FARMER), "everyone found work");
+        s.addProject(new ConstructionProject(1, BuildingType.HOUSE, 1, 0, "plains", 0, 64, 0, plan.lots().get(0).id(), 4));
+        for (long day = 4; day <= 8; day++) {
+            onlyFarms.simulateDay(s, day);
+        }
+        assertEquals(1, count(s, Occupation.BUILDER), "a project waiting three days is built: a farmer just placed is not held back");
     }
 
     @Test

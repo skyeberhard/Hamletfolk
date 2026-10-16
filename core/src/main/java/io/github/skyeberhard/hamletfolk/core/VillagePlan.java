@@ -39,7 +39,7 @@ public final class VillagePlan {
     }
 
     private final long seed;
-    private final String biomeSet;
+    private String biomeSet;
     private final int centerX;
     private final int centerZ;
     private final boolean spineAlongX;
@@ -61,6 +61,14 @@ public final class VillagePlan {
 
     public long seed() {
         return seed;
+    }
+
+    /**
+     * R4.48: the style the plan is laid out in. A plan made before R4.48 says plains whatever the village; it is set to the real style
+     * (lots already laid out keep their sizes), so what is laid out from now on suits the village's houses.
+     */
+    public void setBiomeSet(String biomeSet) {
+        this.biomeSet = BiomeSet.normalize(biomeSet);
     }
 
     public String biomeSet() {

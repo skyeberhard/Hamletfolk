@@ -71,8 +71,22 @@ public final class PlanGenerator {
 
     /** How much ground a building needs: along the street, and deep from it. */
     static int[] size(BuildingType type) {
+        return size(type, BiomeSet.DESERT);
+    }
+
+    /**
+     * R4.48: the lot a building needs in a village style. A house lot holds the style's medium house, so the 2-bed house fits (and, in
+     * plains, the 4-bed big one): the game's medium house is 13 by 11 in plains and 8 by 15 in savanna, and fits 9 by 9 in the others.
+     * (A template must lie wholly inside its lot, in either turn.)
+     */
+    static int[] size(BuildingType type, String biomeSet) {
         return switch (type) {
-            case HOUSE, GUARD_POST -> new int[] {9, 9};
+            case HOUSE -> switch (BiomeSet.normalize(biomeSet)) {
+                case BiomeSet.PLAINS -> new int[] {11, 13};
+                case BiomeSet.SAVANNA -> new int[] {9, 15};
+                default -> new int[] {9, 9};
+            };
+            case GUARD_POST -> new int[] {9, 9};
             case FARM -> new int[] {17, 13};
             case SHOP -> new int[] {11, 9};
             case TREASURY -> new int[] {11, 11};
@@ -292,7 +306,7 @@ public final class PlanGenerator {
                     int[] size = null;
                     Rect candidate = null;
                     for (BuildingType option : probe == null ? pool : inOrderOfSuit(plan, pool, probe)) {
-                        int[] optionSize = size(option);
+                        int[] optionSize = size(option, plan.biomeSet());
                         Rect fitted = lotRect(frame, arm, side, cursor, optionSize[0], optionSize[1]);
                         if (fitted != null && cursor + optionSize[0] - 1 <= arm.to()) {
                             type = option;
@@ -426,7 +440,7 @@ public final class PlanGenerator {
 
     private static java.util.Optional<VillagePlan.Lot> replacementLot(VillagePlan plan, BuildingType type, HeightSource terrain,
             List<Rect> occupied, boolean withinExtent, int reach, boolean grading) {
-        int[] size = size(type);
+        int[] size = size(type, plan.biomeSet());
         Rect best = null;
         long bestDistance = Long.MAX_VALUE;
         Rect extent = withinExtent ? Works.extent(plan).orElse(null) : null;

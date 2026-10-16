@@ -74,8 +74,13 @@ public final class Dashboard {
 
     /** Everything a village's own page shows. */
     public static Map<String, Object> detail(Settlement s, int treasuryLimit) {
+        return detail(s, treasuryLimit, summary(s, treasuryLimit));
+    }
+
+    /** As above, reusing a summary already made. */
+    public static Map<String, Object> detail(Settlement s, int treasuryLimit, Map<String, Object> summary) {
         long day = s.lastSimulatedDay();
-        Map<String, Object> out = new LinkedHashMap<>(summary(s, treasuryLimit));
+        Map<String, Object> out = new LinkedHashMap<>(summary);
 
         List<Map<String, Object>> residents = new ArrayList<>();
         for (Resident r : s.residents()) {
