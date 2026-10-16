@@ -295,3 +295,18 @@ Build the player read-only dashboard and admin settlement directory first, then 
 first transactional menu. Keep written history and vanilla merchant trading intact. Defer player
 village control, arbitrary treasury exchange and custom merchant inventory until ownership and
 transaction rules are explicitly designed.
+
+## 11. Alternative and complement: a browser dashboard (R1.35)
+
+Chest menus are small (six rows of icons) and cannot show a table of every village. A page served by the plugin on the server's own machine can: the JDK has an
+HTTP server built in, so no library is needed, and the plugin already has the data (the digest line, `SettlementInspector`, the plan and the history).
+
+- **Overview:** one row per village (people, food, wood, stone, tools, treasury, beds, jobs, building, what is wrong) with the villages that need help first.
+- **A village page:** residents with their jobs and moods, buildings (found, signed and built), the plan with lots and streets drawn on a map, projects, requests,
+  history, the planner's decisions, and *what is blocking it* (no free bed, food under the aim, no stone, no builder).
+- **Actions** (token required): the `/settlement admin` commands as buttons: replan, warp, fast-forward, job, unpin, resettle, save.
+- **Safety:** off by default; bound to 127.0.0.1; a token for actions; everything is read from a snapshot taken on the main thread, never from another thread.
+- **Size:** read-only, about a session (one HTML page, two JSON endpoints); actions another.
+
+In game the same data can be shown without a menu: a sidebar scoreboard or action bar for the village you are standing in (the digest line), and a map item
+that draws the plan. The menus in sections 4 to 9 then become the way to *act*, not the way to *look*.

@@ -1221,7 +1221,8 @@ class ConstructionTest {
                 s.addResident(person(Occupation.UNEMPLOYED));
             }
             s.ledger().add(ResourceType.FOOD, 500);
-            s.ledger().add(ResourceType.WOOD, 20); // above the 9 (3 a head) that counts as short
+            s.ledger().add(ResourceType.WOOD, SettlementSimulator.capacity(s, ResourceType.WOOD)); // full: above what counts as short, and no
+            // work for an idle hand either (R4.50), so only a fresh lack hires a lumberjack
             s.conditions().put(Construction.LACKS + "WOOD", lackDay);
             s.setLastSimulatedDay(4 + Construction.LACK_MEMORY_DAYS + 3);
             sim.simulateDay(s, 5 + Construction.LACK_MEMORY_DAYS + 3);

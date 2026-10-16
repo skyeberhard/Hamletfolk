@@ -1,6 +1,7 @@
 package io.github.skyeberhard.hamletfolk.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
@@ -177,7 +178,7 @@ class MerchantTest {
         bare.ledger().add(ResourceType.WOOD, 6);
         bare.ledger().add(ResourceType.STONE, 6);
         simulator.simulateTo(bare, 3, 100);
-        assertEquals(Occupation.UNEMPLOYED, jobless.occupation()); // nothing to spare, and nothing short
+        assertNotEquals(Occupation.MERCHANT, jobless.occupation()); // nothing to spare (an idle hand may still take a free place, R4.50)
 
         Settlement rich = registry.found("world", 100, 100, 0);
 

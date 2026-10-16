@@ -523,6 +523,25 @@ public final class SettlementSimulator {
      * is free for it. At most one a day, so a shortage draws people in gradually. The simulation
      * owns the occupation from here on; the vanilla profession only seeds it (see the Paper layer).
      */
+    /** R4.50: the trade with a free place whose product the village holds the least of, if its stores have room for more; null if none. */
+    private Occupation idleFillTrade(Settlement settlement, List<Occupation> candidates) {
+        Occupation best = null;
+        double bestCover = Double.MAX_VALUE;
+        for (Occupation candidate : candidates) {
+            ResourceType made = candidate.produces();
+            if (made == null || !workstationFree.test(settlement, candidate)
+                    || settlement.ledger().get(made) >= capacity(settlement, made)) {
+                continue;
+            }
+            double cover = cover(settlement, candidate);
+            if (cover < bestCover) {
+                best = candidate;
+                bestCover = cover;
+            }
+        }
+        return best;
+    }
+
     private void assignJob(Settlement settlement, long day) {
         Resident jobless = null;
         for (Resident resident : workOrder(settlement)) {
@@ -588,6 +607,11 @@ public final class SettlementSimulator {
         // R3.9: with nothing short and goods to spare, someone takes up selling them.
         if (best == null && merchantNeeded(settlement) && workstationFree.test(settlement, Occupation.MERCHANT)) {
             best = Occupation.MERCHANT;
+        }
+        // R4.50: nobody idles while a workplace stands empty: with nothing short, the place whose product the village holds least
+        // of, where the stores still have room for it. (What the stores cannot hold goes to a passing trader, R3.18.)
+        if (best == null && !famine && !foodShort) {
+            best = idleFillTrade(settlement, candidates);
         }
         // R4.10: a grown child (one born to residents) follows a parent's trade when it is also needed.
         Occupation parentTrade = parentTrade(settlement, jobless);

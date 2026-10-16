@@ -1349,6 +1349,12 @@ final class ConstructionService {
     /** How far along the planned streets a finished building grades and paves (the street grows outward as the village does). */
     private static final int PAVE_RANGE = 20;
     private static final int WALKWAY_MAX = 14;
+    /**
+     * R4.51: what a desert street is laid in. Plain sandstone, which the grading already treats as the ground (the game's own desert
+     * streets are smooth sandstone, but so are the floors and walls of its houses, which must never be taken for ground).
+     */
+    private static final Material DESERT_STREET = Material.SANDSTONE;
+    private static final java.util.Set<Material> DESERT_GROUND = java.util.EnumSet.of(Material.SAND, Material.RED_SAND, Material.GRAVEL);
     private static final java.util.Set<Material> PATHABLE = java.util.EnumSet.of(Material.GRASS_BLOCK, Material.DIRT,
             Material.COARSE_DIRT, Material.PODZOL, Material.ROOTED_DIRT, Material.MYCELIUM);
 
@@ -1473,9 +1479,10 @@ final class ConstructionService {
                     }
                     Material here = block.getType();
                     if (here.isAir() || Tag.REPLACEABLE.isTagged(here)) {
-                        block.setType(desert ? Material.SAND : Material.DIRT_PATH, false);
-                    } else if (!desert && PATHABLE.contains(here)) {
-                        block.setType(Material.DIRT_PATH, false);
+                        block.setType(desert ? DESERT_STREET : Material.DIRT_PATH, false);
+                    } else if (desert ? DESERT_GROUND.contains(here) : PATHABLE.contains(here)) {
+                        // R4.51: a desert street is sandstone laid on the sand (it was sand on sand, which no one could see)
+                        block.setType(desert ? DESERT_STREET : Material.DIRT_PATH, false);
                     }
                 }
                 case BRIDGE -> {
