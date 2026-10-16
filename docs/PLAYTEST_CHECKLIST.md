@@ -119,6 +119,18 @@ turns out to need a player, just do it in game.
 | T89 | A hungry village with a free farm place and no jobless moves a worker onto it; a village with metal and a smithy gets a toolsmith | P | |
 | T90 | A famine village with iron and no smithy builds one, and a queued palisade or square does not block it | P | |
 | T91 | A plan with no lot for a smithy gets ground set aside; a smithy is asked for outside a famine | P | |
+| T92 | The plan grows a stage when a wanted building finds no lot (Oakford, Hollowgate grew in the console smoke test); houses then go up | C | partial: seen in the console smoke test on a copy of the live world (2026-10-15), not in play |
+| T93 | A village with no stone builds its first mine without stone (Hollowgate, Elderbrook, Amberhaven built one in the smoke test) | C | partial: smoke test |
+| T94 | A resting supplier is moved to a free farm place and taken up again when its stores run low | C | |
+| T95 | A hungry village with iron and no toolsmith takes one first (Testford: its famine of 1,607 days ended in the smoke test) | C | partial: smoke test |
+| T96 | Found buildings: houses, smithy, farms, library and so on are registered without signs (smoke test: Hollowgate, Mossmoor, Elderbrook, Amberhaven); lots are not drawn over them | C/P | partial: registration seen in the smoke test; the lots over them need `/settlement lots on` in game |
+| T97 | The history reads once, not every five days (read a long-waiting village's book) | P | |
+| T98 | **Clothes and labels show the real job** (builder in a plain robe, not a farmer's apron; no flicker; a traded villager keeps its job) | P | |
+| T99 | A project nobody can build is given up after 20 days; a resting supplier is drafted | C | partial: Hollowgate's long-queued palisade was built by a drafted lumberjack in the smoke test |
+| T100 | A broke village asks for help for its thanks; donating earns reputation and no emeralds | P | |
+| T101 | Full stores are sold weekly to a passing trader; treasuries rise slowly | C | |
+| T102 | **Rough lots**: outlined brown in `/settlement lots on`, built on after the ready ones, levelled | P | |
+| T103 | The console feed and digest: `settlement`, `settlement info <village>`; lines as things happen | C | pass (smoke test 2026-10-15): digest every ten minutes, reports, a few hundred history lines in 150 s of 20x with no errors |
 
 Results marked passive were read from the server logs and the saved villages after the server had been left running, not played; a person may still want to look at them.
 

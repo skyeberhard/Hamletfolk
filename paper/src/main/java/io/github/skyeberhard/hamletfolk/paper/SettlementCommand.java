@@ -70,7 +70,7 @@ final class SettlementCommand implements TabExecutor {
             return true;
         }
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("Only players can use this command.");
+            console(sender, args);
             return true;
         }
         if (args.length > 0 && args[0].equalsIgnoreCase("survey")) {
@@ -102,6 +102,62 @@ final class SettlementCommand implements TabExecutor {
             }
         }
         return true;
+    }
+
+    private static final List<String> CONSOLE_SUBCOMMANDS = List.of("list", "info", "history", "residents", "buildings", "plan", "projects");
+
+    /**
+     * From the server console: {@code settlement} or {@code settlement list} gives every village in a line, and
+     * {@code settlement info|history|residents|buildings|plan|projects <village name or id>} gives that report for a village.
+     * (The rest are for a player standing in a village; admin and brain commands work here too.)
+     */
+    private void console(CommandSender sender, String[] args) {
+        String sub = args.length == 0 ? "list" : args[0].toLowerCase(Locale.ROOT);
+        if (sub.equals("list") || sub.equals("digest")) {
+            if (service.registry().settlements().isEmpty()) {
+                sender.sendMessage("No settlements yet.");
+            }
+            for (Settlement s : service.registry().settlements()) {
+                sender.sendMessage(io.github.skyeberhard.hamletfolk.core.SettlementInspector.digest(s));
+            }
+            return;
+        }
+        if (!CONSOLE_SUBCOMMANDS.contains(sub)) {
+            sender.sendMessage("From the console: settlement list, or settlement " + String.join("|", CONSOLE_SUBCOMMANDS.subList(1, CONSOLE_SUBCOMMANDS.size()))
+                    + " <village name or id>. Also settlement admin ... and settlement brain ...; the rest are for players.");
+            return;
+        }
+        if (args.length < 2) {
+            sender.sendMessage("Name a village: settlement " + sub + " <village name or id> (settlement list shows them).");
+            return;
+        }
+        admin.lookup(sender, String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length))).ifPresent(s -> {
+            service.simulate(s);
+            switch (sub) {
+                case "info" -> info(sender, s);
+                case "history" -> historyText(sender, s);
+                case "residents" -> residents(sender, s);
+                case "buildings" -> buildings(sender, s);
+                case "plan" -> plan(sender, s);
+                case "projects" -> projects(sender, s);
+                default -> sender.sendMessage("Unknown report.");
+            }
+        });
+    }
+
+    /** The world a report is about: the player's own, or the village's when run from the console. */
+    private static World worldOf(CommandSender sender, Settlement s) {
+        return sender instanceof Player player ? player.getWorld() : Bukkit.getWorld(s.world());
+    }
+
+    /** The history as plain lines (the console cannot open a book): the latest 40 events. */
+    private void historyText(CommandSender sender, Settlement s) {
+        List<HistoryEvent> all = s.history();
+        List<HistoryEvent> events = all.subList(Math.max(0, all.size() - 40), all.size());
+        sender.sendMessage("History of " + s.name() + " (" + events.size() + " of " + all.size() + " events):");
+        for (HistoryEvent event : events) {
+            sender.sendMessage("  day " + event.day() + ": " + event.text());
+        }
     }
 
     @Override
@@ -200,8 +256,8 @@ final class SettlementCommand implements TabExecutor {
         }
     }
 
-    private void info(Player player, Settlement s) {
-        long today = s.effectiveDay(SettlementService.day(player.getWorld())); // R1.23
+    private void info(CommandSender player, Settlement s) {
+        long today = s.effectiveDay(SettlementService.day(worldOf(player, s))); // R1.23
         long children = s.residents().stream().filter(r -> !r.adult()).count();
 
         player.sendMessage(Component.text(s.name(), NamedTextColor.GOLD)
@@ -261,7 +317,9 @@ final class SettlementCommand implements TabExecutor {
         if (alert != SettlementSimulator.Alert.CALM) {
             line(player, "Alert", alert.label() + " (" + SettlementSimulator.recentIncidents(s, today) + " attacks this week)");
         }
-        line(player, "Regard", regardLabel(s.reputationOf(player.getUniqueId())));
+        if (player instanceof Player who) {
+            line(player, "Regard", regardLabel(s.reputationOf(who.getUniqueId())));
+        }
 
         List<String> troubles = new ArrayList<>();
         if (s.hasCondition("famine")) {
@@ -308,7 +366,7 @@ final class SettlementCommand implements TabExecutor {
         player.openBook(Book.book(Component.text(s.name()), Component.text("The villagers"), pages));
     }
 
-    private void residents(Player player, Settlement s) {
+    private void residents(CommandSender player, Settlement s) {
         player.sendMessage(Component.text("Residents of " + s.name() + ":", NamedTextColor.GOLD));
         int shown = 0;
         for (Resident r : s.residents()) {
@@ -519,11 +577,11 @@ final class SettlementCommand implements TabExecutor {
     }
 
     /** R4.7, R4.8: what the village is building, who is building it and how far along it is, and what it has built. */
-    private void projects(Player player, Settlement s) {
+    private void projects(CommandSender player, Settlement s) {
         var open = s.openProject();
         if (open.isEmpty()) {
             player.sendMessage(Component.text(s.name() + " is not building anything right now.", NamedTextColor.GRAY));
-            s.latest(io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.BUILDING, s.effectiveDay(SettlementService.day(player.getWorld())) - 10)
+            s.latest(io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.BUILDING, s.effectiveDay(SettlementService.day(worldOf(player, s))) - 10)
                     .ifPresent(e -> player.sendMessage(Component.text("  Latest: " + e.text(), NamedTextColor.GRAY)));
         } else {
             var p = open.get();
@@ -555,8 +613,8 @@ final class SettlementCommand implements TabExecutor {
      * R8.1: /settlement plan says what the village wants next and why, and shows its latest decisions. For now it is
      * advice (which building to put up, which jobs are open); the builder that acts on it comes later.
      */
-    private void plan(Player player, Settlement s) {
-        long today = s.effectiveDay(SettlementService.day(player.getWorld()));
+    private void plan(CommandSender player, Settlement s) {
+        long today = s.effectiveDay(SettlementService.day(worldOf(player, s)));
         List<Planner.Directive> now = Planner.directives(s, today, service.treasuryLimit(s));
         player.sendMessage(Component.text("What " + s.name() + " wants next:", NamedTextColor.GOLD));
         if (s.population() == 0) {
@@ -678,7 +736,7 @@ final class SettlementCommand implements TabExecutor {
     }
 
     /** R2.1: /settlement buildings lists what players have registered with signs. */
-    private void buildings(Player player, Settlement s) {
+    private void buildings(CommandSender player, Settlement s) {
         if (s.buildings().isEmpty()) {
             player.sendMessage(Component.text("No buildings are registered in " + s.name() + ". Place a sign reading "
                     + "[Farm], [Smithy], [Mine], [Shop], [Treasury], [House] or [Guard Post] inside the village to register one.", NamedTextColor.GRAY));
@@ -865,7 +923,7 @@ final class SettlementCommand implements TabExecutor {
         return String.join("; ", parts);
     }
 
-    private static void line(Player player, String label, String value) {
+    private static void line(CommandSender player, String label, String value) {
         player.sendMessage(Component.text(label + ": ", NamedTextColor.YELLOW)
                 .append(Component.text(value, NamedTextColor.WHITE)));
     }

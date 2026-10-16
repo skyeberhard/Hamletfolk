@@ -14,6 +14,57 @@ public final class SettlementInspector {
     private SettlementInspector() {
     }
 
+    /**
+     * A village in one line, for the server console: its day, people, stores, treasury, jobs, beds, what it is building and what
+     * is wrong ("famine", "no tools", "under attack"). Meant to be read at a glance every few minutes.
+     */
+    public static String digest(Settlement s) {
+        StringBuilder out = new StringBuilder(s.name()).append(" day ").append(s.lastSimulatedDay());
+        if (s.isAbandoned() || s.population() == 0) {
+            return out.append(s.isAbandoned() ? ": abandoned" : ": empty").toString();
+        }
+        long children = s.residents().stream().filter(r -> !r.adult()).count();
+        out.append(": ").append(s.population()).append(" people");
+        if (children > 0) {
+            out.append(" (").append(children).append(" children)");
+        }
+        out.append(", food ").append(s.ledger().get(ResourceType.FOOD)).append(", wood ").append(s.ledger().get(ResourceType.WOOD))
+                .append(", stone ").append(s.ledger().get(ResourceType.STONE)).append(", tools ").append(s.ledger().get(ResourceType.TOOLS))
+                .append(", treasury ").append(s.ledger().treasury());
+        Map<Occupation, Integer> jobs = new EnumMap<>(Occupation.class);
+        for (Resident r : s.residents()) {
+            if (r.adult()) {
+                jobs.merge(r.occupation(), 1, Integer::sum);
+            }
+        }
+        StringBuilder work = new StringBuilder();
+        jobs.forEach((job, n) -> work.append(work.isEmpty() ? "" : ", ").append(n).append(' ').append(job.title()));
+        out.append("; ").append(work).append("; beds ").append(s.housingCapacity());
+        s.openProject().ifPresent(p -> out.append("; building a ").append(p.type().label().toLowerCase(Locale.ROOT)).append(" (")
+                .append(p.status().name().toLowerCase(Locale.ROOT)).append(')'));
+        List<String> troubles = new ArrayList<>();
+        if (s.hasCondition("famine")) {
+            troubles.add("famine");
+        }
+        if (s.hasCondition("shortage:tools")) {
+            troubles.add("no tools");
+        }
+        if (s.hasCondition("shortage:metal")) {
+            troubles.add("no metal");
+        }
+        if (s.threat() >= 35) {
+            troubles.add("under threat");
+        }
+        long thanks = s.requests().stream().filter(Request::thanksOnly).count();
+        if (!s.requests().isEmpty()) {
+            troubles.add(s.requests().size() + " request" + (s.requests().size() == 1 ? "" : "s") + (thanks > 0 ? " (" + thanks + " unpaid)" : ""));
+        }
+        if (!troubles.isEmpty()) {
+            out.append("; ").append(String.join(", ", troubles));
+        }
+        return out.toString();
+    }
+
     public static List<String> report(Settlement s) {
         List<String> lines = new ArrayList<>();
         long today = s.lastSimulatedDay();

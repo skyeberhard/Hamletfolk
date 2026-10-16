@@ -90,6 +90,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
         service.trackLoadedVillagers();
         getServer().getScheduler().runTaskTimer(this, service::simulateAll, SIMULATION_PERIOD_TICKS, SIMULATION_PERIOD_TICKS);
         service.startFastForward(); // R4.27
+        startConsoleFeed(); // R1.34
 
         long autosaveTicks = Math.max(1, getConfig().getLong("autosave-minutes", 5)) * 60 * 20;
         getServer().getScheduler().runTaskTimer(this, this::saveAsync, autosaveTicks, autosaveTicks);
@@ -102,6 +103,21 @@ public final class HamletfolkPlugin extends JavaPlugin {
         }
 
         getLogger().info("Tracking " + registry.settlements().size() + " settlements.");
+    }
+
+    /**
+     * R1.34: writes what happens in the villages to the server console: each new line of history, and every few minutes a line for
+     * every village. {@code console.events: all|important|off}, {@code console.digest-minutes: 10} (0 for never).
+     */
+    private void startConsoleFeed() {
+        ConsoleFeed feed = new ConsoleFeed(this, service, ConsoleFeed.Mode.of(getConfig().getString("console.events", "all")));
+        long period = SIMULATION_PERIOD_TICKS;
+        getServer().getScheduler().runTaskTimer(this, feed::events, period + 20, period);
+        int minutes = getConfig().getInt("console.digest-minutes", 10);
+        if (minutes > 0) {
+            long ticks = (long) minutes * 60 * 20;
+            getServer().getScheduler().runTaskTimer(this, feed::digest, 200L, ticks);
+        }
     }
 
     TemplateLibrary templates() {

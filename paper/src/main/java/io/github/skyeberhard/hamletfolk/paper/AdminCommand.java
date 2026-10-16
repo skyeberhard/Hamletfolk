@@ -391,7 +391,7 @@ final class AdminCommand {
     }
 
     /** One settlement by name or id prefix; otherwise tells the sender why not (none, or which ones). */
-    private Optional<Settlement> lookup(CommandSender sender, String query) {
+    Optional<Settlement> lookup(CommandSender sender, String query) {
         List<Settlement> matches = service.registry().findAll(query);
         if (matches.isEmpty()) {
             sender.sendMessage("No settlement matches \"" + query + "\". Try /settlement admin list.");

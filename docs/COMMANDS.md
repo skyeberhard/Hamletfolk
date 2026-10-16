@@ -37,6 +37,17 @@ Most need you to be standing in (or near) a village. `survey` works anywhere.
 | Place a sign `[Farm]`, `[Mine]`, `[Smithy]`, `[House]`, `[Guard Post]`, `[Shop]`, `[Treasury]` (and more) | Registers that building for the village |
 | Place a sign `[Exempt]`, second line a radius | Leaves villagers in that radius alone |
 
+## From the server console
+
+| Command | What it does |
+|---|---|
+| `settlement` or `settlement list` | One line for every village: day, people, stores, treasury, jobs, beds, what it is building, what is wrong |
+| `settlement info|history|residents|buildings|plan|projects <village name or id>` | The same reports a player gets, for the named village (history as plain lines) |
+| `settlement admin ...`, `settlement brain ...` | As below |
+
+The console also prints the villages' history as it is written, and a one-line summary of each village every few minutes (R1.34; `console.events` and
+`console.digest-minutes` in `config.yml`).
+
 ## Admin commands (`/settlement admin ...`, op or console)
 
 | Command | What it does |
