@@ -190,3 +190,7 @@ dashboard:
   port: 8123
   bind: 127.0.0.1
   refresh-seconds: 5
+  # R1.36: buttons on the dashboard that run admin actions (replan, warp, set a resident's job and so on). Off by default. Every action
+  # is checked, runs the same code as /settlement admin, and is written to plugins/Hamletfolk/audit.log. Turn on only while the
+  # dashboard can be reached by admins alone (bound to 127.0.0.1, or behind a login: see docs/DASHBOARD.md).
+  allow-actions: false

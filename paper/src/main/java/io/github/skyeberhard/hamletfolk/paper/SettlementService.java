@@ -702,7 +702,7 @@ final class SettlementService {
     }
 
     /** R4.22: the most days one warp runs a village ahead. */
-    static final int MAX_WARP_DAYS = 60;
+    static final int MAX_WARP_DAYS = io.github.skyeberhard.hamletfolk.core.AdminAction.MAX_WARP_DAYS;
 
     /**
      * R4.22: runs a village's simulation {@code days} days ahead of where it is, at once (at most {@link #MAX_WARP_DAYS}).

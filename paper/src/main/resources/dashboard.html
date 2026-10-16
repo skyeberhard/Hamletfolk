@@ -53,6 +53,15 @@ canvas { width: 100%; max-width: 720px; height: auto; background: var(--bg); bor
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; min-width: 96px; }
 .card b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
 .card span { color: var(--muted); font-size: 12px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.actions .group { display: flex; gap: 4px; align-items: center; border: 1px solid var(--line); border-radius: 6px; padding: 3px; }
+.actions input, td select, .actions select { background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; font: inherit; }
+.actions input[type=number] { width: 64px; }
+button.danger { border-color: var(--bad); color: var(--bad); }
+button:disabled { opacity: .5; cursor: wait; }
+#toast { position: fixed; right: 16px; bottom: 16px; max-width: 420px; padding: 10px 14px; border-radius: 8px; background: var(--panel);
+  border: 1px solid var(--line); box-shadow: 0 6px 24px rgba(0,0,0,.25); display: none; }
+#toast.ok { border-color: var(--ok); } #toast.bad { border-color: var(--bad); }
 @media (max-width: 700px) { main { padding: 12px 12px 40px; } th.hide, td.hide { display: none; } }
 </style>
 </head>
@@ -63,8 +72,12 @@ canvas { width: 100%; max-width: 720px; height: auto; background: var(--bg); bor
   <button id="theme" type="button">Theme</button>
 </header>
 <main id="main"></main>
+<div id="toast" role="status"></div>
 <script>
 "use strict";
+const TOKEN = "__HAMLETFOLK_TOKEN__";
+const ACTIONS = __HAMLETFOLK_ACTIONS__;
+let catalogue = null;
 const main = document.getElementById("main");
 const meta = document.getElementById("meta");
 let current = location.hash.slice(1) || null;
@@ -81,7 +94,38 @@ function el(tag, attrs, ...kids) {
 const get = async (url) => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
+function toast(text, ok) {
+  const t = document.getElementById("toast");
+  t.textContent = text; t.className = ok ? "ok" : "bad"; t.style.display = "block";
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.style.display = "none"; }, 7000);
+}
+
+/** R1.36: one action. Asks first when the server says it must; the server checks everything again. */
+async function act(body, label, askAnyway) {
+  const info = catalogue && catalogue.actions.find((a) => a.action === body.action);
+  if ((info && info.confirm) || askAnyway) {
+    if (!confirm((askAnyway || label || info.label) + "?\n\nThis is written to the audit log.")) return;
+    body.confirm = true;
+  }
+  act.busy = true;
+  document.querySelectorAll("button, select, input").forEach((b) => { b.disabled = true; });
+  try {
+    const r = await fetch("/api/action", { method: "POST", headers: { "Content-Type": "application/json", "X-Hamletfolk-Token": TOKEN },
+      body: JSON.stringify(body), cache: "no-store" });
+    const out = await r.json().catch(() => ({ ok: false, message: "No answer (" + r.status + ")" }));
+    toast(out.message, out.ok);
+  } catch (e) {
+    toast("Could not reach the server: " + e.message, false);
+  } finally {
+    act.busy = false;
+    await show();
+  }
+}
+
 async function show() {
+  // do not redraw under a control someone is using, or while an action runs
+  if (act.busy || (document.activeElement && main.contains(document.activeElement) && /SELECT|INPUT/.test(document.activeElement.tagName))) return;
+  if (ACTIONS && !catalogue) { try { catalogue = await get("/api/actions"); } catch (e) { /* the page still shows */ } }
   try {
     if (current) await village(current); else await overview();
     meta.textContent = "updated " + new Date().toLocaleTimeString();
@@ -128,7 +172,8 @@ async function village(id) {
     el("section", null, el("h2", null, "Requests"),
       v.requestList.length ? el("ul", null, v.requestList.map((r) => el("li", null, r.filled + "/" + r.wanted + " " + r.item + " - " + (r.thanksOnly ? "thanks only" : r.reward + " emeralds"))))
         : el("div", { class: "small" }, "None.")),
-    el("section", { class: "wide" }, el("h2", null, "Plan"), planMap(v), el("div", { class: "small" }, v.plan ? "Stage " + v.plan.stage + ", " + v.plan.dropped + " lots dropped. Lots: outline = ready, dashed = rough ground, filled = built on. Dots are buildings." : "No plan yet.")),
+    ACTIONS ? controls(v) : null,
+    el("section", { class: "wide" }, el("h2", null, "Plan"), planMap(v), el("div", { class: "small" }, v.plan ? "Stage " + v.plan.stage + ", " + v.plan.dropped + " lots dropped. Lots: outline = ready, dashed = rough ground, filled = built on. Dots are buildings." : "")),
     el("section", { class: "wide" }, el("h2", null, "Residents (" + v.residents.length + ")"), residents(v)),
     el("section", null, el("h2", null, "Buildings (" + v.buildings.length + ")"), el("div", { class: "scroll" },
       el("ul", null, v.buildings.map((b) => el("li", null, b.type + (b.tier > 1 ? " tier " + b.tier : "") + " at " + b.x + ", " + b.z + " (" + b.by + ")"))))),
@@ -138,11 +183,43 @@ async function village(id) {
   main.replaceChildren(back, el("h2", null, el("span", { class: "dot h" + v.health }), v.name, " ", el("span", { class: "small" }, v.world + " at " + v.x + ", " + v.z + " - " + v.character)), cards, sections);
 }
 
+/** R1.36: the admin actions for one village. */
+function controls(v) {
+  const num = (value, min, max) => el("input", { type: "number", value: String(value), min: String(min), max: String(max) });
+  const days = num(5, 1, 60), speed = num(10, 1, 100), travellers = num(3, 1, 6);
+  const name = el("input", { type: "text", maxlength: "32", placeholder: "new name" });
+  const id = v.id;
+  const b = (text, fn, cls) => el("button", cls ? { class: cls, onclick: fn } : { onclick: fn }, text);
+  return el("section", { class: "wide" }, el("h2", null, "Admin"),
+    el("div", { class: "actions" },
+      el("div", { class: "group" }, b("Warp", () => act({ action: "warp", village: id, days: days.value }, "Run " + v.name + " " + days.value + " days ahead")), days, el("span", { class: "small" }, "days")),
+      el("div", { class: "group" }, b("Speed", () => act({ action: "fastforward", village: id, speed: speed.value }, null, Number(speed.value) > 20 ? "Run " + v.name + " at " + speed.value + "x (heavy on the server)" : null)), speed, el("span", { class: "small" }, "x (1 = normal)")),
+      b("Unstick villagers", () => act({ action: "unstick", village: id })),
+      b("Mend palisade", () => act({ action: "regrade", village: id })),
+      b("Cancel project", () => act({ action: "cancel-project", village: id }, "Give up " + v.name + "'s " + (v.building || "project")), "danger"),
+      b("Replan", () => act({ action: "replan", village: id }, "Forget " + v.name + "'s plan and lay it out again"), "danger"),
+      el("div", { class: "group" }, b("Resettle", () => act({ action: "resettle", village: id, travellers: travellers.value }, "Send " + travellers.value + " travellers to " + v.name), "danger"), travellers),
+      el("div", { class: "group" }, name, b("Rename", () => act({ action: "rename", village: id, name: name.value }, "Rename " + v.name + " to " + name.value), "danger")),
+      b("Save all", () => act({ action: "save" }))),
+    el("div", { class: "small" }, "Every action is checked by the server, runs the same code as /settlement admin and is written to plugins/Hamletfolk/audit.log."));
+}
+
+/** R1.36: a resident's job, as a picker when actions are on (choosing one pins them), with a button to hand them back. */
+function jobCell(v, r) {
+  const text = r.adult ? (r.level ? r.level + " " : "") + r.job + (r.resting ? " (resting)" : "") + (r.pinned ? " (pinned)" : "") : "child";
+  if (!ACTIONS || !catalogue || !r.adult) return el("td", null, text);
+  const pick = el("select", { "aria-label": "work for " + r.name },
+    catalogue.occupations.map((o) => { const opt = el("option", { value: o }, o.replace(/_/g, " ")); if (o === r.occupation) opt.selected = true; return opt; }));
+  pick.onchange = () => act({ action: "job", village: v.id, resident: r.id, occupation: pick.value });
+  return el("td", null, pick, " ", el("span", { class: "small" }, (r.level || "") + (r.resting ? " resting" : "")),
+    r.pinned ? el("button", { onclick: () => act({ action: "unpin", village: v.id, resident: r.id }) }, "Unpin") : null);
+}
+
 function residents(v) {
   return el("div", { class: "scroll" }, el("table", null,
     el("thead", null, el("tr", null, ["Name", "Job", "Age", "Wealth", "Food", "Safety", "Purpose"].map((h) => el("th", null, h)))),
     el("tbody", null, v.residents.map((r) => el("tr", null,
-      el("td", null, r.name), el("td", null, r.adult ? (r.level ? r.level + " " : "") + r.job + (r.resting ? " (resting)" : "") + (r.pinned ? " (pinned)" : "") : "child"),
+      el("td", null, r.name), jobCell(v, r),
       el("td", null, r.age + (r.stage === "elder" ? " (elder)" : "")), el("td", null, r.wealth),
       el("td", { class: r.food < 40 ? "low" : "" }, r.food), el("td", { class: r.safety < 40 ? "low" : "" }, r.safety), el("td", { class: r.purpose < 40 ? "low" : "" }, r.purpose))))));
 }

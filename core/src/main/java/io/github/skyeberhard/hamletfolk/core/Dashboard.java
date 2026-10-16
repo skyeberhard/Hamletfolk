@@ -85,6 +85,8 @@ public final class Dashboard {
         List<Map<String, Object>> residents = new ArrayList<>();
         for (Resident r : s.residents()) {
             Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", r.id().toString());
+            row.put("occupation", r.occupation().name().toLowerCase(Locale.ROOT));
             row.put("name", r.fullName());
             row.put("gender", r.gender().name().toLowerCase(Locale.ROOT));
             row.put("adult", r.adult());

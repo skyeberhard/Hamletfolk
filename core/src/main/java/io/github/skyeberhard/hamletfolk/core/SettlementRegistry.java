@@ -43,6 +43,11 @@ public final class SettlementRegistry {
         }
     }
 
+    /** A settlement by its id. */
+    public Optional<Settlement> get(UUID id) {
+        return Optional.ofNullable(settlements.get(id));
+    }
+
     public Optional<Settlement> settlementOf(UUID residentId) {
         UUID settlementId = residentIndex.get(residentId);
         return settlementId == null ? Optional.empty() : Optional.ofNullable(settlements.get(settlementId));

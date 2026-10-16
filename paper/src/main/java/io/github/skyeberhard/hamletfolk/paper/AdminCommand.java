@@ -221,8 +221,7 @@ final class AdminCommand {
         Settlement settlement = home.get();
         long day = settlement.lastSimulatedDay();
         if (args[2].equalsIgnoreCase("unpin")) {
-            settlement.setPinned(resident.id(), false, day);
-            sender.sendMessage(resident.fullName() + " is no longer pinned: the village decides their work again.");
+            sender.sendMessage(io.github.skyeberhard.hamletfolk.core.AdminAction.unpin(settlement, resident, day));
             service.plugin().requestSave();
             return;
         }
@@ -233,14 +232,9 @@ final class AdminCommand {
             sender.sendMessage("No occupation called \"" + args[2] + "\". Run /settlement admin job for the list.");
             return;
         }
-        String was = resident.occupation().title();
-        resident.setOccupation(job);
-        settlement.setPinned(resident.id(), true, day);
-        settlement.record(day, io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.MILESTONE, resident.fullName()
-                + " was set to work as a " + job.title() + " by an admin.");
+        sender.sendMessage(io.github.skyeberhard.hamletfolk.core.AdminAction.setJob(settlement, resident, job, day, "an admin")
+                + " (/settlement admin job unpin to hand them back)");
         service.plugin().requestSave();
-        sender.sendMessage(resident.fullName() + " of " + settlement.name() + " is now a " + job.title() + " (was a " + was
-                + "), pinned until /settlement admin job unpin.");
     }
 
     /** R1.31: /settlement admin unstick [name]: frees every loaded resident of a village that is walled in. */

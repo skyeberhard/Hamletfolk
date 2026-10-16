@@ -118,7 +118,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
         dashboard = new DashboardServer(this, service);
         try {
             if (!dashboard.start(getConfig().getString("dashboard.bind", "127.0.0.1"), getConfig().getInt("dashboard.port", 8123),
-                    getConfig().getInt("dashboard.refresh-seconds", 5))) {
+                    getConfig().getInt("dashboard.refresh-seconds", 5), getConfig().getBoolean("dashboard.allow-actions", false))) {
                 dashboard = null;
             }
         } catch (RuntimeException e) {
