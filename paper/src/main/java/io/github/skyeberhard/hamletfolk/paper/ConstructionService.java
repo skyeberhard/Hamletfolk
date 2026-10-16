@@ -445,8 +445,12 @@ final class ConstructionService {
         if (!project.graded() && !project.isUpgrade() && project.blocksLeft() < 0) {
             int passes = gradingPasses.merge(project.id(), 1, Integer::sum);
             // (a slow builder does less each pass, so it is given more passes before the ground is left as it is)
+            int[] gained = new int[2]; // R8.20: rock blocks cut and logs felled
             int graded = passes > (int) (MAX_GRADING_PASSES / Math.min(1.0, speed())) ? 0
-                    : prepareGround(world, bp, ox, oy, oz, project.biomeSet(), Math.min(speed(settlement), MAX_BLOCKS_PER_PASS / 48.0));
+                    : prepareGround(world, bp, ox, oy, oz, project.biomeSet(), Math.min(speed(settlement), MAX_BLOCKS_PER_PASS / 48.0), gained);
+            if (gained[0] > 0 || gained[1] > 0) {
+                io.github.skyeberhard.hamletfolk.core.GroundWork.credit(settlement, settlement.lastSimulatedDay(), gained[0], gained[1]);
+            }
             if (graded < 0) {
                 giveUp(settlement, project, "the ground there cannot be levelled", true);
                 return;
@@ -1223,7 +1227,7 @@ final class ConstructionService {
      * out of the building's space. Only terrain and growth are ever changed. Returns how many blocks it changed, or -1
      * if the ground cannot be levelled at all.
      */
-    private int prepareGround(World world, Blueprint bp, int ox, int oy, int oz, String style, double speed) {
+    private int prepareGround(World world, Blueprint bp, int ox, int oy, int oz, String style, double speed, int[] gained) {
         int groundPerPass = (int) Math.round(GROUND_PER_PASS * speed);
         TerrainPad.Pad pad = TerrainPad.compute(new Rect(ox, oz, bp.width(), bp.depth()), Construction.PAD_BUFFER,
                 groundOf(world), oy);
@@ -1250,6 +1254,13 @@ final class ConstructionService {
             if (block.getType() == want || !clearable(block, true)) {
                 continue; // already right, or not ours to change
             }
+            if (change.role() == TerrainPad.Role.AIR) {
+                if (io.github.skyeberhard.hamletfolk.core.GroundWork.isRock(block.getType().name())) {
+                    gained[0]++; // R8.20: rock cut is stone for the village
+                } else if (Tag.LOGS.isTagged(block.getType())) {
+                    gained[1]++;
+                }
+            }
             block.setType(want, false);
             done++;
         }
@@ -1263,6 +1274,9 @@ final class ConstructionService {
                     Block block = world.getBlockAt(ox + x, oy + y, oz + z);
                     if (!block.getType().isAir() && clearable(block, false)
                             && !cells.contains(key(new Blueprint.Block(x, y, z, "")))) {
+                        if (Tag.LOGS.isTagged(block.getType())) {
+                            gained[1]++; // R8.20: a tree felled to clear the site is wood
+                        }
                         block.setType(Material.AIR, false);
                         done++;
                     }

@@ -89,4 +89,57 @@ class RoughLotTest {
             assertTrue(s.plan().lots().stream().anyMatch(l -> l.id() == project.get().lotId() && l.status() == VillagePlan.LotStatus.ROUGH));
         }
     }
+
+    /** A lot the pad can level inside its footprint but not beyond: a cliff just outside the template's reach. */
+    private Settlement villageWithOneRoughFarmLot(HeightSource ground) {
+        Settlement s = new Settlement(new UUID(99, 99), "Cliffham", "world", 0, 0, 0);
+        for (int i = 0; i < 6; i++) {
+            s.addResident(new Resident(new UUID(99, i), "T", "P" + i, Gender.FEMALE, new Traits(50, 50, 50, 80), Occupation.UNEMPLOYED, true,
+                    0, null, null, Needs.initial()));
+        }
+        s.setPlan(PlanGenerator.generate(0, 0, 7L, "plains", HeightSource.flat(64)));
+        for (VillagePlan.Lot lot : new ArrayList<>(s.plan().lots())) {
+            s.plan().fill(lot.id());
+        }
+        s.ledger().add(ResourceType.WOOD, 300);
+        s.ledger().add(ResourceType.STONE, 300);
+        s.plan().addLot(new VillagePlan.Lot(s.plan().newId(), new Rect(40, 40, 17, 13), BuildingType.FARM, "plains", 1,
+                VillagePlan.LotStatus.ROUGH));
+        return s;
+    }
+
+    private Optional<ConstructionProject> proposeOn(Settlement s, HeightSource ground, long day) {
+        return Construction.propose(s, day, "plains", 200, new TemplateCatalog(), t -> {
+            List<Blueprint.Block> floor = new ArrayList<>();
+            for (int x = 0; x < 5; x++) {
+                for (int z = 0; z < 5; z++) {
+                    floor.add(new Blueprint.Block(x, 0, z, "OAK_PLANKS"));
+                }
+            }
+            return Optional.of(new Blueprint(t.key(), 5, 1, 5, floor));
+        }, ground);
+    }
+
+    @Test
+    void roughGroundThatCannotBeLevelledIsGivenUpSoThePlanMovesOn() {
+        // flat in the middle of the lot, a 40-block wall just outside any 5 by 5 template placed in it
+        HeightSource wall = (x, z) -> (x == 45 || x == 51) ? 104 : 64;
+        Settlement s = villageWithOneRoughFarmLot(wall);
+        VillagePlan.Lot rough = s.plan().lots().stream().filter(l -> l.status() == VillagePlan.LotStatus.ROUGH).findFirst().orElseThrow();
+        int dropped = s.plan().dropped();
+        proposeOn(s, wall, 5);
+        assertEquals(VillagePlan.LotStatus.FILLED, s.plan().lots().stream().filter(l -> l.id() == rough.id()).findFirst().orElseThrow().status(),
+                "the lot is used up, not left to block");
+        assertEquals(dropped + 1, s.plan().dropped());
+        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("gave up the rough ground")));
+    }
+
+    @Test
+    void groundThatIsOnlyNotLoadedYetIsNotGivenUp() {
+        HeightSource unloaded = (x, z) -> HeightSource.UNKNOWN;
+        Settlement s = villageWithOneRoughFarmLot(unloaded);
+        VillagePlan.Lot rough = s.plan().lots().stream().filter(l -> l.status() == VillagePlan.LotStatus.ROUGH).findFirst().orElseThrow();
+        proposeOn(s, unloaded, 5);
+        assertEquals(VillagePlan.LotStatus.ROUGH, s.plan().lots().stream().filter(l -> l.id() == rough.id()).findFirst().orElseThrow().status());
+    }
 }

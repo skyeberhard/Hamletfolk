@@ -203,4 +203,21 @@ class BuildingFinderTest {
         assertTrue(s.buildings().size() <= Settlement.MAX_BUILDINGS - Settlement.FOUND_RESERVE);
         assertEquals(Settlement.Registration.REGISTERED, s.registerBuilding(new Building(BuildingType.MINE, 1, 64, 1, 1, "Skye")));
     }
+
+    @Test
+    void aBellIsTheTownSquareTheVillageAlreadyHas() {
+        Settlement s = village();
+        s.syncFound(BuildingFinder.find(List.of(site("meeting", 2, 2)), List.of()), b -> true, 10);
+        assertEquals(1, s.buildingCount(BuildingType.SQUARE));
+        for (int i = 0; i < 6; i++) {
+            s.addResident(new Resident(new UUID(75, i), "T", "P" + i, Gender.FEMALE, new Traits(50, 50, 50, 80), Occupation.FARMER, true,
+                    0, null, null, Needs.initial()));
+        }
+        s.ledger().add(ResourceType.FOOD, 1000);
+        s.ledger().add(ResourceType.WOOD, 300);
+        s.ledger().add(ResourceType.STONE, 300);
+        java.util.Optional<ConstructionProject> project = Construction.propose(s, 5, "plains", 200, new TemplateCatalog(),
+                t -> java.util.Optional.empty(), (x, z) -> 64);
+        assertTrue(project.isEmpty() || project.get().type() != BuildingType.SQUARE, "no square is built over the bell");
+    }
 }

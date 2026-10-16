@@ -55,7 +55,9 @@ public final class BuildingFinder {
             Map.entry("cleric", BuildingType.CHAPEL),
             Map.entry("leatherworker", BuildingType.TANNERY),
             Map.entry("butcher", BuildingType.SMOKEHOUSE),
-            Map.entry("shepherd", BuildingType.PENS));
+            Map.entry("shepherd", BuildingType.PENS),
+            // a village's bell is its meeting place: the town square it already has (so it does not build one over the bell)
+            Map.entry("meeting", BuildingType.SQUARE));
     // (A farmer's composter and a fisherman's barrel are not read: farms are found by their fields, and a barrel is as often storage.)
 
     private BuildingFinder() {

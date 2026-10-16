@@ -629,7 +629,7 @@ final class SettlementCommand implements TabExecutor {
         if (layout != null) {
             player.sendMessage(Component.text("Layout: stage " + layout.stage() + ", main square at "
                     + layout.square().centerX() + ", " + layout.square().centerZ() + ", " + layout.reservedCount()
-                    + " lots reserved and " + layout.filledCount() + " built on (" + layout.dropped()
+                    + " lots reserved" + (layout.roughCount() > 0 ? " (" + layout.roughCount() + " on rough ground)" : "") + " and " + layout.filledCount() + " built on (" + layout.dropped()
                     + " dropped as too steep or wet). /settlement lots shows them.", NamedTextColor.GRAY));
             for (String district : io.github.skyeberhard.hamletfolk.core.Districts.describe(s)) { // R8.14
                 player.sendMessage(Component.text("  " + district, NamedTextColor.GRAY));

@@ -1467,7 +1467,8 @@ final class SettlementService {
                         : holds != null && holds.unattended()
                                 ? "Could not plan yet: the ground around the centre could not be loaded, or it is water. It is tried again in a few minutes."
                                 : "Could not plan yet: the ground around the centre has to be loaded (stay nearby, or turn on construction.unattended) and not water.")
-                : "Planned " + settlement.name() + " again: " + settlement.plan().reservedCount() + " lots reserved.";
+                : "Planned " + settlement.name() + " again: " + settlement.plan().reservedCount() + " lots reserved ("
+                        + settlement.plan().roughCount() + " on rough ground, " + settlement.plan().dropped() + " dropped).";
     }
 
     /** How often a settlement's beds are recounted while the server runs: beds change rarely and the scan is not free. */

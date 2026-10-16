@@ -229,6 +229,7 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   ground search only at `MAX_STAGE`. A village's first mine leaves stone out of its price (`Construction.priceFor`, `stoneFree`) and `charge` takes none.
   The rest of the growth fixes are in docs/GROWTH_BACKLOG.md.
 - **Rough lots (R8.19):** `VillagePlan.LotStatus.ROUGH` is a lot the builders can level (`PlanGenerator.gradable`) that is not `buildable`; everything that means "a lot not yet built on" is `status() != FILLED`, not `== RESERVED`. `nextLot`/`candidatesFor` offer ready lots first. Plans made before R8.19 have none.
+- **Ground work (R8.20):** grading is `ConstructionService.prepareGround` (free filling); rock cut and logs felled are counted and credited by `GroundWork.credit`. `Construction.queue` gives up a ROUGH lot whose `TerrainPad` is invalid (not when it merely has not been measured), so a rough lot never blocks the plan. The game's bell ("meeting" point of interest) is a found SQUARE.
 - **Found buildings (R2.8):** `BuildingFinder` (core) turns points of interest (`home` beds, villager job sites by name) and farmland cells into `Found`
   buildings; `Settlement.syncFound` registers them with `registeredBy` `BuildingFinder.FOUND_BY` ("found"): they have NO sign, so anything that checks a
   building's sign (`pruneBuildings`) must skip them, and they are dropped only by the next look, when their chunk is loaded. A signed or village-built

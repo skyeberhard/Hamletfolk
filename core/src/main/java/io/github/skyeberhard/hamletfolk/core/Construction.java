@@ -1040,6 +1040,14 @@ public final class Construction {
         } else {
             TerrainPad.Pad pad = TerrainPad.compute(new Rect(x, z, blueprint.width(), blueprint.depth()), PAD_BUFFER, terrain);
             if (!pad.valid()) {
+                // R8.20: rough ground the builders find they cannot level (a cliff beyond the lot) is given up, so the plan moves on to
+                // other ground and, with none left, grows; ground only unmeasured (not loaded yet) is tried again
+                if (lot.status() == VillagePlan.LotStatus.ROUGH && lot.id() >= 0 && !pad.reason().contains("not been measured")) {
+                    settlement.plan().fill(lot.id());
+                    settlement.plan().addDropped(1);
+                    settlement.recordQuiet(day, HistoryEvent.Kind.BUILDING, settlement.name() + " gave up the rough ground at "
+                            + lot.rect().x() + ", " + lot.rect().z() + ": " + pad.reason() + ".", QUIET_DAYS);
+                }
                 return Optional.empty();
             }
             ground = pad.targetHeight();

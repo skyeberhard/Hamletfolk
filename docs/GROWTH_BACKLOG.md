@@ -260,6 +260,17 @@ Watch for:
 - `SimulationPerformanceTest` is unaffected (planning is not daily), but `placeLots` runs on loaded ground on the
   main thread: keep the extra measuring to the lots it already measures.
 
+### Status (2026-10-16): R8.20 and R8.21 worked out
+
+Evidence (a replan of all ten villages on a copy of the live world, with R8.19 and R2.8 built): lots kept rose and lots dropped fell from 136 to 35
+(Hollowgate 16, Oakford 7, Testford 4, Elderbrook 3, Stonehollow 2, Amberhaven 2, Hollowstead 1, Redwick 0, Foxhaven 0, Mossmoor 0). `TerrainPad` already levels the
+ground at build time (median target, up to 8 blocks cut or filled, a blended edge), for nothing. So the two things worth adding were not "villagers
+prepare the ground ahead of time" but: (1) make the levelling pay (R8.20: rock cut is stone, trees felled are wood: a hillside village gets stone
+before it has a mine), and (2) stop a rough lot that turns out not to be levellable from blocking (R8.20: it is given up, counted as dropped, and the
+plan moves on and grows). Both are built. The bell as the town square (R2.8) came out of the same run. R8.21 (foundations and terraces for what is
+still too steep) is not started: count the remaining dropped lots by cause (steep or wet) in a played world first; Hollowgate and Oakford are the
+cases to look at, with `settlement plan <village>` from the console after `settlement admin replan <village>`.
+
 ### Status (2026-10-15)
 
 Built and pushed, unplayed: R4.41, R4.42, R2.8, R4.44, R4.43, R4.40, R3.18, R1.33, R4.45 and R8.19 (see CHANGELOG.md for each, T94 to T102 in
