@@ -1091,7 +1091,8 @@ final class SettlementService {
         for (PoiSearchResult poi : world.locateAllPoiInRange(new Location(world, cx + 0.5, y, cz + 0.5),
                 type -> kinds.contains(type.getKey().getKey()), search, PoiType.Occupancy.ANY)) {
             Location at = poi.location();
-            if (Math.abs(at.getBlockY() - y) <= BED_HEIGHT && settlement.distanceSquared(at.getBlockX(), at.getBlockZ()) <= radiusSquared) {
+            if (Math.abs(at.getBlockY() - y) <= BED_HEIGHT && settlement.distanceSquared(at.getBlockX(), at.getBlockZ()) <= radiusSquared
+                    && !NoticeBoardService.isNoticeBoard(at.getBlock())) { // (the notice board's lectern is not a library)
                 sites.add(new io.github.skyeberhard.hamletfolk.core.BuildingFinder.Site(poi.poiType().getKey().getKey(),
                         at.getBlockX(), at.getBlockY(), at.getBlockZ()));
             }

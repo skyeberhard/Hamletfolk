@@ -179,6 +179,11 @@ brain:
       enabled: true
       budget-microseconds: 1000
 
+# R4.53: a lectern by the bell of each village with a town square, holding a book of what the village asks for, what it is building and
+# its latest news. Kept up to date only while a player is within 64 blocks of the square, and only in loaded ground.
+noticeboard:
+  enabled: true
+
 # What the server console shows (R1.34). events: every new line of a village's history as it is written (all), only the
 # births, deaths, arrivals, famines, raids and shortages (important), or nothing (off). digest-minutes: how often every village is
 # summarised in one line (0 for never). You can also type 'settlement' or 'settlement list' in the console for the same summaries, and

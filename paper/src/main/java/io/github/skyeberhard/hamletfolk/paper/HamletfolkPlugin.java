@@ -18,6 +18,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
 
     private SettlementStore store;
     private SettlementService service;
+    private NoticeBoardService noticeBoards;
     private BrainService brain;
     private DashboardServer dashboard;
     private TemplateLibrary templates;
@@ -92,6 +93,8 @@ public final class HamletfolkPlugin extends JavaPlugin {
         getServer().getScheduler().runTaskTimer(this, service::simulateAll, SIMULATION_PERIOD_TICKS, SIMULATION_PERIOD_TICKS);
         service.startFastForward(); // R4.27
         startConsoleFeed(); // R1.34
+        noticeBoards = new NoticeBoardService(this, service);
+        noticeBoards.start(); // R4.53
         startDashboard(); // R1.35
 
         long autosaveTicks = Math.max(1, getConfig().getLong("autosave-minutes", 5)) * 60 * 20;
@@ -144,6 +147,11 @@ public final class HamletfolkPlugin extends JavaPlugin {
 
     TemplateLibrary templates() {
         return templates;
+    }
+
+    /** The notice boards (R4.53). */
+    NoticeBoardService noticeBoards() {
+        return noticeBoards;
     }
 
     /** The service that builds (R8.21: an admin asks it to check a village's streets). */
