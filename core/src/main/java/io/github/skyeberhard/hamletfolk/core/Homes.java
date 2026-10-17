@@ -84,6 +84,32 @@ public final class Homes {
         return out;
     }
 
+    /** Every registered house for the dashboard's map: where it is and who lives there ({@code empty} for a house nobody lives in). */
+    public static List<Map<String, Object>> asData(Settlement settlement, List<Home> homes) {
+        Map<String, Home> byHouse = new java.util.HashMap<>();
+        homes.forEach(h -> byHouse.put(h.house().key(), h));
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Building b : settlement.buildings()) {
+            if (b.type() != BuildingType.HOUSE) {
+                continue;
+            }
+            Map<String, Object> row = new java.util.LinkedHashMap<>();
+            row.put("x", b.x());
+            row.put("y", b.y());
+            row.put("z", b.z());
+            Home home = byHouse.get(b.key());
+            row.put("empty", home == null);
+            if (home != null) {
+                row.put("family", home.household().name());
+                List<String> people = new ArrayList<>();
+                home.household().members().forEach(m -> people.add(m.givenName()));
+                row.put("people", people);
+            }
+            out.add(row);
+        }
+        return out;
+    }
+
     /** The house a resident lives in, if their household has one. */
     public static Optional<Building> houseOf(List<Home> homes, UUID resident) {
         return homes.stream().filter(h -> h.household().members().stream().anyMatch(m -> m.id().equals(resident))).map(Home::house).findFirst();

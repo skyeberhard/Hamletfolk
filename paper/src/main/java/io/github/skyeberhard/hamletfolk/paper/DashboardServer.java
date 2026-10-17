@@ -81,6 +81,54 @@ final class DashboardServer {
     DashboardServer(HamletfolkPlugin plugin, SettlementService service) {
         this.plugin = plugin;
         this.service = service;
+        loadGround();
+    }
+
+    /** R8.27: where the ground of each village was last measured is kept in a small file of its own, so the slope layer survives a restart. */
+    private java.nio.file.Path groundFile() {
+        return plugin.getDataFolder().toPath().resolve("ground-cache.json");
+    }
+
+    private void loadGround() {
+        try {
+            java.nio.file.Path file = groundFile();
+            if (!java.nio.file.Files.exists(file)) {
+                return;
+            }
+            Map<?, ?> all = gson.fromJson(java.nio.file.Files.readString(file, StandardCharsets.UTF_8), Map.class);
+            if (all == null) {
+                return;
+            }
+            for (Map.Entry<?, ?> e : all.entrySet()) {
+                if (e.getValue() instanceof Map<?, ?> m) {
+                    var grid = io.github.skyeberhard.hamletfolk.core.Terrain.fromFile(m);
+                    if (grid != null) {
+                        ground.put(java.util.UUID.fromString(e.getKey().toString()), grid);
+                    }
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            plugin.getLogger().log(Level.WARNING, "Could not read the ground cache (the slope layer fills in again as the ground is seen)", e);
+        }
+    }
+
+    private void saveGround() {
+        long now = System.currentTimeMillis();
+        if (!groundChanged || now - groundSaved < 60_000) {
+            return;
+        }
+        groundChanged = false;
+        groundSaved = now;
+        try {
+            Map<String, Object> all = new java.util.LinkedHashMap<>();
+            ground.forEach((id, grid) -> all.put(id.toString(), io.github.skyeberhard.hamletfolk.core.Terrain.toFile(grid)));
+            java.nio.file.Files.createDirectories(groundFile().getParent());
+            java.nio.file.Path temp = groundFile().resolveSibling("ground-cache.json.tmp");
+            java.nio.file.Files.writeString(temp, gson.toJson(all), StandardCharsets.UTF_8);
+            java.nio.file.Files.move(temp, groundFile(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException | RuntimeException e) {
+            plugin.getLogger().log(Level.WARNING, "Could not save the ground cache", e);
+        }
     }
 
     /** Starts serving; false (and a line in the log) if the port cannot be bound. */
@@ -177,7 +225,9 @@ final class DashboardServer {
                 summary.put("inside", service.playersInside(s)); // R1.43
                 rows.add(summary);
                 if (detail != null) {
-                    detail.put(s.id().toString(), gson.toJson(Dashboard.detail(s, limit, summary)));
+                    Map<String, Object> page = Dashboard.detail(s, limit, summary);
+                    layers(s, page); // R8.27: the map's slope and homes layers
+                    detail.put(s.id().toString(), gson.toJson(page));
                 }
             }
             // the villages in most trouble first, then by name
@@ -187,9 +237,45 @@ final class DashboardServer {
             worldsJson = gson.toJson(worldRows(rows)); // R1.44
             if (detail != null) {
                 pages = detail;
+                saveGround();
             }
         } catch (RuntimeException e) {
             plugin.getLogger().log(Level.WARNING, "Could not refresh the dashboard", e);
+        }
+    }
+
+    /** R8.27: the ground each village was last seen on, kept so a village nobody is near still has its slope layer. */
+    private final Map<java.util.UUID, io.github.skyeberhard.hamletfolk.core.Terrain.Grid> ground = new HashMap<>();
+    private final Map<java.util.UUID, Long> groundAt = new HashMap<>();
+    private static final long GROUND_EVERY_MS = 120_000;
+    private boolean groundChanged;
+    private long groundSaved;
+
+    /** R8.27: adds the slope grid and the homes to a village's page. Loaded ground only; an unmeasured cell stays unknown. Main thread. */
+    private void layers(Settlement s, Map<String, Object> page) {
+        try {
+            io.github.skyeberhard.hamletfolk.core.Rect area = io.github.skyeberhard.hamletfolk.core.Terrain.areaOf(s, 12);
+            org.bukkit.World world = plugin.getServer().getWorld(s.world());
+            if (area != null && world != null) {
+                long now = System.currentTimeMillis();
+                io.github.skyeberhard.hamletfolk.core.Terrain.Grid held = ground.get(s.id());
+                // a village's ground is looked at again every two minutes, or every pass while much of it is still unmeasured (cheap: it never loads anything)
+                long every = held != null && io.github.skyeberhard.hamletfolk.core.Terrain.unknownShare(held) > 0.2 ? 10_000 : GROUND_EVERY_MS;
+                if (held == null || now - groundAt.getOrDefault(s.id(), 0L) >= every) {
+                    groundAt.put(s.id(), now);
+                    var fresh = io.github.skyeberhard.hamletfolk.core.Terrain.sample(ConstructionService.groundOf(world), area,
+                            io.github.skyeberhard.hamletfolk.core.Terrain.STEP);
+                    ground.put(s.id(), io.github.skyeberhard.hamletfolk.core.Terrain.merge(held, fresh));
+                    groundChanged = true;
+                }
+                page.put("ground", io.github.skyeberhard.hamletfolk.core.Terrain.asData(ground.get(s.id())));
+            }
+            var signs = plugin.homeSigns();
+            if (signs != null) {
+                page.put("homes", io.github.skyeberhard.hamletfolk.core.Homes.asData(s, signs.homesFor(s)));
+            }
+        } catch (RuntimeException e) {
+            plugin.getLogger().log(Level.WARNING, "Could not add the map layers for " + s.name(), e);
         }
     }
 

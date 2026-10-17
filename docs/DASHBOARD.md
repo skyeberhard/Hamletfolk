@@ -27,6 +27,10 @@ Restart the server and open `http://127.0.0.1:8123/` in a browser on the same ma
 
 The page refreshes itself every few seconds.
 
+## Map layers (R8.27)
+
+Above a village's plan map: **Slope** (the ground read every 4 blocks where the world is loaded: green flat, yellow gentle, orange steep, red cliff, blue water; ground nobody has measured is left clear, and what was seen is kept, also in `ground-cache.json`), **Districts** (each district outlined and named with how many of its lots are built) and **Homes** (each house ringed in its household's colour, grey when empty; point at it to see who lives there). Nothing is loaded to draw them, so a village nobody has been near since the plugin started has no slope yet. They are off by default and remembered in the browser; `?layers=slope,homes` in the address turns them on.
+
 ## Treasury, Stores and Quests (R1.45)
 
 A village's page has three more read-only tabs. **Treasury**: the balance, the limit and room, what is held aside for requests, and the history lines

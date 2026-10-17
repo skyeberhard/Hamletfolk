@@ -161,9 +161,21 @@ const TOKEN = "__HAMLETFOLK_TOKEN__";
 const ACTIONS = __HAMLETFOLK_ACTIONS__;
 
 // ----- state -----
+// R8.27: which layers of the plan map are on (kept in this browser only)
+function loadLayers() {
+  const base = { slope: false, districts: false, homes: false };
+  let out = base;
+  try { out = Object.assign(base, JSON.parse(localStorage.getItem("hamletfolk-layers") || "{}")); } catch (e) { /* not kept */ }
+  const asked = new URLSearchParams(location.search).get("layers"); // ?layers=slope,homes turns them on from a link
+  if (asked) asked.split(",").forEach((k) => { if (k in out) out[k] = true; });
+  return out;
+}
+const LAYERS = [["slope", "Slope"], ["districts", "Districts"], ["homes", "Homes"]];
+const SLOPE = { "0": "#6fae62", "1": "#cdbf53", "2": "#dd8a3f", "3": "#cf4d3f", "~": "#4c86c6" };
+const familyColour = (name) => { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360; return "hsl(" + h + ",65%,55%)"; };
 const state = {
   worlds: [], worldsText: "", villages: [], villagesText: "", detail: null, detailText: "", trends: {}, events: [], latest: 0, catalogue: null,
-  current: null, tab: "overview", filter: "", feedFilter: "all", seenFeed: 0, map: null, busy: false, sel: null,
+  layers: loadLayers(), current: null, tab: "overview", filter: "", feedFilter: "all", seenFeed: 0, map: null, busy: false, sel: null,
 };
 const $ = (id) => document.getElementById(id);
 const main = $("main");
@@ -660,7 +672,16 @@ function tabPlan(v) {
     el("h2", null, "Plan · stage " + p.stage, el("span", { class: "grow" }),
       el("span", { class: "sub" }, (counts.reserved || 0) + " ready, " + (counts.rough || 0) + " rough, " + (counts.filled || 0) + " built on, " + p.dropped + " dropped"),
       el("button", { onclick: () => { state.map = null; renderMain(); } }, "Fit")),
+    el("div", { class: "layers" }, el("span", { class: "sub" }, "Layers:"), LAYERS.map(([k, label]) => {
+      const box = el("input", { type: "checkbox", id: "layer-" + k });
+      box.checked = !!state.layers[k];
+      box.onchange = () => { state.layers[k] = box.checked; try { localStorage.setItem("hamletfolk-layers", JSON.stringify(state.layers)); } catch (e) { /* not kept */ } box.blur(); renderMain(); };
+      return el("label", { for: "layer-" + k, style: "display:inline-flex; gap:4px; align-items:center; margin-left:10px; cursor:pointer" }, box, label);
+    })),
     el("div", { class: "mapwrap" }, canvas, tip),
+    state.layers.slope ? el("div", { class: "legend" }, [["0", "flat"], ["1", "gentle"], ["2", "steep"], ["3", "cliff"], ["~", "water"]].map(([k, t]) => el("span", null, el("i", { style: "background:" + SLOPE[k] }), t)),
+      el("span", null, v.ground ? "height " + v.ground.low + " to " + v.ground.high + " · a cell is " + v.ground.step + " by " + v.ground.step + " blocks · unmeasured ground is left clear" : "ground not measured yet (it is read where the world is loaded)")) : null,
+    state.layers.homes ? el("div", { class: "legend" }, el("span", null, "each house is ringed in its family's colour; grey ring = nobody lives there; point at a house to see who")) : null,
     el("div", { class: "legend" }, Object.entries(LOT).map(([k, c]) => el("span", null, el("i", { style: "background:" + c }), k)),
       el("span", null, el("i", { style: "background:#7aa0be" }), "trade and other"), el("span", null, "solid = built on · outline = ready · dashed = rough · crossed = kept empty · dot = building by kind (grey rim: found) · dashed ring = no lot of the plan here")),
     el("div", { class: "sub", style: "margin-top:6px" }, "Scroll to zoom, drag to move, point at a lot or building for details" + (ACTIONS ? ", click a lot to change it." : "."))),
@@ -727,6 +748,12 @@ function drawMap(canvas, tip, v) {
   const X = (x) => m.ox + x * m.s, Z = (z) => m.oz + z * m.s;
   function paint(hover) {
     g.fillStyle = col("--bg2"); g.fillRect(0, 0, W, H);
+    if (state.layers.slope && v.ground) { // R8.27: the lie of the land, under everything else
+      const gr = v.ground, cs = gr.step * m.s;
+      g.globalAlpha = .6;
+      gr.slope.forEach((row, r) => { for (let c = 0; c < row.length; c++) { const colr = SLOPE[row[c]]; if (colr) { g.fillStyle = colr; g.fillRect(X(gr.x + c * gr.step), Z(gr.z + r * gr.step), cs + .5, cs + .5); } } });
+      g.globalAlpha = 1;
+    }
     g.fillStyle = "#8a6d48";
     for (const r of p.roads) { const [x, z, w, d] = r.rect; g.fillRect(X(x), Z(z), w * m.s, d * m.s); }
     if (p.square) { const [x, z, w, d] = p.square; g.fillStyle = "#b9b1a0"; g.fillRect(X(x), Z(z), w * m.s, d * m.s); }
@@ -740,6 +767,20 @@ function drawMap(canvas, tip, v) {
       if (l.locked) { // kept empty by an admin: crossed out
         g.strokeStyle = col("--bad"); g.lineWidth = 1.5; g.beginPath();
         g.moveTo(X(x), Z(z)); g.lineTo(X(x + w), Z(z + d)); g.moveTo(X(x + w), Z(z)); g.lineTo(X(x), Z(z + d)); g.stroke();
+      }
+    }
+    if (state.layers.districts) { // R8.27: the old town, the new quarter...
+      g.font = "600 12px system-ui, sans-serif"; g.textBaseline = "top";
+      (p.districts || []).forEach((d, i) => {
+        const [x, z, w, dd] = d.rect, c = ["#e8c26a", "#6ac0e8", "#c98ae8", "#8ae8a0"][i % 4];
+        g.setLineDash([8, 5]); g.lineWidth = 2; g.strokeStyle = c; g.strokeRect(X(x) + 1, Z(z) + 1, w * m.s - 2, dd * m.s - 2); g.setLineDash([]);
+        g.fillStyle = c; g.fillText(d.name + " (" + d.built + " of " + d.lots + " lots)", X(x) + 6, Z(z) + 4);
+      });
+    }
+    if (state.layers.homes) { // R8.27: whose house is whose
+      for (const h of v.homes || []) {
+        const hx = X(h.x + .5), hz = Z(h.z + .5);
+        g.beginPath(); g.arc(hx, hz, 9, 0, 7); g.lineWidth = 3; g.strokeStyle = h.empty ? "#8a8a8a" : familyColour(h.family); g.setLineDash(h.empty ? [3, 3] : []); g.stroke(); g.setLineDash([]);
       }
     }
     for (const b of v.buildings) {
@@ -773,7 +814,8 @@ function drawMap(canvas, tip, v) {
       ? [el("b", null, hit.type + " lot " + hit.id), el("div", null, (hit.locked ? "Kept empty by an admin. " : "") + (hit.status === "reserved" ? "Ready to build on" : hit.status === "rough" ? "Rough ground (levelled when built on)" : "Built on")),
          el("div", { class: "sub" }, hit.rect[2] + " by " + hit.rect[3] + " at " + hit.rect[0] + ", " + hit.rect[1])]
       : [el("b", null, (hit.name ? hit.name + " \u00b7 " : "") + hit.type + (hit.tier > 1 ? " tier " + hit.tier : "")), el("div", { class: "sub" }, "at " + hit.x + ", " + hit.y + ", " + hit.z), el("div", { class: "sub" }, hit.by === "found" ? "found standing (a vanilla building)" : "registered by " + hit.by),
-         hit.noLot ? el("div", { class: "sub" }, "No lot in the plan here: built before the plan was redrawn, signed by a player, or found.") : null]));
+         hit.noLot ? el("div", { class: "sub" }, "No lot in the plan here: built before the plan was redrawn, signed by a player, or found.") : null,
+         (() => { const home = (v.homes || []).find((h) => h.x === hit.x && h.z === hit.z); return home ? el("div", null, home.empty ? "Nobody lives here." : "The " + home.family + " household: " + home.people.join(", ")) : null; })()]));
     tip.style.display = "block";
     tip.style.left = Math.min(ex + 14, W - 240) + "px"; tip.style.top = Math.min(ey + 14, H - 70) + "px";
   };

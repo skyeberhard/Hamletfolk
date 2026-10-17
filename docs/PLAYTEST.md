@@ -45,6 +45,8 @@ Rough time: 90 to 120 minutes in all. Each part stands alone, so you can stop af
 - [ ] **T113 bridges.** A village whose street meets a gorge or river: give it something to build nearby; a plank deck at bank height with rails and a lamp at each end. No deck over a gap wider than 16.
 - [ ] **T116 survey.** `/settlement survey` where you stand in a desert, a swamp, hills, a plain, a forest, by a lake, on the coast and at sea. Plains and forest 60 to 70s; a desert or open sea under 30; stone and ore high on land and nil at sea.
 
+- [ ] **T132 map layers.** A village's Plan tab: switch on Slope (a hillside village: its rough lots sit on orange and red), Districts (named outlines with lots built) and Homes (a ring per house in its family's colour; hover a house for who lives there). Check a village you are not near: no slope yet, then some after you visit.
+
 ## 4. Trade (10 to 15 minutes)
 
 - [ ] **T131.** Two villages within 800 blocks. Let one build a surplus and the other run short (give one a lot of bread, the other none). `/settlement admin trade <village>`; read both histories. Without a merchant a fifth is lost on the road; starve one: the other sends food unpaid; only the difference in emeralds moves. Try `trade.enabled: false` and restart: no caravans by themselves.

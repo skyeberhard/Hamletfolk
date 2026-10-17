@@ -496,7 +496,7 @@ final class ConstructionService {
     }
 
     /** The ground as the grading plan sees it: the surface under any trees and plants, and where it is wet, the floor. */
-    private static HeightSource groundOf(World world) {
+    static HeightSource groundOf(World world) {
         return new HeightSource() {
             @Override
             public int height(int x, int z) {

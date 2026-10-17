@@ -219,6 +219,17 @@ public final class Dashboard {
                 lots.add(row);
             }
             geometry.put("lots", lots);
+            List<Map<String, Object>> districts = new ArrayList<>(); // R8.27: the old town, the new quarter and so on
+            for (Districts.District d : Districts.of(plan)) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("stage", d.stage());
+                row.put("name", d.name());
+                row.put("rect", rect(d.bounds()));
+                row.put("lots", d.lots());
+                row.put("built", d.built());
+                districts.add(row);
+            }
+            geometry.put("districts", districts);
             // R8.23: what an admin has told the planner
             List<String> forbidden = new ArrayList<>();
             PlanOverrides.forbidden(s).forEach(t -> forbidden.add(t.name()));

@@ -100,4 +100,19 @@ class HomesTest {
         assertTrue(lines.get(1).contains("Anna"), lines.get(1));
         assertFalse(lines.stream().anyMatch(l -> l.length() > 14));
     }
+
+    @Test
+    void theMapDataListsEveryHouseWithItsFamilyOrAsEmpty() {
+        Settlement s = village(3);
+        Resident wife = person(s, "Anna", "Mercer", Gender.FEMALE, 5, null, null, true);
+        Resident husband = person(s, "Tom", "Hale", Gender.MALE, 8, null, null, true);
+        Marriages.marry(s, wife, husband, 30);
+        List<Map<String, Object>> rows = Homes.asData(s, Homes.assign(s, Map.of()));
+        assertEquals(3, rows.size());
+        assertEquals(1, rows.stream().filter(r -> !(Boolean) r.get("empty")).count());
+        Map<String, Object> lived = rows.stream().filter(r -> !(Boolean) r.get("empty")).findFirst().orElseThrow();
+        assertEquals("Mercer", lived.get("family"));
+        assertEquals(List.of("Anna", "Tom"), ((List<?>) lived.get("people")).stream().sorted().toList());
+        assertTrue(rows.stream().filter(r -> (Boolean) r.get("empty")).noneMatch(r -> r.containsKey("family")));
+    }
 }

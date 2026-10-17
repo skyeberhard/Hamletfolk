@@ -50,6 +50,12 @@ final class HomeSignService {
         Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 260L, EVERY_TICKS);
     }
 
+    /** The homes for a village's map: those last worked out, else worked out now from what the signs last said (nothing is written). */
+    List<Homes.Home> homesFor(Settlement settlement) {
+        List<Homes.Home> known = latest.get(settlement.id());
+        return known != null ? known : Homes.assign(settlement, remembered.getOrDefault(settlement.id(), Map.of()));
+    }
+
     /** The homes last worked out for a village (empty if none yet). */
     List<Homes.Home> homesOf(Settlement settlement) {
         return latest.getOrDefault(settlement.id(), List.of());
