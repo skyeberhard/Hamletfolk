@@ -50,6 +50,7 @@ input[type=number] { width: 68px; }
 .nav:hover { background: var(--panel); }
 .nav.sel { background: var(--panel2); box-shadow: inset 2px 0 0 var(--accent); }
 .nav .n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav.sub-nav { margin-left: 14px; }
 .nav .p { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .nav .s { grid-column: 2 / 4; height: 18px; }
 .nav .s svg { width: 100%; height: 18px; display: block; }
@@ -298,6 +299,8 @@ function renderTop() {
 function renderSide() {
   const f = state.filter.toLowerCase();
   const list = state.villages.filter((v) => !f || v.name.toLowerCase().includes(f));
+  const here = state.current && !isWorld(state.current) ? state.villages.find((v) => v.id === state.current) : null;
+  const openWorld = state.current && isWorld(state.current) ? worldName(state.current) : here ? here.world : null;
   let search = $("side").querySelector("input");
   if (!search) {
     search = el("input", { type: "search", placeholder: "Find a village", "aria-label": "find a village" });
@@ -307,12 +310,13 @@ function renderSide() {
   fill($("nav"), [
     el("div", { class: "nav" + (state.current ? "" : " sel"), onclick: () => go(null) }, el("span", null, "⌂"), el("span", { class: "n" }, "All villages"), el("span", { class: "p" })),
     el("h3", null, "Worlds"),
-    state.worlds.map((w) => el("div", { class: "nav" + (state.current === "~" + w.name ? " sel" : ""), onclick: () => go("~" + w.name), title: w.why },
-      el("span", { class: "dot h" + w.light }), el("span", { class: "n" }, w.name), el("span", { class: "p" }, w.simulated ? w.villages + " v · " + w.players.length + " 👤" : "off"))),
-    el("h3", null, "Villages"),
-    list.map((v) => el("div", { class: "nav" + (state.current === v.id ? " sel" : ""), onclick: () => go(v.id), title: v.blockers.join("; ") },
-      el("span", { class: "dot h" + v.health }), el("span", { class: "n" }, v.name), el("span", { class: "p" }, v.population),
-      el("span", { class: "s" }, spark(v.id, 0, "var(--faint)")))),
+    state.worlds.map((w) => [
+      el("div", { class: "nav" + (state.current === "~" + w.name ? " sel" : ""), onclick: () => go("~" + w.name), title: w.why },
+        el("span", { class: "dot h" + w.light }), el("span", { class: "n" }, w.name), el("span", { class: "p" }, w.simulated ? w.villages + " v · " + w.players.length + " 👤" : "off")),
+      // a world's villages are listed only under the world that is open (or that holds the village that is)
+      w.name === openWorld ? list.filter((v) => v.world === w.name).map((v) => el("div", { class: "nav sub-nav" + (state.current === v.id ? " sel" : ""), onclick: () => go(v.id), title: v.blockers.join("; ") },
+        el("span", { class: "dot h" + v.health }), el("span", { class: "n" }, v.name), el("span", { class: "p" }, v.population),
+        el("span", { class: "s" }, spark(v.id, 0, "var(--faint)")))) : null]),
     // R1.38: panels added by other plugins will be listed here
     el("h3", null, "More"), el("div", { class: "sub", style: "padding: 0 8px" }, "Panels from other plugins will appear here.")]);
 }

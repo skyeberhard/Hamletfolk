@@ -30,7 +30,7 @@ The page refreshes itself every few seconds.
 ## Worlds (R1.44)
 
 The side tray lists every loaded world with a light (green, amber, red, or grey for a world with no villages or one that is not simulated), its villages
-by colour and the players online. Click a world for its page: its facts (environment, day, time of day, weather, difficulty), why it has the light it has,
+by colour and the players online. Villages are not listed in the tray until their world is open: click a world and its villages appear under it (and stay while you are in one of them). Click a world for its page: its facts (environment, day, time of day, weather, difficulty), why it has the light it has,
 the players and which village each stands inside, its villages and its feed. It is read-only. `GET /api/worlds` serves the same data. The design is in
 [WORLD_DASHBOARD.md](WORLD_DASHBOARD.md).
 
