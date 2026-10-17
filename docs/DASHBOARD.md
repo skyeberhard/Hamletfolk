@@ -41,10 +41,17 @@ The page refreshes itself every few seconds.
 - Endpoints: `GET /api/events?since=<n>` (the lines after sequence number n, the latest number and the id of this start of the server, so an open page starts over after a restart) and `GET /api/trends` (each
   village's samples, oldest first: people, food, wood, stone, tools, treasury, beds; built only while someone is looking).
 
+## Who and where (R1.41)
+
+A village's page names its biome, how many women and men live in it, and the three resources that stand out in its land. On the Plan tab
+every registered building is a dot coloured by its kind (a grey rim for one found standing in a vanilla village); a dashed ring round it
+means no lot of the plan stands there: it was built before the plan was last redrawn (a replan keeps the buildings and replaces the lots),
+a player signed it, or it was found. A town square never has a lot.
+
 ## Actions (R1.36)
 
 With `allow-actions: true`, a village's page has an Admin panel and each resident's job is a picker. The actions are a closed list
-(`AdminAction.Kind` in core): save, replan, warp, fast-forward, resettle, cancel project, unstick, mend palisade, rename, set a
+(`AdminAction.Kind` in core): save, replan, warp, warp all (the overview's button, 1 to 30 days), fast-forward, resettle, cancel project, unstick, mend palisade, rename, set a
 resident's job (pins them), unpin. There is no free-text console: nothing outside that list can run.
 
 Every action:

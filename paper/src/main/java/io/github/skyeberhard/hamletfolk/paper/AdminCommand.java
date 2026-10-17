@@ -1,5 +1,6 @@
 package io.github.skyeberhard.hamletfolk.paper;
 
+import io.github.skyeberhard.hamletfolk.core.AdminAction;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.SettlementInspector;
 import java.util.Arrays;
@@ -16,7 +17,7 @@ import org.bukkit.entity.Player;
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
     private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "regrade", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | regrade [name] | replan [name] | warp [name] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | regrade [name] | replan [name] | warp [name|all] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
 
     private final SettlementService service;
     private final TemplateCommand templates;
@@ -168,8 +169,15 @@ final class AdminCommand {
      * number of days; any words before it name the village (from the console a name is needed; in game, the one you are in).
      */
     private void warp(CommandSender sender, String[] args) {
+        if (args.length == 4 && args[2].equalsIgnoreCase("all") && args[3].chars().allMatch(Character::isDigit) && !args[3].isEmpty()) {
+            int all = args[3].length() > 4 ? AdminAction.MAX_WARP_ALL_DAYS : Integer.parseInt(args[3]);
+            sender.sendMessage(all < 1 ? "Give at least one day: /settlement admin warp all <days>   (1 to " + AdminAction.MAX_WARP_ALL_DAYS + ")"
+                    : service.warpAll(all, sender.getName()));
+            return;
+        }
         if (args.length < 3 || !args[args.length - 1].chars().allMatch(Character::isDigit) || args[args.length - 1].isEmpty()) {
-            sender.sendMessage("Usage: /settlement admin warp [name] <days>   (1 to " + SettlementService.MAX_WARP_DAYS + ")");
+            sender.sendMessage("Usage: /settlement admin warp [name] <days>   (1 to " + SettlementService.MAX_WARP_DAYS + "), or warp all <days>   (1 to "
+                    + AdminAction.MAX_WARP_ALL_DAYS + ")");
             return;
         }
         int days = args[args.length - 1].length() > 4 ? SettlementService.MAX_WARP_DAYS : Integer.parseInt(args[args.length - 1]);

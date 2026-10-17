@@ -318,4 +318,19 @@ class PlanOverridesTest {
         assertTrue(AdminAction.buildingKinds().stream().noneMatch(k -> "GATEHOUSE".equals(k.get("type"))));
         assertTrue(AdminAction.buildingKinds().stream().anyMatch(k -> "PALISADE".equals(k.get("type")) && Boolean.FALSE.equals(k.get("lot"))));
     }
+
+    /** The street lights are a work, asked for only after an attack: an admin's order puts them on the list at once. */
+    @Test
+    void anAdminCanOrderTheStreetLightsWithoutAnAttack() {
+        Settlement s = village();
+        assertTrue(Planner.directives(s, 5, 200).stream().noneMatch(d -> d.target().equals("street_lights")), "never attacked: not asked for");
+        assertTrue(PlanOverrides.buildNext(s, BuildingType.STREET_LIGHTS, true, 4, "an admin").ok());
+        Planner.Directive first = Planner.directives(s, 5, 200).get(0);
+        assertEquals("street_lights", first.target());
+        assertEquals(Optional.of(BuildingType.STREET_LIGHTS), BuildingType.fromTarget(first.target()));
+        ConstructionProject lights = propose(s, 5).orElseThrow();
+        assertEquals(BuildingType.STREET_LIGHTS, lights.type(), "the village queues the lights");
+        assertTrue(s.history().stream().anyMatch(e -> e.text().contains("light its streets") && e.text().contains("an admin asked")),
+                s.history().toString());
+    }
 }

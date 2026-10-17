@@ -720,6 +720,47 @@ final class SettlementService {
         return warp(settlement, days, true);
     }
 
+    /** R1.41: set while every village is being run ahead, so a second press (after a page timed out, say) is turned away rather than queued. */
+    private boolean warpingAll;
+
+    /**
+     * R1.41: runs every village that can be run ahead {@code days} (at most {@link io.github.skyeberhard.hamletfolk.core.AdminAction#MAX_WARP_ALL_DAYS}),
+     * one after another on the main thread, and says how it went. A village that fails is logged and skipped, the rest still run, and what ran is
+     * always saved. Each village's history says an admin ran it ahead.
+     */
+    String warpAll(int days, String actor) {
+        if (warpingAll) {
+            return "Every village is already being run ahead: wait for it to finish.";
+        }
+        warpingAll = true;
+        try {
+            int n = Math.max(1, Math.min(io.github.skyeberhard.hamletfolk.core.AdminAction.MAX_WARP_ALL_DAYS, days));
+            int villages = 0;
+            int skipped = 0;
+            int failed = 0;
+            for (Settlement s : new ArrayList<>(registry.settlements())) {
+                try {
+                    if (warp(s, n, false) > 0) {
+                        villages++;
+                        s.record(s.lastSimulatedDay(), io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.MILESTONE,
+                                "An admin (" + actor + ") ran every village " + n + (n == 1 ? " day" : " days") + " ahead.");
+                    } else {
+                        skipped++;
+                    }
+                } catch (RuntimeException e) {
+                    failed++;
+                    plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not run " + s.name() + " ahead", e);
+                }
+            }
+            plugin.requestSave();
+            return "Ran " + villages + (villages == 1 ? " village " : " villages ") + n + (n == 1 ? " day" : " days") + " ahead"
+                    + (skipped == 0 ? "" : ", " + skipped + " left alone (abandoned, or in a world that is not simulated)")
+                    + (failed == 0 ? "." : ", and " + failed + " failed: see the server log.");
+        } finally {
+            warpingAll = false;
+        }
+    }
+
     /** As {@link #warp(Settlement, int)}; {@code save} false leaves saving to the caller (fast-forward saves now and then). */
     int warp(Settlement settlement, int days, boolean save) {
         World world = Bukkit.getWorld(settlement.world());

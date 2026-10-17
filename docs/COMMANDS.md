@@ -65,6 +65,7 @@ rate are in the config) showing every village, what is in its way, and a page an
 | `found [name] [residents]` | Founds a new planned village where you stand, with that many founders (default 6). Player only; open, fairly flat land |
 | `replan [name]` | Throws away and regenerates the village plan |
 | `warp [name] <days>` | Runs a village up to 60 days ahead at once |
+| `warp all <days>` | Runs every village that can be run up to 30 days ahead, one after another (the server stalls for the sum) |
 | `fastforward [name\|all] [speed\|stop]` | Runs a village at several times speed in real time (in memory; stops on restart). No arguments shows what is running |
 | `job <occupation>\|unpin` | Look at a villager: pin them to a job, or release them |
 | `unstick [name]` | Frees residents of a village that are walled in |

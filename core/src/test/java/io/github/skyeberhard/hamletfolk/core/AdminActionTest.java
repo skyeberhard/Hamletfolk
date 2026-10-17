@@ -144,4 +144,20 @@ class AdminActionTest {
                 "127.0.0.1", "x" + (char) 0x2029 + "y" + (char) 11 + "z");
         assertEquals("2026-10-16T12:00:00Z | a b c | refused | 127.0.0.1 | x y z", line);
     }
+
+    @Test
+    void everyVillageCanBeWarpedUpToThirtyDaysAfterAConfirmation() {
+        village();
+        assertFalse(AdminAction.check(body("action", "warp-all", "days", 5), registry).ok(), "it must be confirmed");
+        AdminAction.Checked ok = AdminAction.check(body("action", "warp-all", "days", 5, "confirm", true), registry);
+        assertTrue(ok.ok(), "" + ok.error());
+        assertEquals(5, ok.request().number());
+        assertEquals(null, ok.request().village(), "it names no village");
+        assertTrue(AdminAction.check(body("action", "warp-all", "days", 30, "confirm", true), registry).ok());
+        assertFalse(AdminAction.check(body("action", "warp-all", "days", 31, "confirm", true), registry).ok(), "more than the limit for all at once");
+        assertFalse(AdminAction.check(body("action", "warp-all", "days", 0, "confirm", true), registry).ok());
+        assertFalse(AdminAction.check(body("action", "warp-all", "confirm", true), registry).ok());
+        assertTrue(AdminAction.catalogue().stream().anyMatch(a -> a.get("action").equals("warp-all") && Boolean.TRUE.equals(a.get("confirm"))
+                && Boolean.FALSE.equals(a.get("village"))));
+    }
 }

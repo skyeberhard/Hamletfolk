@@ -46,3 +46,24 @@ to people*. Ranked by what it would take, using what exists.
 2. **The notice board**: gives the player a reason to walk in, and uses requests and history that already exist.
 3. **Thoughts for each resident**: almost no visual cost, makes every resident a person.
 4. **Events and festivals**, then **caravans between villages**, once the first three are in.
+
+## After the first playtest: why they do not yet feel lived in (2026-10-17)
+
+The villages were there and growing, but empty of *evidence of people*. Each of these leaves a trace in the world that comes from data we
+already hold, so none needs a new simulation:
+
+- **Whose house is it.** Residents have family names (R6.1 will make households). A small sign or a name on an item frame by each door
+  ("Mercer"), and a bed each resident visibly sleeps in (vanilla already claims one: a name tag on a sign at the bed's foot is enough).
+- **Rooms with a purpose.** The house kit chosen by what the household does: a farmer's has a composter, a hoe in an item frame and a barrel of
+  seed; a smith's an anvil and a grindstone; a librarian's shelves of books; a shepherd's a loom and wool. R4.18's template catalogue is the place.
+- **The stores made visible.** The granary's barrels hold bread and wheat in proportion to the ledger's food, the smithy's chest holds tools in
+  proportion to its tools, the storehouse planks and logs. Take from them and the ledger drops (and reputation with it): the village's accounts
+  become something you can walk past and see. Must be built so a chest cannot be farmed for free items: a count that follows the ledger, never the other way.
+- **Light and smoke.** Lanterns and campfires lit at dusk and out at dawn, a campfire under each chimney for smoke, doors that are closed at night.
+- **Signs of daily life.** Washing (banners) on a line, flower pots, hay bales, a well with a bucket, a market stall on the square by day, a
+  notice board (a lectern with a book of what the village is asking for: the request data exists).
+- **People about.** The visible work of R4.17, then the dusk gathering at the bell and children playing there (R4.28 has children).
+- **Memory in the landscape.** A graveyard that grows with the history's deaths, and a plaque with their names; a founder's stone on the square.
+- **Sound.** Anvils from the smithy, the bell, a market murmur: only while a player is near, like every behaviour.
+
+The cheapest first: lit lanterns at dusk, the notice board, and name signs on doors. The most striking: the stores made visible.

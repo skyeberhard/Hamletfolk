@@ -339,7 +339,15 @@ function overview() {
     el("div", null, el("span", { class: "chip" }, x.beds + " beds, " + x.freeBeds + " free"), x.building ? el("span", { class: "chip" }, "⚒ " + x.building) : null,
       x.idle ? el("span", { class: "chip watch" }, x.idle + " idle") : null),
     el("div", null, x.blockers.slice(0, 2).map((b) => el("span", { class: "chip bad" }, b)), x.blockers.length > 2 ? el("span", { class: "sub" }, " +" + (x.blockers.length - 2) + " more") : null))));
-  return [el("h1", null, "All villages"), el("div", { class: "sub" }, "Worst off first. Bars are half full at what a village wants; red is short."),
+  const everyone = !ACTIONS ? null : (() => {
+    const days = el("input", { type: "number", value: "5", min: "1", max: "30", "aria-label": "days to run every village" });
+    return el("div", { class: "panel", style: "margin: 12px 0" }, el("h2", null, "Every village"),
+      el("div", { style: "display:flex; gap:8px; flex-wrap:wrap; align-items:center" },
+        el("span", null, "Run every village"), days, el("span", { class: "sub" }, "days ahead (up to 30)"),
+        el("button", { onclick: () => act({ action: "warp-all", days: days.value }, "Run every village " + days.value + " days ahead (the server stalls while it does)") }, "Warp all"),
+        el("button", { onclick: () => act({ action: "save" }) }, "Save all")));
+  })();
+  return [el("h1", null, "All villages"), el("div", { class: "sub" }, "Worst off first. Bars are half full at what a village wants; red is short."), everyone,
     el("div", { class: "two", style: "margin-top:14px" }, cards, feedPanel(null))];
 }
 
@@ -375,6 +383,9 @@ function village(v) {
   return [
     el("h1", null, el("span", { class: "dot h" + v.health }), v.name),
     el("div", { class: "sub" }, (v.character ? v.character + " · " : "") + v.world + " at " + v.x + ", " + v.z + " · day " + v.day + (v.building ? " · building " + v.building : "")),
+    el("div", null, v.biome ? el("span", { class: "chip" }, "biome: " + v.biome.replace(/_/g, " ")) : null,
+      el("span", { class: "chip" }, ((v.gender || {}).female || 0) + " women, " + ((v.gender || {}).male || 0) + " men"),
+      Object.entries(v.land || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).filter(([, n]) => n > 0).map(([k, n]) => el("span", { class: "chip", title: "what stands out in the land round it" }, k + " " + n))),
     el("div", { class: "cards" },
       stat(v.children ? "people (" + v.children + " children)" : "people", v.population, 0), stat("food", fmt(v.stores.food), 1, "var(--accent2)"),
       stat("wood", fmt(v.stores.wood), 2), stat("stone", fmt(v.stores.stone), 3), stat("tools", fmt(v.stores.tools), 4),
@@ -476,7 +487,7 @@ function tabPlan(v) {
       el("button", { onclick: () => { state.map = null; renderMain(); } }, "Fit")),
     el("div", { class: "mapwrap" }, canvas, tip),
     el("div", { class: "legend" }, Object.entries(LOT).map(([k, c]) => el("span", null, el("i", { style: "background:" + c }), k)),
-      el("span", null, el("i", { style: "background:#7aa0be" }), "trade and other"), el("span", null, "solid = built on · outline = ready · dashed = rough · crossed = kept empty · dot = building (grey: found)")),
+      el("span", null, el("i", { style: "background:#7aa0be" }), "trade and other"), el("span", null, "solid = built on · outline = ready · dashed = rough · crossed = kept empty · dot = building by kind (grey rim: found) · dashed ring = no lot of the plan here")),
     el("div", { class: "sub", style: "margin-top:6px" }, "Scroll to zoom, drag to move, point at a lot or building for details" + (ACTIONS ? ", click a lot to change it." : "."))),
     selectedLot(v), rules(v));
 }
@@ -523,6 +534,9 @@ function rules(v) {
 
 function drawMap(canvas, tip, v) {
   const p = v.plan, dpr = window.devicePixelRatio || 1, W = canvas.clientWidth, H = canvas.clientHeight;
+  for (const b of v.buildings) { // whether a lot of the plan stands round it (a margin of two, as a sign is often at a building's edge)
+    b.noLot = !p.lots.some((l) => b.x >= l.rect[0] - 2 && b.x < l.rect[0] + l.rect[2] + 2 && b.z >= l.rect[1] - 2 && b.z < l.rect[1] + l.rect[3] + 2);
+  }
   if (!W || !H) return;
   canvas.width = W * dpr; canvas.height = H * dpr;
   const g = canvas.getContext("2d"); g.scale(dpr, dpr);
@@ -554,8 +568,13 @@ function drawMap(canvas, tip, v) {
       }
     }
     for (const b of v.buildings) {
-      g.beginPath(); g.arc(X(b.x + .5), Z(b.z + .5), hover === b ? 5 : 3, 0, 7);
-      g.fillStyle = b.by === "found" ? col("--muted") : col("--ink"); g.fill();
+      const bx = X(b.x + .5), bz = Z(b.z + .5), r = hover === b ? 6 : 4;
+      if (b.noLot) { // no lot of the plan here: a dashed ring, so it reads as a building the plan does not account for
+        g.beginPath(); g.arc(bx, bz, r + 4, 0, 7); g.setLineDash([3, 3]); g.lineWidth = 1.5; g.strokeStyle = col("--accent"); g.stroke(); g.setLineDash([]);
+      }
+      g.beginPath(); g.arc(bx, bz, r, 0, 7);
+      g.fillStyle = lotColour(b.type); g.fill();
+      g.lineWidth = 1.5; g.strokeStyle = b.by === "found" ? col("--muted") : col("--ink"); g.stroke();
     }
   }
   function at(ex, ey) {
@@ -578,7 +597,8 @@ function drawMap(canvas, tip, v) {
     fill(tip, (hit.rect
       ? [el("b", null, hit.type + " lot " + hit.id), el("div", null, (hit.locked ? "Kept empty by an admin. " : "") + (hit.status === "reserved" ? "Ready to build on" : hit.status === "rough" ? "Rough ground (levelled when built on)" : "Built on")),
          el("div", { class: "sub" }, hit.rect[2] + " by " + hit.rect[3] + " at " + hit.rect[0] + ", " + hit.rect[1])]
-      : [el("b", null, hit.type + (hit.tier > 1 ? " tier " + hit.tier : "")), el("div", { class: "sub" }, "at " + hit.x + ", " + hit.y + ", " + hit.z), el("div", { class: "sub" }, "made by " + hit.by)]));
+      : [el("b", null, hit.type + (hit.tier > 1 ? " tier " + hit.tier : "")), el("div", { class: "sub" }, "at " + hit.x + ", " + hit.y + ", " + hit.z), el("div", { class: "sub" }, hit.by === "found" ? "found standing (a vanilla building)" : "registered by " + hit.by),
+         hit.noLot ? el("div", { class: "sub" }, "No lot in the plan here: built before the plan was redrawn, signed by a player, or found.") : null]));
     tip.style.display = "block";
     tip.style.left = Math.min(ex + 14, W - 240) + "px"; tip.style.top = Math.min(ey + 14, H - 70) + "px";
   };

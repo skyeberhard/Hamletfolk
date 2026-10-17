@@ -72,6 +72,7 @@ final class DashboardActions {
                         : new Outcome(true, s.name() + " ran " + ran + (ran == 1 ? " day" : " days") + " ahead (day " + before + " to "
                                 + s.lastSimulatedDay() + ").");
             }
+            case WARP_ALL -> new Outcome(true, service.warpAll(request.number(), actor));
             case FASTFORWARD -> {
                 service.setFastForward(s, request.number());
                 yield new Outcome(true, request.number() <= 1 ? s.name() + " is back to normal speed."

@@ -41,6 +41,16 @@ public final class Dashboard {
         out.put("day", day);
         out.put("population", s.population());
         out.put("children", s.residents().stream().filter(r -> !r.adult()).count());
+        Map<String, Object> gender = new LinkedHashMap<>();
+        gender.put("female", s.residents().stream().filter(r -> r.gender() == Gender.FEMALE).count());
+        gender.put("male", s.residents().stream().filter(r -> r.gender() == Gender.MALE).count());
+        out.put("gender", gender);
+        out.put("biome", s.plan() == null ? "" : s.plan().biomeSet());
+        Map<String, Object> land = new LinkedHashMap<>(); // what stands out in the land round the village (0 to 100), as surveyed when it was founded
+        for (SiteResource resource : SiteResource.values()) {
+            land.put(resource.label(), s.landScore(resource));
+        }
+        out.put("land", land);
         out.put("character", s.population() == 0 ? "" : VillageCharacter.describe(s));
         out.put("health", health(s, blockers, day));
         out.put("abandoned", s.isAbandoned());

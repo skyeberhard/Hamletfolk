@@ -107,4 +107,23 @@ class DashboardTest {
         s.ledger().take(ResourceType.FOOD, 440); // 60 of the 80 a newcomer needs
         assertTrue(VillageBlockers.of(s, 5, 200).stream().anyMatch(b -> b.startsWith("food 60 of the 80")));
     }
+
+    /** R1.41: the genders, the biome and what stands out in the land. */
+    @Test
+    void aSummaryCountsTheGendersAndNamesTheBiomeAndTheLand() {
+        Settlement s = village();
+        s.addResident(new Resident(new UUID(151, 9), "T", "P9", Gender.MALE, new Traits(50, 50, 50, 80), Occupation.FARMER, true, 0, null, null, Needs.initial()));
+        s.setLand(SiteSurvey.score(SiteSurvey.grid(96, 24, (dx, dz) -> "plains")));
+        Map<String, Object> row = Dashboard.summary(s, 200);
+        Map<?, ?> gender = (Map<?, ?>) row.get("gender");
+        assertEquals(4L, gender.get("female"));
+        assertEquals(1L, gender.get("male"));
+        assertEquals("plains", row.get("biome"));
+        Map<?, ?> land = (Map<?, ?>) row.get("land");
+        assertEquals(6, land.size());
+        assertTrue(((Number) land.get("farmland")).intValue() > 90, land.toString());
+        assertPlainJsonData(row, "summary");
+        Settlement unplanned = new Settlement(new UUID(150, 2), "Planless", "world", 0, 0, 0);
+        assertEquals("", Dashboard.summary(unplanned, 200).get("biome"), "no plan, no biome yet");
+    }
 }

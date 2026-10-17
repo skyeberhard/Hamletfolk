@@ -18,6 +18,7 @@ public final class AdminAction {
         SAVE("Save every village now", false, false),
         REPLAN("Forget the village's plan and lay it out again", true, true),
         WARP("Run the village ahead a number of days", true, true),
+        WARP_ALL("Run every village ahead a number of days", false, true),
         FASTFORWARD("Run the village fast (2 to 100 times), or back to normal (1)", true, false),
         RESETTLE("Send travellers to a village that has lost its people", true, true),
         CANCEL_PROJECT("Give up the village's open building project", true, true),
@@ -85,6 +86,8 @@ public final class AdminAction {
     public static final int CONFIRM_SPEED_ABOVE = 20;
     /** Most days a warp may run (the same as the command, which reads this). */
     public static final int MAX_WARP_DAYS = 60;
+    /** Most days every village may be warped at once (they run one after another on the main thread, so the server stalls for the sum). */
+    public static final int MAX_WARP_ALL_DAYS = 30;
 
     /** A checked request: the kind, the village (null for SAVE), and the parameters that kind uses. */
     public record Request(Kind kind, UUID village, Integer number, String text, UUID resident, Occupation occupation,
@@ -160,6 +163,9 @@ public final class AdminAction {
             case WARP -> number(body.get("days"), 1, MAX_WARP_DAYS)
                     .map(n -> ok(kind.get(), id, n, null, null, null))
                     .orElse(Checked.fail("days must be a whole number from 1 to " + MAX_WARP_DAYS));
+            case WARP_ALL -> number(body.get("days"), 1, MAX_WARP_ALL_DAYS)
+                    .map(n -> ok(kind.get(), null, n, null, null, null))
+                    .orElse(Checked.fail("days must be a whole number from 1 to " + MAX_WARP_ALL_DAYS + " when every village is run"));
             case FASTFORWARD -> number(body.get("speed"), 1, FastForward.MAX_SPEED)
                     .map(n -> n > CONFIRM_SPEED_ABOVE && !Boolean.TRUE.equals(body.get("confirm"))
                             ? Checked.fail("a speed above " + CONFIRM_SPEED_ABOVE + " must be confirmed")
