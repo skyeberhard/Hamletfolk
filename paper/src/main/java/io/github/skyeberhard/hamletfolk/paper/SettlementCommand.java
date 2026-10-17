@@ -47,7 +47,7 @@ final class SettlementCommand implements TabExecutor {
     private final java.util.Map<java.util.UUID, org.bukkit.scheduler.BukkitTask> lotViews = new java.util.HashMap<>();
     /** When each player last ran /settlement beds, for the cooldown. */
     private final java.util.Map<java.util.UUID, Long> lastBedsCommand = new java.util.HashMap<>();
-    private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "donate", "buildings", "beds", "plan", "lots", "projects", "survey");
+    private static final List<String> SUBCOMMANDS = List.of("info", "history", "residents", "households", "donate", "buildings", "beds", "plan", "lots", "projects", "survey");
     private static final int EVENTS_PER_PAGE = 3;
     /** Vanilla's limit for a written book; more and the client refuses it. */
     private static final int MAX_BOOK_PAGES = 100;
@@ -92,6 +92,7 @@ final class SettlementCommand implements TabExecutor {
             case "info" -> info(player, settlement);
             case "history" -> history(player, settlement);
             case "residents" -> residents(player, settlement);
+            case "households" -> households(player, settlement);
             case "donate" -> donate(player, settlement, args);
             case "buildings" -> buildings(player, settlement);
             case "beds" -> beds(player, settlement);
@@ -105,7 +106,7 @@ final class SettlementCommand implements TabExecutor {
         return true;
     }
 
-    private static final List<String> CONSOLE_SUBCOMMANDS = List.of("list", "info", "history", "residents", "buildings", "plan", "projects");
+    private static final List<String> CONSOLE_SUBCOMMANDS = List.of("list", "info", "history", "residents", "households", "buildings", "plan", "projects");
 
     /**
      * From the server console: {@code settlement} or {@code settlement list} gives every village in a line, and
@@ -138,6 +139,7 @@ final class SettlementCommand implements TabExecutor {
                 case "info" -> info(sender, s);
                 case "history" -> historyText(sender, s);
                 case "residents" -> residents(sender, s);
+                case "households" -> households(sender, s);
                 case "buildings" -> buildings(sender, s);
                 case "plan" -> plan(sender, s);
                 case "projects" -> projects(sender, s);
@@ -367,6 +369,20 @@ final class SettlementCommand implements TabExecutor {
         player.openBook(Book.book(Component.text(s.name()), Component.text("The villagers"), pages));
     }
 
+    /** R6.1: who lives together. */
+    private void households(CommandSender player, Settlement s) {
+        player.sendMessage(Component.text("Households of " + s.name() + ":", NamedTextColor.GOLD));
+        var all = io.github.skyeberhard.hamletfolk.core.Households.of(s);
+        int shown = 0;
+        for (var household : all) {
+            if (shown++ == 20) {
+                player.sendMessage(Component.text("...and " + (all.size() - 20) + " more.", NamedTextColor.GRAY));
+                break;
+            }
+            player.sendMessage(Component.text(" " + household.describe(), NamedTextColor.WHITE));
+        }
+    }
+
     private void residents(CommandSender player, Settlement s) {
         player.sendMessage(Component.text("Residents of " + s.name() + ":", NamedTextColor.GOLD));
         int shown = 0;
@@ -386,6 +402,7 @@ final class SettlementCommand implements TabExecutor {
                     + ", " + r.age(s.lastSimulatedDay()) + " days"
                     + (r.stage(s.lastSimulatedDay()) == LifeStage.ELDER ? " (elder)" : "")
                     + ", " + Wealth.tier(r.wealth()).name().toLowerCase(Locale.ROOT) // R3.5
+                    + (r.spouse() == null ? "" : s.resident(r.spouse()).map(x -> ", married to " + x.givenName()).orElse("")) // R6.1
                     : "child";
             player.sendMessage(Component.text(" " + r.fullName(), NamedTextColor.WHITE)
                     .append(Component.text(" — " + role + " (" + r.gender().pronouns() + ")", NamedTextColor.GRAY)));

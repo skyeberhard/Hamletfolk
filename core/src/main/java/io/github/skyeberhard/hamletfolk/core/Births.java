@@ -46,6 +46,7 @@ public final class Births {
         if (registry.resident(childId).isPresent()) {
             return Optional.empty();
         }
+        Marriages.marry(settlement, mother, father, day); // R6.1: (does nothing if they already are)
         settlement.ledger().take(Commodity.BREAD, FOOD_COST);
         settlement.flow().recordConsumed(ResourceType.FOOD, day, FOOD_COST);
         Resident child = registry.enroll(settlement, childId, Occupation.UNEMPLOYED, false, day, mother.id(), father.id());
@@ -73,13 +74,17 @@ public final class Births {
             }
         }
         adults.sort(Comparator.comparing(Resident::id)); // repeatable
-        for (Resident woman : adults) {
-            if (woman.gender() != Gender.FEMALE) {
-                continue;
-            }
-            for (Resident man : adults) {
-                if (man.gender() == Gender.MALE && !kin(woman, man)) {
-                    return Optional.of(new Resident[] {woman, man});
+        // R6.1: a married couple first, then two who are both unmarried (they are married when the child is born)
+        for (boolean married : new boolean[] {true, false}) {
+            for (Resident woman : adults) {
+                if (woman.gender() != Gender.FEMALE || (married ? woman.spouse() == null : woman.spouse() != null)) {
+                    continue;
+                }
+                for (Resident man : adults) {
+                    if (man.gender() == Gender.MALE && !kin(woman, man)
+                            && (married ? woman.spouse().equals(man.id()) : man.spouse() == null)) {
+                        return Optional.of(new Resident[] {woman, man});
+                    }
                 }
             }
         }

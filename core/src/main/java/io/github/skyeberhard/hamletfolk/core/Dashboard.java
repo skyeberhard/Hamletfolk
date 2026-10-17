@@ -101,6 +101,7 @@ public final class Dashboard {
             row.put("name", r.fullName());
             row.put("gender", r.gender().name().toLowerCase(Locale.ROOT));
             row.put("adult", r.adult());
+            row.put("spouse", r.spouse() == null ? "" : s.resident(r.spouse()).map(Resident::fullName).orElse(""));
             row.put("age", r.age(day));
             row.put("stage", r.stage(day).name().toLowerCase(Locale.ROOT));
             row.put("job", r.occupation().title());

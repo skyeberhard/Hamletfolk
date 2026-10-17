@@ -264,6 +264,23 @@ public final class Dialogue {
         return Optional.of(new Option(Situation.WEALTH, slots, plain.get()));
     }
 
+    /** R6.1: a word about the spouse and the children at home. */
+    private static Optional<Option> spouseOption(Resident resident, Settlement settlement, long day) {
+        if (resident.spouse() == null || !resident.adult()) {
+            return Optional.empty();
+        }
+        Optional<Resident> spouse = settlement.resident(resident.spouse());
+        if (spouse.isEmpty()) {
+            return Optional.empty();
+        }
+        String term = spouse.get().gender() == Gender.FEMALE ? "wife" : "husband";
+        long years = Math.max(0, day - resident.marriedDay());
+        long children = Households.of(settlement, resident.id()).map(h -> (long) h.children().size()).orElse(0L);
+        String home = children == 0 ? "" : children == 1 ? " We have a little one at home." : " We have " + children + " little ones at home.";
+        return Optional.of(Option.plain("My " + term + " " + spouse.get().givenName() + " and I have been married " + years
+                + (years == 1 ? " day." : " days.") + home));
+    }
+
     private static Optional<Option> parentOption(Resident resident, Settlement settlement) {
         for (UUID id : new UUID[] {resident.parentA(), resident.parentB()}) {
             Optional<Resident> parent = id == null ? Optional.empty() : settlement.resident(id);
@@ -328,6 +345,7 @@ public final class Dialogue {
         }
 
         parentOption(resident, settlement).ifPresent(options::add); // R4.32
+        spouseOption(resident, settlement, day).ifPresent(options::add); // R6.1
         if (resident.adult()) {
             workOption(resident, settlement).ifPresent(options::add); // R4.31
         }

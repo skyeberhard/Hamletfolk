@@ -85,7 +85,7 @@ final class ConsoleFeed {
             return true;
         }
         return switch (event.kind()) {
-            case FOUNDED, ARRIVAL, DEPARTURE, BIRTH, DEATH, FAMINE, RECOVERY, RAID, SHORTAGE, ABANDONED, CURE -> true;
+            case FOUNDED, ARRIVAL, DEPARTURE, BIRTH, DEATH, FAMINE, RECOVERY, RAID, SHORTAGE, ABANDONED, CURE, MARRIAGE -> true;
             default -> false;
         };
     }

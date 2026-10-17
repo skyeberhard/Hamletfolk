@@ -26,7 +26,9 @@ public record HistoryEvent(long day, Kind kind, String text, int count, String a
         BUILDING(false),
         ABANDONED(true),
         /** R4.55: someone took from the village's stores or broke a store's barrel. */
-        THEFT(false);
+        THEFT(false),
+        /** R6.1: a marriage, or one that has ended. */
+        MARRIAGE(true);
 
         private final boolean major;
 

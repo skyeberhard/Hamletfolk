@@ -481,7 +481,7 @@ function tabResidents(v) {
     el("div", { class: "scroll" }, el("table", null,
       el("thead", null, el("tr", null, ["Name", "Work", "Level", "Age", "Wealth", "Food", "Safety", "Purpose"].map((h) => el("th", null, h)))),
       el("tbody", null, rows.map((r) => el("tr", null,
-        el("td", null, r.name, " ", r.pinned ? el("span", { class: "chip watch", title: "pinned by an admin" }, "pinned") : null),
+        el("td", null, r.name, " ", r.spouse ? el("span", { class: "sub", title: "married to " + r.spouse }, "· m. " + r.spouse.split(" ")[0] + " ") : null, r.pinned ? el("span", { class: "chip watch", title: "pinned by an admin" }, "pinned") : null),
         jobCell(v, r), el("td", { class: "sub" }, (r.level || "") + (r.resting ? " · resting" : "")),
         el("td", null, r.age + (r.stage === "elder" ? " · elder" : r.adult ? "" : " · child")), el("td", { class: "sub" }, r.wealth),
         el("td", null, meter(r.food)), el("td", null, meter(r.safety)), el("td", null, meter(r.purpose))))))));

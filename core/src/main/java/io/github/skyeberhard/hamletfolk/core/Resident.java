@@ -84,6 +84,9 @@ public final class Resident {
      * this is kept apart from {@link #xp}: working another trade in between does not lose it, nor does guarding lose a farmer's.
      */
     private int guardXp;
+    /** R6.1: who they are married to (a resident of the same village), or null, and the village day they married. */
+    private UUID spouse;
+    private long marriedDay;
 
     public Resident(UUID id, String givenName, String familyName, Gender gender, Traits traits,
                     Occupation occupation, boolean adult, long bornDay, UUID parentA, UUID parentB, Needs needs) {
@@ -102,6 +105,26 @@ public final class Resident {
 
     public UUID id() {
         return id;
+    }
+
+    /** R6.1: who they are married to, or null. */
+    public UUID spouse() {
+        return spouse;
+    }
+
+    /** R6.1: the village day they married (meaningful only with a spouse). */
+    public long marriedDay() {
+        return marriedDay;
+    }
+
+    void marry(UUID spouse, long day) {
+        this.spouse = spouse;
+        this.marriedDay = day;
+    }
+
+    void endMarriage() {
+        this.spouse = null;
+        this.marriedDay = 0;
     }
 
     /** R3.5: what this resident has put by, in hundredths of an emerald. */

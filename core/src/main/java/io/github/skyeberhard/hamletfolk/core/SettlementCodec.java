@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 29;
+    public static final int FORMAT_VERSION = 30;
 
     private SettlementCodec() {
     }
@@ -179,6 +179,10 @@ public final class SettlementCodec {
             map.put("parentB", r.parentB().toString());
         }
         map.put("lastBlockedDay", r.lastBlockedDay());
+        if (r.spouse() != null) {
+            map.put("spouse", r.spouse().toString()); // R6.1
+            map.put("marriedDay", r.marriedDay());
+        }
         if (r.wealth() != 0) {
             map.put("wealth", r.wealth());
         }
@@ -479,6 +483,7 @@ public final class SettlementCodec {
                 migrated.put("conditions", conditions);
             }
         }
+        // v29 -> v30: spouses (R6.1) and the THEFT and MARRIAGE history kinds are new and optional; nothing in an old save changes.
         migrated.put("format", FORMAT_VERSION);
         return migrated;
     }
@@ -574,6 +579,9 @@ public final class SettlementCodec {
         // v11 -> v12: "wealth" (R3.5) is optional, so an old save's residents start with nothing put by.
         r.addWealth(Math.max(0, num(map, "wealth").intValue()));
         r.setBuilt(num(map, "built").intValue()); // v20 -> v21: optional, 0 if missing
+        if (map.get("spouse") != null) { // v29 -> v30: optional (R6.1), so an old save's residents are all unmarried
+            r.marry(UUID.fromString(map.get("spouse").toString()), num(map, "marriedDay").longValue());
+        }
         // v23 -> v24: optional, so an old save's residents start at novice
         if (map.get("xpTrade") != null && num(map, "xp").intValue() > 0) {
             r.restoreXp(Occupation.valueOf(map.get("xpTrade").toString()), num(map, "xp").intValue());

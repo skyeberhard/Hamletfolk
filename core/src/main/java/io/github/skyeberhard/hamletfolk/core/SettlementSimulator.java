@@ -313,6 +313,7 @@ public final class SettlementSimulator {
         }
         ageOut(settlement, day);
         Births.growUp(settlement, day); // R4.28
+        Marriages.run(settlement, day); // R6.1
         releaseMerchant(settlement);
         staffGuards(settlement, day);
         Construction.staffBuilders(settlement, day, settlement.hasCondition("famine")); // R4.8: a famine puts every hand on food

@@ -213,7 +213,17 @@ public final class Settlement {
         conditions.remove(Migration.MOVING + id); // R4.2: nobody left to bring over
         conditions.keySet().removeIf(key -> key.startsWith(Membership.STRAYING + id + ":")); // R1.8
         conditions.remove(Migration.ARRIVED + id);
-        return residents.remove(id);
+        Resident gone = residents.remove(id);
+        if (gone != null && gone.spouse() != null) { // R6.1: a marriage ends when either leaves or dies
+            Resident left = residents.get(gone.spouse());
+            gone.endMarriage(); // (a resident who moves to another village arrives unmarried)
+            if (left != null && id.equals(left.spouse())) {
+                left.endMarriage();
+                record(lastSimulatedDay, HistoryEvent.Kind.MARRIAGE, left.fullName() + " has no spouse now: " + gone.fullName() + " is no longer in "
+                        + name + ".");
+            }
+        }
+        return gone;
     }
 
     /** Most buildings one settlement can have registered, so a sign-spamming player cannot bloat the save. */
