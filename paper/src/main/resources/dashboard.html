@@ -579,7 +579,7 @@ function village(v) {
     el("div", { class: "cards" },
       stat(v.children ? "people (" + v.children + " children)" : "people", v.population, 0), stat("food", fmt(v.stores.food), 1, "var(--accent2)", "food"),
       stat("wood", fmt(v.stores.wood), 2, null, "wood"), stat("stone", fmt(v.stores.stone), 3, null, "stone"), stat("tools", fmt(v.stores.tools), 4, null, "tools"),
-      stat("treasury of " + v.treasuryLimit, v.treasury, 5), stat("beds, " + v.freeBeds + " free", v.beds, 6, null, null, v.bedsLive ? v.bedsLive.claimed + " claimed" : null)),
+      stat("treasury of " + v.treasuryLimit, v.treasury, 5), stat("beds, " + v.freeBeds + " free", v.beds, 6, null, null, v.bedsLive && v.bedsLive.total > 0 ? v.bedsLive.claimed + " claimed" : null)),
     el("div", { class: "tabs", role: "tablist" }, tabs.map((t) => el("div", { class: "tab" + (state.tab === t.id ? " sel" : ""), role: "tab", onclick: () => { state.tab = t.id; location.hash = v.id + "/" + t.id; renderMain(); } }, t.label))),
     tabs.find((t) => t.id === state.tab).render(v)];
 }
@@ -746,10 +746,10 @@ function tabPlan(v) {
     })),
     el("div", { class: "mapwrap" }, canvas, tip),
     state.layers.slope ? el("div", { class: "legend" }, [["0", "flat"], ["1", "gentle"], ["2", "steep"], ["3", "cliff"], ["~", "water"]].map(([k, t]) => el("span", null, el("i", { style: "background:" + SLOPE[k] }), t)),
-      el("span", null, v.ground ? "height " + v.ground.low + " to " + v.ground.high + " · a cell is " + v.ground.step + " by " + v.ground.step + " blocks · unmeasured ground is left clear" : "ground not measured yet (it is read where the world is loaded)")) : null,
+      el("span", null, v.ground && v.ground.low != null ? "height " + v.ground.low + " to " + v.ground.high + " · a cell is " + v.ground.step + " by " + v.ground.step + " blocks · unmeasured ground is left clear" : "ground not measured yet: it is read where the world is loaded, so go near the village once")) : null,
     state.layers.defence ? defenceLegend(v) : null,
     state.layers.beds ? el("div", { class: "legend" }, el("span", null, el("i", { style: "background:#f2a33a" }), "bed a villager has claimed"), el("span", null, el("i", { style: "background:transparent; border:2px solid #f2a33a; box-sizing:border-box" }), "free bed"),
-      el("span", null, v.bedsLive ? v.bedsLive.total + " beds known: " + v.bedsLive.claimed + " claimed, " + v.bedsLive.free + " free · read from the game while the village is loaded" : "not read yet (needs the village loaded)")) : null,
+      el("span", null, v.bedsLive && v.bedsLive.total > 0 ? v.bedsLive.total + " beds known: " + v.bedsLive.claimed + " claimed, " + v.bedsLive.free + " free · read from the game while the village is loaded" : "beds not read yet: they are read from the game while the village is loaded, so go near it once")) : null,
     state.layers.homes ? el("div", { class: "legend" }, el("span", null, "each house is ringed in its family's colour; grey ring = nobody lives there; point at a house to see who")) : null,
     el("div", { class: "legend" }, Object.entries(LOT).map(([k, c]) => el("span", null, el("i", { style: "background:" + c }), k)),
       el("span", null, el("i", { style: "background:#7aa0be" }), "trade and other"), el("span", null, "solid = built on · outline = ready · dashed = rough · crossed = kept empty · dot = building by kind (grey rim: found) · dashed ring = no lot of the plan here")),
@@ -763,11 +763,12 @@ function defenceLegend(v) {
   if (!d) return el("div", { class: "legend" }, el("span", null, "reading the defences..."));
   if (d.pending || !d.lights) return el("div", { class: "legend" }, el("span", null, d.pending ? "reading the defences..." : "no plan yet"));
   const count = (s) => (s || "").split("").filter((c) => c === "1").length, unknown = (s) => (s || "").split("").filter((c) => c === "?").length;
+  const unseen = (s, n) => n > 0 && unknown(s) === n; // nothing of it has been seen yet: its ground was never loaded
   const wallName = d.tier >= 3 ? "stone rampart" : d.tier === 2 ? "timber rampart" : d.tier === 1 ? "palisade" : "no wall yet (the planned palisade is dotted)";
   return el("div", { class: "legend" },
-    el("span", null, el("i", { style: "background:#f2c744" }), "light standing (" + count(d.lightsBuilt) + " of " + d.lights.length + ")"),
+    el("span", null, el("i", { style: "background:#f2c744" }), unseen(d.lightsBuilt, d.lights.length) ? "lights: " + d.lights.length + " planned, not seen yet" : "light standing (" + count(d.lightsBuilt) + " of " + d.lights.length + ")"),
     el("span", null, el("i", { style: "background:#6b6b6b" }), "light not built or not seen"),
-    el("span", null, el("i", { style: "background:#c8a86a" }), wallName + " (" + count(d.wallBuilt) + " of " + d.wall.length + " standing)"),
+    el("span", null, el("i", { style: "background:#c8a86a" }), wallName + (unseen(d.wallBuilt, d.wall.length) ? " (" + d.wall.length + " posts planned, not seen yet)" : " (" + count(d.wallBuilt) + " of " + d.wall.length + " standing)")),
     el("span", null, el("i", { style: "background:#d5493d" }), "gap in the wall"),
     el("span", null, el("i", { style: "background:#5fa8ff" }), "guards' patrol (" + d.guards + " guards, " + d.guardPosts + " posts)"),
     el("span", { class: d.danger ? "low" : "" }, "threat " + d.threat + (d.danger ? " · in danger" : "") + (d.incidents ? " · " + d.incidents + " attacks lately" : "")),
