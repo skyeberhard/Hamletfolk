@@ -1376,13 +1376,13 @@ final class ConstructionService {
         List<StreetGrade.Street> toGrade = new ArrayList<>();
         for (VillagePlan.Road road : plan.roads()) {
             // R4.33: the piece near the building runs the way its street runs, whatever shape the clipping leaves it
-            overlap(road.rect(), near).ifPresent(piece -> toGrade.add(new StreetGrade.Street(piece, plan.runsAlongX(road))));
+            overlap(road.rect(), near).ifPresent(piece -> toGrade.add(new StreetGrade.Street(piece, plan.runsAlongX(road), road.rect())));
         }
         List<Rect> everyStreet = new ArrayList<>(streets);
         if (plan.square() != null) {
             everyStreet.add(plan.square());
             if (settlement.buildingCount(BuildingType.SQUARE) == 0) { // until its building stands, which has a floor of its own
-                overlap(plan.square(), near).ifPresent(piece -> toGrade.add(new StreetGrade.Street(piece, true))); // levelled like a street (R4.23)
+                overlap(plan.square(), near).ifPresent(piece -> toGrade.add(new StreetGrade.Street(piece, true, plan.square()))); // levelled like a street (R4.23)
             }
         }
         java.util.OptionalInt front = bp.front();
@@ -1487,11 +1487,30 @@ final class ConstructionService {
                     }
                 }
                 case BRIDGE -> {
-                    if (block.isLiquid() && clearHeadroom(block)) {
+                    // water, or (R8.22) the air over a gorge: a plank deck
+                    if ((block.isLiquid() || block.getType().isAir() || Tag.REPLACEABLE.isTagged(block.getType())) && clearHeadroom(block)) {
                         block.setType(Material.OAK_PLANKS, false);
                     }
                 }
+                case RAIL -> placePost(block, false);
+                case LAMP -> placePost(block, true);
             }
+        }
+    }
+
+    /**
+     * R8.22: a fence post on a block of the street's edge, with a torch on top for a lamp. Only on air or what grows (never over
+     * something built), and only where there is something to stand on: a column the grading skipped gets nothing.
+     */
+    private static void placePost(Block block, boolean lit) {
+        Material below = block.getRelative(0, -1, 0).getType();
+        if (below.isAir() || block.getRelative(0, -1, 0).isLiquid() || !growthOnly(block)) {
+            return;
+        }
+        block.setType(Material.OAK_FENCE, true); // (with physics, so a row of posts joins up into a rail)
+        Block top = block.getRelative(0, 1, 0);
+        if (lit && growthOnly(top)) {
+            top.setType(Material.TORCH, false);
         }
     }
 
