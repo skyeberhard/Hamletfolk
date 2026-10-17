@@ -28,6 +28,7 @@ body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 syst
 button, input, select { font: inherit; color: inherit; }
 button { background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 11px; cursor: pointer; }
 button:hover { border-color: var(--accent); }
+button.linkbtn { background: none; border: 0; padding: 0 0 0 4px; color: inherit; text-decoration: underline; }
 button.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
 button.primary { background: var(--accent); color: #1b1407; border-color: var(--accent); font-weight: 600; }
 button:disabled { opacity: .5; cursor: not-allowed; }
@@ -160,7 +161,7 @@ const ACTIONS = __HAMLETFOLK_ACTIONS__;
 // ----- state -----
 const state = {
   villages: [], villagesText: "", detail: null, detailText: "", trends: {}, events: [], latest: 0, catalogue: null,
-  current: null, tab: "overview", filter: "", feedFilter: "all", seenFeed: 0, map: null, busy: false,
+  current: null, tab: "overview", filter: "", feedFilter: "all", seenFeed: 0, map: null, busy: false, sel: null,
 };
 const $ = (id) => document.getElementById(id);
 const main = $("main");
@@ -469,14 +470,55 @@ function tabPlan(v) {
   const tip = el("div", { class: "tip" });
   const counts = p.lots.reduce((m, l) => { m[l.status] = (m[l.status] || 0) + 1; return m; }, {});
   afterRender.push(() => drawMap(canvas, tip, v));
-  return el("div", { class: "panel" },
+  return el("div", { class: "grid" }, el("div", { class: "panel" },
     el("h2", null, "Plan · stage " + p.stage, el("span", { class: "grow" }),
       el("span", { class: "sub" }, (counts.reserved || 0) + " ready, " + (counts.rough || 0) + " rough, " + (counts.filled || 0) + " built on, " + p.dropped + " dropped"),
       el("button", { onclick: () => { state.map = null; renderMain(); } }, "Fit")),
     el("div", { class: "mapwrap" }, canvas, tip),
     el("div", { class: "legend" }, Object.entries(LOT).map(([k, c]) => el("span", null, el("i", { style: "background:" + c }), k)),
-      el("span", null, el("i", { style: "background:#7aa0be" }), "trade and other"), el("span", null, "solid = built on · outline = ready · dashed = rough · dot = building (grey: found)")),
-    el("div", { class: "sub", style: "margin-top:6px" }, "Scroll to zoom, drag to move, point at a lot or building for details."));
+      el("span", null, el("i", { style: "background:#7aa0be" }), "trade and other"), el("span", null, "solid = built on · outline = ready · dashed = rough · crossed = kept empty · dot = building (grey: found)")),
+    el("div", { class: "sub", style: "margin-top:6px" }, "Scroll to zoom, drag to move, point at a lot or building for details" + (ACTIONS ? ", click a lot to change it." : "."))),
+    selectedLot(v), rules(v));
+}
+
+/** R8.23: the lot clicked on the map, with what an admin may do to it. */
+function selectedLot(v) {
+  const [vid, lotId] = (state.sel || "").split(":");
+  const lot = vid === v.id ? v.plan.lots.find((l) => String(l.id) === lotId) : null;
+  if (!lot) return null;
+  const status = lot.status === "filled" ? "built on" : lot.status === "rough" ? "rough ground, levelled when built on" : "ready to build on";
+  const head = el("div", null, el("b", null, "Lot " + lot.id + ": " + lot.type), " ", el("span", { class: "chip" }, status), lot.locked ? el("span", { class: "chip watch" }, "kept empty") : null,
+    el("div", { class: "sub" }, lot.rect[2] + " by " + lot.rect[3] + " at " + lot.rect[0] + ", " + lot.rect[1]));
+  if (!ACTIONS || !state.catalogue || lot.status === "filled") {
+    return el("div", { class: "panel" }, el("h2", null, "Selected lot"), head, lot.status === "filled" ? el("div", { class: "sub" }, "A building stands here: it is not changed from here.") : null);
+  }
+  const kinds = state.catalogue.buildings.filter((b) => b.lot);
+  const pick = el("select", { "aria-label": "kind of building for this lot" }, kinds.map((b) => el("option", { value: b.type, selected: b.label === lot.type }, b.label)));
+  return el("div", { class: "panel" }, el("h2", null, "Selected lot"), head,
+    el("div", { class: "row", style: "margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center" },
+      lot.locked ? el("button", { onclick: () => act({ action: "unlock-lot", village: v.id, lot: lot.id }) }, "Open it to building")
+        : el("button", { onclick: () => act({ action: "lock-lot", village: v.id, lot: lot.id }) }, "Keep it empty"),
+      el("span", { class: "sub" }, "or set it aside for"), pick,
+      el("button", { onclick: () => act({ action: "retype-lot", village: v.id, lot: lot.id, building: pick.value }) }, "Set aside")),
+    el("div", { class: "sub", style: "margin-top:6px" }, "A lot keeps its size: a building only goes on it if its design fits. Nothing that stands is moved."));
+}
+
+/** R8.23: what the village may not build, and what it has been told to build next. */
+function rules(v) {
+  if (!ACTIONS || !state.catalogue) return null;
+  const label = (type) => (state.catalogue.buildings.find((b) => b.type === type) || { label: type }).label;
+  const forbidden = v.plan.forbidden || [], next = v.plan.buildNext || "";
+  const kinds = state.catalogue.buildings;
+  const pickNext = el("select", { "aria-label": "building to build next" }, kinds.filter((b) => b.next).map((b) => el("option", { value: b.type }, b.label)));
+  const pickNo = el("select", { "aria-label": "building to forbid" }, kinds.map((b) => el("option", { value: b.type }, b.label)));
+  return el("div", { class: "panel" }, el("h2", null, "Building rules"),
+    el("div", null, el("b", null, "Build next: "), next ? [el("span", { class: "chip" }, label(next)), el("button", { onclick: () => act({ action: "clear-build-next", village: v.id, building: next }) }, "Withdraw")]
+      : [el("span", { class: "sub" }, "nothing ordered. "), pickNext, el("button", { onclick: () => act({ action: "build-next", village: v.id, building: pickNext.value }) }, "Build this next")]),
+    el("div", { class: "sub" }, "Goes ahead of everything else the village wants (not ahead of a famine), if it has the people, a lot and the materials. Stands 40 days."),
+    el("div", { style: "margin-top:12px" }, el("b", null, "Not allowed: "), forbidden.length ? forbidden.map((t) => el("span", { class: "chip bad" }, label(t) + " ",
+        el("button", { class: "linkbtn", onclick: () => act({ action: "allow", village: v.id, building: t }) }, "allow"))) : el("span", { class: "sub" }, "nothing forbidden. "),
+      pickNo, el("button", { onclick: () => act({ action: "forbid", village: v.id, building: pickNo.value }) }, "Forbid")),
+    el("div", { class: "sub" }, "The village stops asking for it and building it. What already stands is left alone."));
 }
 
 function drawMap(canvas, tip, v) {
@@ -501,9 +543,15 @@ function drawMap(canvas, tip, v) {
     if (p.square) { const [x, z, w, d] = p.square; g.fillStyle = "#b9b1a0"; g.fillRect(X(x), Z(z), w * m.s, d * m.s); }
     for (const l of p.lots) {
       const [x, z, w, d] = l.rect, c = lotColour(l.type);
-      g.lineWidth = hover === l ? 3 : 1.5; g.strokeStyle = c; g.fillStyle = c;
+      const picked = state.sel === v.id + ":" + l.id;
+      g.lineWidth = hover === l || picked ? 3 : 1.5; g.strokeStyle = picked ? col("--accent") : c; g.fillStyle = c;
       if (l.status === "filled") { g.globalAlpha = .55; g.fillRect(X(x), Z(z), w * m.s, d * m.s); g.globalAlpha = 1; if (hover === l) g.strokeRect(X(x), Z(z), w * m.s, d * m.s); }
       else { g.setLineDash(l.status === "rough" ? [5, 4] : []); g.strokeRect(X(x) + .5, Z(z) + .5, w * m.s - 1, d * m.s - 1); g.setLineDash([]); }
+      if (picked && l.status === "filled") { g.strokeStyle = col("--accent"); g.strokeRect(X(x), Z(z), w * m.s, d * m.s); }
+      if (l.locked) { // kept empty by an admin: crossed out
+        g.strokeStyle = col("--bad"); g.lineWidth = 1.5; g.beginPath();
+        g.moveTo(X(x), Z(z)); g.lineTo(X(x + w), Z(z + d)); g.moveTo(X(x + w), Z(z)); g.lineTo(X(x), Z(z + d)); g.stroke();
+      }
     }
     for (const b of v.buildings) {
       g.beginPath(); g.arc(X(b.x + .5), Z(b.z + .5), hover === b ? 5 : 3, 0, 7);
@@ -523,20 +571,29 @@ function drawMap(canvas, tip, v) {
   const pos = (e) => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   canvas.onpointermove = (e) => {
     const [ex, ey] = pos(e);
-    if (m.dragging) { m.ox += ex - m.lx; m.oz += ey - m.ly; m.lx = ex; m.ly = ey; paint(null); tip.style.display = "none"; return; }
+    if (m.dragging) { m.moved += Math.abs(ex - m.lx) + Math.abs(ey - m.ly); m.ox += ex - m.lx; m.oz += ey - m.ly; m.lx = ex; m.ly = ey; paint(null); tip.style.display = "none"; return; }
     const hit = at(ex, ey);
     if (hit !== last) { last = hit; paint(hit); }
     if (!hit) { tip.style.display = "none"; return; }
     fill(tip, (hit.rect
-      ? [el("b", null, hit.type + " lot"), el("div", null, hit.status === "reserved" ? "Ready to build on" : hit.status === "rough" ? "Rough ground (levelled when built on)" : "Built on"),
+      ? [el("b", null, hit.type + " lot " + hit.id), el("div", null, (hit.locked ? "Kept empty by an admin. " : "") + (hit.status === "reserved" ? "Ready to build on" : hit.status === "rough" ? "Rough ground (levelled when built on)" : "Built on")),
          el("div", { class: "sub" }, hit.rect[2] + " by " + hit.rect[3] + " at " + hit.rect[0] + ", " + hit.rect[1])]
       : [el("b", null, hit.type + (hit.tier > 1 ? " tier " + hit.tier : "")), el("div", { class: "sub" }, "at " + hit.x + ", " + hit.y + ", " + hit.z), el("div", { class: "sub" }, "made by " + hit.by)]));
     tip.style.display = "block";
     tip.style.left = Math.min(ex + 14, W - 240) + "px"; tip.style.top = Math.min(ey + 14, H - 70) + "px";
   };
   canvas.onpointerleave = () => { tip.style.display = "none"; last = null; paint(null); };
-  canvas.onpointerdown = (e) => { [m.lx, m.ly] = pos(e); m.dragging = true; canvas.classList.add("drag"); canvas.setPointerCapture(e.pointerId); };
-  canvas.onpointerup = canvas.onpointercancel = canvas.onlostpointercapture = () => { m.dragging = false; canvas.classList.remove("drag"); };
+  canvas.onpointerdown = (e) => { [m.lx, m.ly] = pos(e); m.moved = 0; m.dragging = true; canvas.classList.add("drag"); canvas.setPointerCapture(e.pointerId); };
+  canvas.onpointercancel = canvas.onlostpointercapture = () => { m.dragging = false; canvas.classList.remove("drag"); };
+  canvas.onpointerup = (e) => {
+    const click = m.dragging && m.moved < 5; // a press that did not move is a click: select the lot there (R8.23)
+    m.dragging = false; canvas.classList.remove("drag");
+    if (!click) return;
+    const [ex, ey] = pos(e), hit = at(ex, ey);
+    const lotHit = hit && hit.rect ? hit : (hit ? p.lots.find((l) => { const [x, z, w, d] = l.rect; return hit.x >= x && hit.x < x + w && hit.z >= z && hit.z < z + d; }) : null);
+    state.sel = lotHit ? v.id + ":" + lotHit.id : null;
+    renderMain();
+  };
   canvas.onwheel = (e) => {
     e.preventDefault();
     const [ex, ey] = pos(e), k = e.deltaY < 0 ? 1.2 : 1 / 1.2, ns = Math.max(.5, Math.min(40, m.s * k)), f = ns / m.s;

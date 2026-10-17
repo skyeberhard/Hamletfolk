@@ -47,7 +47,7 @@ final class DashboardActions {
             outcome = new Outcome(false, "It failed: " + e.getClass().getSimpleName() + ". See the server log.");
         }
         audit(request, village.map(Settlement::name).orElse(null), actor, outcome);
-        if (outcome.ok() && village.isPresent() && request.kind() != AdminAction.Kind.JOB) { // (a job writes its own line)
+        if (outcome.ok() && village.isPresent() && request.kind() != AdminAction.Kind.JOB && !request.kind().isPlanOverride()) { // (a job and an override write their own lines)
             Settlement s = village.get();
             s.record(s.lastSimulatedDay(), HistoryEvent.Kind.MILESTONE, "An admin (" + actor + ") chose to "
                     + request.kind().label().toLowerCase(Locale.ROOT) + ".");
@@ -118,6 +118,10 @@ final class DashboardActions {
             case UNPIN -> {
                 Resident r = s.resident(request.resident()).orElseThrow();
                 yield new Outcome(true, AdminAction.unpin(s, r, s.lastSimulatedDay()));
+            }
+            case LOCK_LOT, UNLOCK_LOT, RETYPE_LOT, FORBID, ALLOW, BUILD_NEXT, CLEAR_BUILD_NEXT -> {
+                var result = AdminAction.applyOverride(s, request, s.lastSimulatedDay(), "an admin (" + actor + ")");
+                yield new Outcome(result.ok(), result.message());
             }
         };
     }

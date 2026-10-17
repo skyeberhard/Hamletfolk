@@ -1466,6 +1466,7 @@ final class SettlementService {
                     "the village was re-planned", false);
         });
         settlement.setPlan(null);
+        io.github.skyeberhard.hamletfolk.core.PlanOverrides.forgetLots(settlement); // lot numbers begin again with the new plan
         Leaning was = settlement.hasLeaning() ? settlement.leaning() : null;
         settlement.clearLand(); // read again
         readTheLand(settlement, was);

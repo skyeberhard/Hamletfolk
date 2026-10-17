@@ -25,7 +25,15 @@ public final class AdminAction {
         REGRADE("Have the builder mend the palisade", true, true),
         RENAME("Rename the village", true, true),
         JOB("Set a resident's work and pin them to it", true, false),
-        UNPIN("Hand a pinned resident back to the village", true, false);
+        UNPIN("Hand a pinned resident back to the village", true, false),
+        // R8.23: plan overrides. All can be undone with the opposite action, so none asks first.
+        LOCK_LOT("Keep a lot empty: no building is put on it", true, false),
+        UNLOCK_LOT("Open a kept-empty lot to building again", true, false),
+        RETYPE_LOT("Set an unbuilt lot aside for another kind of building", true, false),
+        FORBID("Stop the village building a kind of building", true, false),
+        ALLOW("Let the village build a kind of building again", true, false),
+        BUILD_NEXT("Have the village build a kind of building before anything else", true, false),
+        CLEAR_BUILD_NEXT("Withdraw the order to build something next", true, false);
 
         private final String label;
         private final boolean needsVillage;
@@ -39,6 +47,12 @@ public final class AdminAction {
 
         public String label() {
             return label;
+        }
+
+        /** True for the plan overrides (R8.23), which write their own lines in the village's history. */
+        public boolean isPlanOverride() {
+            return this == LOCK_LOT || this == UNLOCK_LOT || this == RETYPE_LOT || this == FORBID || this == ALLOW
+                    || this == BUILD_NEXT || this == CLEAR_BUILD_NEXT;
         }
 
         public boolean needsVillage() {
@@ -73,7 +87,8 @@ public final class AdminAction {
     public static final int MAX_WARP_DAYS = 60;
 
     /** A checked request: the kind, the village (null for SAVE), and the parameters that kind uses. */
-    public record Request(Kind kind, UUID village, Integer number, String text, UUID resident, Occupation occupation) {
+    public record Request(Kind kind, UUID village, Integer number, String text, UUID resident, Occupation occupation,
+            BuildingType building) {
     }
 
     /** Either a request that may run, or why not. */
@@ -121,6 +136,27 @@ public final class AdminAction {
         final Settlement home = settlement;
         return switch (kind.get()) {
             case SAVE, REPLAN, CANCEL_PROJECT, UNSTICK, REGRADE -> ok(kind.get(), id, null, null, null, null);
+            case LOCK_LOT, UNLOCK_LOT, RETYPE_LOT -> {
+                if (home.plan() == null) {
+                    yield Checked.fail(home.name() + " has no plan yet");
+                }
+                Optional<Integer> lotId = number(body.get("lot"), 1, 100_000);
+                if (lotId.isEmpty() || home.plan().lots().stream().noneMatch(l -> l.id() == lotId.get())) {
+                    yield Checked.fail("no such lot in " + home.name());
+                }
+                if (kind.get() != Kind.RETYPE_LOT) {
+                    yield new Checked(new Request(kind.get(), id, lotId.get(), null, null, null, null), null);
+                }
+                Optional<BuildingType> building = buildingKind(body.get("building"), PlanOverrides::lotKind);
+                yield building.isEmpty() ? Checked.fail("no such kind of building for a lot")
+                        : new Checked(new Request(kind.get(), id, lotId.get(), null, null, null, building.get()), null);
+            }
+            case FORBID, ALLOW, BUILD_NEXT, CLEAR_BUILD_NEXT -> {
+                Optional<BuildingType> building = buildingKind(body.get("building"),
+                        kind.get() == Kind.BUILD_NEXT ? PlanOverrides::orderable : PlanOverrides::nameable);
+                yield building.isEmpty() ? Checked.fail("no such kind of building")
+                        : new Checked(new Request(kind.get(), id, null, null, null, null, building.get()), null);
+            }
             case WARP -> number(body.get("days"), 1, MAX_WARP_DAYS)
                     .map(n -> ok(kind.get(), id, n, null, null, null))
                     .orElse(Checked.fail("days must be a whole number from 1 to " + MAX_WARP_DAYS));
@@ -161,7 +197,50 @@ public final class AdminAction {
     }
 
     private static Checked ok(Kind kind, UUID id, Integer number, String text, UUID resident, Occupation occupation) {
-        return new Checked(new Request(kind, id, number, text, resident, occupation), null);
+        return new Checked(new Request(kind, id, number, text, resident, occupation, null), null);
+    }
+
+    /** A kind of building named by its enum name (any case, dashes or underscores), if the rule accepts it. */
+    private static Optional<BuildingType> buildingKind(Object value, java.util.function.Predicate<BuildingType> accepts) {
+        if (!(value instanceof String s) || s.isEmpty() || s.length() > 24) {
+            return Optional.empty();
+        }
+        try {
+            BuildingType type = BuildingType.valueOf(s.toUpperCase(Locale.ROOT).replace('-', '_'));
+            return accepts.test(type) ? Optional.of(type) : Optional.empty();
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
+    /** R8.23: what the page offers to name in an override: every kind with its label and whether a lot may be made for it. */
+    public static List<Map<String, Object>> buildingKinds() {
+        List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (BuildingType type : BuildingType.values()) {
+            if (PlanOverrides.nameable(type)) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("type", type.name());
+                row.put("label", type.label());
+                row.put("lot", PlanOverrides.lotKind(type));
+                row.put("next", PlanOverrides.orderable(type));
+                out.add(row);
+            }
+        }
+        return out;
+    }
+
+    /** R8.23: runs a plan override that has been checked; returns what to tell the admin. */
+    public static PlanOverrides.Result applyOverride(Settlement settlement, Request request, long day, String actor) {
+        return switch (request.kind()) {
+            case LOCK_LOT -> PlanOverrides.lock(settlement, request.number(), true, day, actor);
+            case UNLOCK_LOT -> PlanOverrides.lock(settlement, request.number(), false, day, actor);
+            case RETYPE_LOT -> PlanOverrides.retype(settlement, request.number(), request.building(), day, actor);
+            case FORBID -> PlanOverrides.forbid(settlement, request.building(), true, day, actor);
+            case ALLOW -> PlanOverrides.forbid(settlement, request.building(), false, day, actor);
+            case BUILD_NEXT -> PlanOverrides.buildNext(settlement, request.building(), true, day, actor);
+            case CLEAR_BUILD_NEXT -> PlanOverrides.buildNext(settlement, request.building(), false, day, actor);
+            default -> new PlanOverrides.Result(false, "not a plan override");
+        };
     }
 
     private static UUID uuid(Object value) {
@@ -243,6 +322,9 @@ public final class AdminAction {
         }
         if (request.occupation() != null) {
             line.append(" | ").append(request.occupation().name().toLowerCase(Locale.ROOT));
+        }
+        if (request.building() != null) {
+            line.append(" | ").append(request.building().name().toLowerCase(Locale.ROOT));
         }
         line.append(" | ").append(ok ? "ok" : "failed").append(" | ").append(clean(result));
         return line.toString();

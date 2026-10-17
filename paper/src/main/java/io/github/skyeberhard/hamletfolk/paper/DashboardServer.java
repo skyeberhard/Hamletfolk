@@ -230,6 +230,7 @@ final class DashboardServer {
                 Map<String, Object> catalogue = new java.util.LinkedHashMap<>();
                 catalogue.put("enabled", allowActions);
                 catalogue.put("actions", AdminAction.catalogue());
+                catalogue.put("buildings", AdminAction.buildingKinds());
                 catalogue.put("occupations", java.util.Arrays.stream(io.github.skyeberhard.hamletfolk.core.Occupation.values())
                         .map(o -> o.name().toLowerCase(Locale.ROOT)).toList());
                 send(exchange, 200, "application/json; charset=utf-8", gson.toJson(catalogue).getBytes(StandardCharsets.UTF_8));

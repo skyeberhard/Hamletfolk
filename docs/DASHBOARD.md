@@ -58,6 +58,29 @@ Every action:
 Refused requests (actions off, wrong token, not JSON, too large, too fast, unknown action, bad parameter) are written to the audit
 log too, at most 20 a minute (the rest are counted), and the log is moved to `audit.log.1` when it passes 5 MB.
 
+## Plan overrides (R8.23)
+
+With actions on, a village's **Plan** tab lets an admin steer what it builds. Click a lot on the map to select it:
+
+- **Keep it empty / open it to building:** no building is put on a lot kept empty (drawn crossed out).
+- **Set aside for another kind:** an unbuilt lot is made for another kind of building (not the town square). It keeps its size, so a
+  building only goes on it if a design fits. A lot that a project is already being raised on cannot be kept empty or set aside: give the
+  project up first (Admin tab).
+- If every lot of the kind a village wants is kept empty, it looks for ground elsewhere, or its plan grows a stage, as when it runs out of lots.
+- **Building rules** (under the map): **Not allowed** stops the village asking for, building or improving a kind (the town square, the street lights
+  and the palisade included); what already stands is left alone. A village that needs what is forbidden (a farm when hungry) goes without,
+  and says so in its blockers: use it with care. **Build next** puts a kind ahead of everything the village wants, the
+  meeting place included but not a famine; it needs the people, a lot and the materials, stands 40 days or until a project for it is queued
+  (the project is then kept while it waits for a builder), and only one order stands at a time. The town square cannot be ordered.
+- A replan forgets the lots kept empty (the numbers begin again); kinds forbidden and orders stand.
+
+All of them can be undone with the opposite button, so none asks first. They are kept in the village's conditions (nothing new in the save),
+checked in core, run on the main thread and written to the audit log and the village's history.
+
+These are admin tools. Villages stay autonomous: an override only narrows or reorders what the planner and builders would do, never moves a
+building that stands or builds something the village cannot afford. A future role for a town's steward should influence rather than command
+(posting a request, backing a priority), not forbid or lock.
+
 ## How it is protected
 
 - **Bound to 127.0.0.1** by default: only the machine the server runs on can reach it. Actions are **refused to start** if `bind`
@@ -94,7 +117,7 @@ function that draws it), the sidebar has a "More" section for other plugins' pan
 - **Panels from other plugins (R1.38, planned):** the dashboard will offer a small extension point through Bukkit's services manager,
   so another plugin (GoodeCraft's portal network, say) can add its own page, data and actions, checked and audited the same way,
   without Hamletfolk depending on it.
-- **Plan overrides (R8.23, planned):** lock a lot, change a lot's kind, forbid a building, put a project first.
+- **Plan overrides (R8.23):** see "Plan overrides" above.
 
-Code: `core/Dashboard`, `core/VillageBlockers`, `core/AdminAction`, `core/DashboardFeed` (tested); `paper/DashboardServer`, `paper/DashboardActions`,
+Code: `core/Dashboard`, `core/VillageBlockers`, `core/AdminAction`, `core/DashboardFeed`, `core/PlanOverrides` (tested); `paper/DashboardServer`, `paper/DashboardActions`,
 `paper/src/main/resources/dashboard.html`.

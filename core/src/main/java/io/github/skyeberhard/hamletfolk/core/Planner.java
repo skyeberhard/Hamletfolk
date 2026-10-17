@@ -3,6 +3,7 @@ package io.github.skyeberhard.hamletfolk.core;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * R8.1: the village's planner, the decision layer on top of the simulation. Once a day it reads the ledger and the
@@ -176,6 +177,40 @@ public final class Planner {
      * moves on while one is open. Reads the saved state and changes nothing.
      */
     public static List<Directive> directives(Settlement settlement, long day, int treasuryLimit) {
+        return withOverrides(settlement, ownDirectives(settlement, day, treasuryLimit), day);
+    }
+
+    /**
+     * R8.23: what an admin forbade is not asked for, and what an admin ordered built next comes first, even for a village that
+     * wants nothing of its own. A village with nobody in it is asked nothing.
+     */
+    static List<Directive> withOverrides(Settlement settlement, List<Directive> own, long day) {
+        Optional<BuildingType> first = PlanOverrides.buildNext(settlement, day);
+        boolean forbidding = !PlanOverrides.forbidden(settlement).isEmpty();
+        if (settlement.population() == 0 || (first.isEmpty() && !forbidding)) {
+            return own;
+        }
+        List<Directive> out = new ArrayList<>();
+        Directive wanted = null; // what the village itself asked for of the ordered kind: it keeps its tier, so it is no less urgent
+        for (Directive d : own) {
+            Optional<BuildingType> type = d.kind() == Kind.BUILD ? BuildingType.fromTarget(d.target()) : Optional.empty();
+            if (type.isPresent() && (PlanOverrides.isForbidden(settlement, type.get()) || first.equals(type))) {
+                if (first.equals(type) && wanted == null) {
+                    wanted = d;
+                }
+                continue;
+            }
+            out.add(d);
+        }
+        if (first.isPresent()) {
+            String target = first.get().name().toLowerCase(Locale.ROOT);
+            out.add(0, withLot(settlement, new Directive(wanted == null ? Tier.GROWTH : wanted.tier(), Kind.BUILD, target,
+                    PlanOverrides.ORDER_REASON + (wanted == null ? "" : " (" + wanted.reason() + ")"))));
+        }
+        return out;
+    }
+
+    static List<Directive> ownDirectives(Settlement settlement, long day, int treasuryLimit) {
         if (settlement.population() == 0) {
             return List.of();
         }
@@ -288,14 +323,18 @@ public final class Planner {
         }
         List<Directive> out = new ArrayList<>();
         for (Directive d : directives) {
-            out.add(d.kind() == Kind.BUILD ? withLot(plan, d) : d);
+            out.add(d.kind() == Kind.BUILD ? withLot(settlement, d) : d);
         }
         return out;
     }
 
-    private static Directive withLot(VillagePlan plan, Directive d) {
+    private static Directive withLot(Settlement settlement, Directive d) {
+        VillagePlan plan = settlement.plan();
+        if (plan == null) {
+            return d;
+        }
         try {
-            return plan.nextLot(BuildingType.valueOf(d.target().toUpperCase(Locale.ROOT)))
+            return plan.nextLot(BuildingType.valueOf(d.target().toUpperCase(Locale.ROOT)), l -> !PlanOverrides.isLocked(settlement, l))
                     .map(lot -> new Directive(d.tier(), d.kind(), d.target(), d.reason() + ". Lot reserved at "
                             + lot.rect().centerX() + ", " + lot.rect().centerZ() + " (" + lot.rect().width() + " by "
                             + lot.rect().depth() + ")"))

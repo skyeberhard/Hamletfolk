@@ -197,12 +197,19 @@ public final class Dashboard {
             List<Map<String, Object>> lots = new ArrayList<>();
             for (VillagePlan.Lot lot : plan.lots()) {
                 Map<String, Object> row = new LinkedHashMap<>();
+                row.put("id", lot.id());
                 row.put("rect", rect(lot.rect()));
+                row.put("locked", PlanOverrides.isLocked(s, lot));
                 row.put("type", lot.type().label());
                 row.put("status", lot.status().name().toLowerCase(Locale.ROOT));
                 lots.add(row);
             }
             geometry.put("lots", lots);
+            // R8.23: what an admin has told the planner
+            List<String> forbidden = new ArrayList<>();
+            PlanOverrides.forbidden(s).forEach(t -> forbidden.add(t.name()));
+            geometry.put("forbidden", forbidden);
+            geometry.put("buildNext", PlanOverrides.buildNext(s, day).map(BuildingType::name).orElse(""));
             out.put("plan", geometry);
         }
         return out;

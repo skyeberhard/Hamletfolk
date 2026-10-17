@@ -503,6 +503,7 @@ public final class Construction {
                         plan.centerX(), 0, plan.centerZ(), -1, day);
         project.setStage(plan.stage());
         settlement.addProject(project);
+        PlanOverrides.noteQueued(settlement, project);
         settlement.conditions().put(DECIDED, day);
         settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " set out to "
                 + (type == BuildingType.STREET_LIGHTS ? "light its streets" : type == BuildingType.RAMPART
@@ -518,6 +519,9 @@ public final class Construction {
 
     /** R4.37: whether a building may go on this lot (its own kind, or a lot not kept for a smithy, mine or farm the village lacks). */
     private static boolean mayUse(Settlement settlement, VillagePlan.Lot lot, BuildingType type) {
+        if (PlanOverrides.isLocked(settlement, lot)) {
+            return false; // R8.23: an admin keeps it empty
+        }
         return lot.type() == type || !PROTECTED_LOTS.contains(lot.type()) || settlement.buildingCount(lot.type()) > 0;
     }
 
@@ -584,7 +588,7 @@ public final class Construction {
             if (directive.kind() != Planner.Kind.BUILD || type.isEmpty()
                     || (directive.tier() == Planner.Tier.GROWTH && (plan.stage() < PlanGenerator.MAX_STAGE || hasLotFor(plan, settlement, type.get())))
                     || type.get().isWorks() || type.get().isPart() || type.get() == BuildingType.SQUARE
-                    || plan.nextLot(type.get()).isPresent()) {
+                    || plan.nextLot(type.get(), l -> !PlanOverrides.isLocked(settlement, l)).isPresent()) {
                 continue;
             }
             Long last = settlement.conditions().get("lotSearch:" + type.get().name());
@@ -701,7 +705,8 @@ public final class Construction {
                 }
                 continue;
             }
-            if (!squareTried && !needUnmet && directive.tier() != Planner.Tier.FOOD) {
+            if (!squareTried && !needUnmet && directive.tier() != Planner.Tier.FOOD
+                    && !directive.reason().startsWith(PlanOverrides.ORDER_REASON)) { // (an admin's order goes before the meeting place too)
                 squareTried = true; // food comes first, then the meeting place, then the rest
                 Optional<ConstructionProject> square = proposeSquare(settlement, day, biome, catalog, blueprints, terrain);
                 if (square.isPresent()) {
@@ -734,7 +739,7 @@ public final class Construction {
                 settlement.conditions().put(OUTGROWN, day);
             }
             if ((directive.tier() != Planner.Tier.GROWTH || (first && plan.stage() >= PlanGenerator.MAX_STAGE))
-                    && plan.nextLot(type.get()).isEmpty()) {
+                    && plan.nextLot(type.get(), l -> !PlanOverrides.isLocked(settlement, l)).isEmpty()) {
                 // (a want only once the plan can grow no further and nothing is left for it)
                 setAsideReplacementLot(settlement, day, type.get(), searchGround); // (used from the next day, if there was ground for it)
             }
@@ -773,11 +778,13 @@ public final class Construction {
         }
         Direction direction = direction(settlement, day);
         Optional<ConstructionProject> wanted = upgrade(settlement, day, biome, catalog, blueprints, terrain,
-                t -> direction.serves(t), 2, true, "it is a " + direction.label() + " village and can afford a better one");
+                t -> direction.serves(t) && !PlanOverrides.isForbidden(settlement, t), 2, true,
+                "it is a " + direction.label() + " village and can afford a better one");
         if (wanted.isPresent()) {
             return wanted;
         }
-        return upgrade(settlement, day, biome, catalog, blueprints, terrain, t -> true, 2, true, "it can afford a better one");
+        return upgrade(settlement, day, biome, catalog, blueprints, terrain, t -> !PlanOverrides.isForbidden(settlement, t), 2, true,
+                "it can afford a better one"); // (R8.23: nor is a kind an admin forbade improved)
     }
 
     /**
@@ -918,6 +925,7 @@ public final class Construction {
             TemplateCatalog catalog, Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints, HeightSource terrain) {
         VillagePlan plan = settlement.plan();
         if (plan == null || plan.square() == null || settlement.buildingCount(BuildingType.SQUARE) > 0
+                || PlanOverrides.isForbidden(settlement, BuildingType.SQUARE)
                 || settlement.projects().stream().filter(p -> p.type() == BuildingType.SQUARE
                         && p.status() == ConstructionProject.Status.CANCELLED).count() >= SQUARE_ATTEMPTS
                 || settlement.projects().stream().anyMatch(p -> p.type() == BuildingType.SQUARE
@@ -948,6 +956,7 @@ public final class Construction {
         }
         if (open.isEmpty() || open.get().status() != ConstructionProject.Status.QUEUED || open.get().isUpgrade()
                 || open.get().type() == BuildingType.SQUARE || open.get().queuedDay() >= day // the planner never asks for a square
+                || PlanOverrides.isOrdered(settlement, open.get().id(), day) // R8.23: begun on an admin's order, which is spent once it is queued
                 || open.get().type().isWorks()) { // and stops asking for a work once it is in hand, so it would look unwanted
             return;
         }
@@ -1060,6 +1069,7 @@ public final class Construction {
             project.setOldTurns(replacing.turns());
         }
         settlement.addProject(project);
+        PlanOverrides.noteQueued(settlement, project);
         settlement.conditions().put(DECIDED, day); // at most one new project a day
         settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " set out to "
                 + (currentTier > 0 ? "upgrade its " : "build a ") + type.label().toLowerCase(Locale.ROOT) + " (tier "

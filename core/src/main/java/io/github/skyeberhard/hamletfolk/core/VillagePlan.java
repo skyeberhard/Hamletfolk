@@ -143,6 +143,17 @@ public final class VillagePlan {
         lots.add(lot);
     }
 
+    /** R8.23: makes a lot for another kind of building (R8.23; the caller has checked it is not built on). */
+    void retype(int lotId, BuildingType type) {
+        for (int i = 0; i < lots.size(); i++) {
+            Lot lot = lots.get(i);
+            if (lot.id() == lotId) {
+                lots.set(i, new Lot(lot.id(), lot.rect(), type, lot.biomeSet(), lot.stage(), lot.status()));
+                return;
+            }
+        }
+    }
+
     /** Lots not yet built on: the ready ones and the rough ones (R8.19). */
     public int reservedCount() {
         return (int) lots.stream().filter(l -> l.status() != LotStatus.FILLED).count();
@@ -162,8 +173,13 @@ public final class VillagePlan {
      * so a village grows outward from its centre.
      */
     public Optional<Lot> nextLot(BuildingType type) {
+        return nextLot(type, l -> true);
+    }
+
+    /** As above, among the lots {@code allowed} accepts (R8.23: not the ones an admin keeps empty). */
+    public Optional<Lot> nextLot(BuildingType type, java.util.function.Predicate<Lot> allowed) {
         // (R8.19: a rough lot only when no ready lot of the kind is left)
-        return lots.stream().filter(l -> l.status() != LotStatus.FILLED && l.type() == type)
+        return lots.stream().filter(l -> l.status() != LotStatus.FILLED && l.type() == type && allowed.test(l))
                 .min(Comparator.comparingInt((Lot l) -> l.status() == LotStatus.ROUGH ? 1 : 0)
                         .thenComparingLong(l -> distanceSquared(l.rect())).thenComparingInt(Lot::id));
     }
