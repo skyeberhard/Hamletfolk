@@ -41,11 +41,16 @@ public final class StreetGrade {
      * on the block at the change's height, LAMP a fence post there with a torch on the block above it.
      */
     public enum Role {
-        SURFACE, FILL, AIR, BRIDGE, RAIL, LAMP
+        SURFACE, FILL, AIR, BRIDGE, RAIL, LAMP,
+        /** R8.25: a stair on the street's surface where it rises or falls a block, its {@code facing} the way it climbs. */
+        STAIR
     }
 
-    /** One block to change. */
-    public record Change(int x, int y, int z, Role role) {
+    /** One block to change. {@code facing} (0 north, 1 east, 2 south, 3 west) is only meaningful for a {@link Role#STAIR}: the way it climbs; -1 otherwise. */
+    public record Change(int x, int y, int z, Role role, int facing) {
+        public Change(int x, int y, int z, Role role) {
+            this(x, y, z, role, -1);
+        }
     }
 
     /**
@@ -66,6 +71,37 @@ public final class StreetGrade {
     /** As {@link #computeStreets}, guessing each street's direction from its shape (its longer side): for whole streets only. */
     public static List<Change> compute(List<Rect> streets, HeightSource terrain) {
         return computeStreets(streets.stream().map(r -> new Street(r, r.width() >= r.depth())).toList(), terrain);
+    }
+
+    /**
+     * R8.26: splits a grading into batches of about {@code size} changes, each ending where a column ends (a column's changes run from the
+     * bottom up and must be placed together), so a big plan can be laid a little at a time. Order is kept; an empty list gives none.
+     */
+    public static List<List<Change>> batches(List<Change> changes, int size) {
+        List<List<Change>> out = new ArrayList<>();
+        List<Change> batch = new ArrayList<>();
+        for (int i = 0; i < changes.size(); i++) {
+            Change c = changes.get(i);
+            batch.add(c);
+            boolean columnEnds = i + 1 == changes.size() || changes.get(i + 1).x() != c.x() || changes.get(i + 1).z() != c.z();
+            if (batch.size() >= size && columnEnds) {
+                out.add(batch);
+                batch = new ArrayList<>();
+            }
+        }
+        if (!batch.isEmpty()) {
+            out.add(batch);
+        }
+        return out;
+    }
+
+    /** R8.26: how many changes of each role a grading holds (for the history line of a street check). */
+    public static Map<Role, Integer> summarize(List<Change> changes) {
+        Map<Role, Integer> out = new java.util.EnumMap<>(Role.class);
+        for (Change c : changes) {
+            out.merge(c.role(), 1, Integer::sum);
+        }
+        return out;
     }
 
     /** The changes that grade these streets, in the order given; each column's changes run from the bottom up. */
@@ -171,6 +207,7 @@ public final class StreetGrade {
             smooth(height, water, lock, target, start, end);
             start = end + 1;
         }
+        int[] stair = stairs(target, usable, water, alongX); // R8.25: where the street climbs or falls a block, a stair makes it a step
         boolean[] graded = new boolean[length];
         boolean[] deck = new boolean[length]; // a slice with a bridge deck in it
         for (int i = 0; i < length; i++) {
@@ -196,7 +233,7 @@ public final class StreetGrade {
                     continue;
                 }
                 boolean bridge = span[i] || (water[i] && terrain.water(x, z));
-                column(x, z, target[i], bridge, terrain, done, out);
+                column(x, z, target[i], bridge, terrain, done, out, bridge ? -1 : stair[i]);
                 deck[i] |= bridge;
                 graded[i] = true;
                 if (bridge && across >= 3 && (j == 0 || j == across - 1)
@@ -393,7 +430,7 @@ public final class StreetGrade {
 
     /** The changes that bring one column to the street's height: soil up to it, rock cut down to it, or a bridge deck. */
     private static void column(int x, int z, int level, boolean bridge, HeightSource terrain, Map<Long, Integer> done,
-            List<Change> out) {
+            List<Change> out, int stairFacing) {
         if (bridge) {
             out.add(new Change(x, level, z, Role.BRIDGE));
             done.put(TerrainPad.key(x, z), level);
@@ -412,7 +449,39 @@ public final class StreetGrade {
         for (int y = level + 1; y <= ground; y++) {
             out.add(new Change(x, y, z, Role.AIR));
         }
-        out.add(new Change(x, level, z, Role.SURFACE));
+        out.add(stairFacing >= 0 ? new Change(x, level, z, Role.STAIR, stairFacing) : new Change(x, level, z, Role.SURFACE));
         done.put(TerrainPad.key(x, z), level);
+    }
+
+    /**
+     * R8.25: for each slice, the way a stair on it climbs (0 north, 1 east, 2 south, 3 west), or -1 for a plain surface. Where the street
+     * rises or falls a block between two slices, the higher one gets a stair facing up the slope: its low step is half a block above the
+     * lower slice and its back is level with the higher surface, so a slope walks as a staircase instead of needing a jump. A slice that is
+     * higher than both its neighbours (a crest) cannot climb two ways and stays plain; so do bridge decks and slices that are not graded.
+     */
+    static int[] stairs(int[] target, boolean[] usable, boolean[] water, boolean alongX) {
+        int length = target.length;
+        int[] stair = new int[length];
+        Arrays.fill(stair, -1);
+        boolean[] twoWays = new boolean[length];
+        int forward = alongX ? 1 : 2; // the way of rising index
+        int backward = alongX ? 3 : 0;
+        for (int i = 1; i < length; i++) {
+            if (!usable[i - 1] || !usable[i] || water[i - 1] || water[i] || target[i] == target[i - 1]) {
+                continue;
+            }
+            int higher = target[i] > target[i - 1] ? i : i - 1;
+            int facing = higher == i ? forward : backward;
+            if (stair[higher] >= 0 && stair[higher] != facing) {
+                twoWays[higher] = true;
+            }
+            stair[higher] = facing;
+        }
+        for (int i = 0; i < length; i++) {
+            if (twoWays[i]) {
+                stair[i] = -1;
+            }
+        }
+        return stair;
     }
 }

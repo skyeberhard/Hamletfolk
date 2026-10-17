@@ -116,6 +116,10 @@ final class DashboardActions {
                 Resident r = s.resident(request.resident()).orElseThrow();
                 yield new Outcome(true, AdminAction.setJob(s, r, request.occupation(), s.lastSimulatedDay(), "an admin (" + actor + ")"));
             }
+            case GRADE_STREETS -> {
+                var check = plugin.construction().checkStreets(s);
+                yield new Outcome(check.ok(), check.message());
+            }
             case UNPIN -> {
                 Resident r = s.resident(request.resident()).orElseThrow();
                 yield new Outcome(true, AdminAction.unpin(s, r, s.lastSimulatedDay()));

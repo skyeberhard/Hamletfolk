@@ -21,7 +21,7 @@ class StreetGradeTest {
     private static Map<Long, Integer> surface(List<StreetGrade.Change> changes) {
         Map<Long, Integer> out = new HashMap<>();
         for (StreetGrade.Change c : changes) {
-            if (c.role() == StreetGrade.Role.SURFACE || c.role() == StreetGrade.Role.BRIDGE) {
+            if (c.role() == StreetGrade.Role.SURFACE || c.role() == StreetGrade.Role.BRIDGE || c.role() == StreetGrade.Role.STAIR) {
                 assertNull(out.put(TerrainPad.key(c.x(), c.z()), c.y()), "one surface per column at " + c.x() + "," + c.z());
             }
         }
@@ -360,6 +360,126 @@ class StreetGradeTest {
         }
         for (int x = 1; x < 30; x++) {
             assertTrue(Math.abs(at(surface, x, 1) - at(surface, x - 1, 1)) <= 1, "no step along the first street at x=" + x);
+        }
+    }
+
+    // ----- R8.21: steps in the road -----
+
+    private static List<StreetGrade.Change> stairs(List<StreetGrade.Change> changes) {
+        return changes.stream().filter(c -> c.role() == StreetGrade.Role.STAIR).toList();
+    }
+
+    /** A road up a gentle hill: a block of rise every few blocks, each rise a stair facing uphill on the higher slice. */
+    @Test
+    void aRoadThatRisesABlockHasAStairFacingUphillAtEachRise() {
+        // east-west street: the ground steps up one block at x=10 and again at x=20
+        List<StreetGrade.Change> changes = grade((x, z) -> 64 + (x >= 20 ? 2 : x >= 10 ? 1 : 0));
+        List<StreetGrade.Change> stairs = stairs(changes);
+        assertEquals(6, stairs.size(), "three columns at each of two rises: " + stairs);
+        for (StreetGrade.Change c : stairs) {
+            assertEquals(1, c.facing(), "east: the way it climbs");
+            assertTrue((c.x() == 10 && c.y() == 65) || (c.x() == 20 && c.y() == 66), "the first slice of each higher stretch: " + c);
+        }
+        Map<Long, Integer> surface = surface(changes);
+        assertEquals(64, at(surface, 5, 1));
+        assertEquals(65, at(surface, 10, 1), "the stair stands at the higher level, its back level with the higher street");
+        assertEquals(65, at(surface, 15, 1));
+        assertEquals(66, at(surface, 25, 1));
+        assertTrue(changes.stream().noneMatch(c -> c.role() != StreetGrade.Role.STAIR && c.x() == 10 && c.y() == 65 && c.role() == StreetGrade.Role.SURFACE),
+                "a stair, not also a plain block, in the same cell");
+    }
+
+    @Test
+    void aRoadThatFallsHasItsStairOnTheHigherSideFacingBackUpTheSlope() {
+        List<StreetGrade.Change> stairs = stairs(grade((x, z) -> x >= 15 ? 64 : 65));
+        assertEquals(3, stairs.size());
+        for (StreetGrade.Change c : stairs) {
+            assertEquals(14, c.x(), "the last slice of the higher stretch, nearest the drop");
+            assertEquals(3, c.facing(), "west: back up towards the high end");
+            assertEquals(65, c.y());
+        }
+    }
+
+    @Test
+    void aNorthSouthRoadClimbsNorthOrSouth() {
+        Rect lane = new Rect(0, 0, 3, 30);
+        List<StreetGrade.Change> up = stairs(StreetGrade.compute(List.of(lane), HeightSource.of((x, z) -> z >= 12 ? 65 : 64)));
+        assertEquals(3, up.size());
+        assertTrue(up.stream().allMatch(c -> c.facing() == 2 && c.z() == 12), "rising to the south: faces south");
+        List<StreetGrade.Change> down = stairs(StreetGrade.compute(List.of(lane), HeightSource.of((x, z) -> z >= 12 ? 64 : 65)));
+        assertTrue(down.stream().allMatch(c -> c.facing() == 0 && c.z() == 11), "falling to the south: the stair is on the high side, facing north");
+    }
+
+    @Test
+    void aFlatRoadAPeakAndABridgeHaveNoStairs() {
+        assertTrue(stairs(grade((x, z) -> 64)).isEmpty());
+        // a crest: higher than both neighbours, so it cannot climb two ways (smoothing cuts a one-slice bump before this is asked, so ask directly)
+        int[] crest = StreetGrade.stairs(new int[] {64, 65, 64}, new boolean[] {true, true, true}, new boolean[3], true);
+        assertEquals(-1, crest[1], "no stair on the crest");
+        int[] valley = StreetGrade.stairs(new int[] {65, 64, 65}, new boolean[] {true, true, true}, new boolean[3], true);
+        assertEquals(1, valley[2], "the far side of a dip climbs east");
+        assertEquals(3, valley[0], "and the near side climbs back west");
+        assertEquals(-1, valley[1]);
+        int[] undecked = StreetGrade.stairs(new int[] {64, 65, 66}, new boolean[] {true, true, true}, new boolean[] {false, true, false}, true);
+        assertEquals(-1, undecked[1], "a deck slice has none");
+        HeightSource river = HeightSource.of((x, z) -> x >= 12 && x <= 15 ? 62 : 64, (x, z) -> x >= 12 && x <= 15);
+        assertTrue(stairs(StreetGrade.compute(List.of(STREET), river)).stream().noneMatch(c -> c.x() >= 12 && c.x() <= 15), "no stair on a deck");
+    }
+
+    @Test
+    void aStaircaseOfOneBlockPerBlockHasAStairOnEverySlice() {
+        List<StreetGrade.Change> changes = grade((x, z) -> 64 + Math.min(Math.max(x - 5, 0), 6));
+        List<StreetGrade.Change> stairs = stairs(changes);
+        long slices = stairs.stream().map(StreetGrade.Change::x).distinct().count();
+        assertEquals(6, slices, "x=6..11: each a block higher than the one before");
+        assertTrue(stairs.stream().allMatch(c -> c.facing() == 1));
+        Map<Long, Integer> surface = surface(changes);
+        for (int x = 6; x <= 11; x++) {
+            assertEquals(64 + (x - 5), at(surface, x, 1));
+        }
+    }
+
+    /** R8.21: a plan's grading is laid a little at a time, a whole column in each batch. */
+    @Test
+    void aGradingIsSplitIntoBatchesThatEndOnWholeColumns() {
+        List<StreetGrade.Change> changes = grade((x, z) -> 64 + (x % 7 < 3 ? 0 : 3));
+        List<List<StreetGrade.Change>> batches = StreetGrade.batches(changes, 25);
+        assertTrue(batches.size() > 1, "" + changes.size());
+        assertEquals(changes, batches.stream().flatMap(List::stream).toList(), "nothing lost, nothing reordered");
+        for (int i = 0; i + 1 < batches.size(); i++) {
+            List<StreetGrade.Change> batch = batches.get(i);
+            StreetGrade.Change last = batch.get(batch.size() - 1);
+            StreetGrade.Change next = batches.get(i + 1).get(0);
+            assertTrue(last.x() != next.x() || last.z() != next.z(), "a column is never split between two batches at " + last);
+            assertTrue(batch.size() >= 25);
+        }
+        assertTrue(StreetGrade.batches(List.of(), 25).isEmpty());
+        assertEquals(1, StreetGrade.batches(changes, Integer.MAX_VALUE).size());
+    }
+
+    @Test
+    void aGradingIsSummarisedByRole() {
+        List<StreetGrade.Change> changes = grade((x, z) -> x >= 15 ? 65 : 64);
+        Map<StreetGrade.Role, Integer> counts = StreetGrade.summarize(changes);
+        assertEquals(3, counts.get(StreetGrade.Role.STAIR));
+        assertEquals(changes.size(), counts.values().stream().mapToInt(Integer::intValue).sum());
+    }
+
+    /** Stairs where two streets cross: each column still has exactly one surface block, and the street laid second keeps what the first gave it. */
+    @Test
+    void aJunctionOfTwoSlopingStreetsHasOneSurfaceBlockPerColumn() {
+        Rect eastWest = new Rect(0, 10, 30, 3);
+        Rect northSouth = new Rect(12, 0, 3, 30);
+        HeightSource hill = HeightSource.of((x, z) -> 64 + x / 8 + z / 10);
+        List<StreetGrade.Change> changes = StreetGrade.computeStreets(
+                List.of(new StreetGrade.Street(eastWest, true), new StreetGrade.Street(northSouth, false)), hill);
+        Map<Long, Integer> surface = surface(changes); // asserts one surface block per column
+        assertTrue(surface.size() > 100);
+        assertTrue(changes.stream().anyMatch(c -> c.role() == StreetGrade.Role.STAIR));
+        for (StreetGrade.Change c : changes) {
+            if (c.role() == StreetGrade.Role.STAIR) {
+                assertTrue(c.facing() >= 0 && c.facing() <= 3);
+            }
         }
     }
 }

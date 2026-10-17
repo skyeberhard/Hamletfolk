@@ -460,6 +460,7 @@ function tabAdmin(v) {
         el("button", { onclick: () => act({ action: "fastforward", village: id, speed: speed.value }, Number(speed.value) > 20 ? "Run " + v.name + " at " + speed.value + "x (heavy on the server)" : null) }, "Set")),
       card("Unstick", "Bring walled-in villagers to the centre.", el("button", { onclick: () => act({ action: "unstick", village: id }) }, "Unstick")),
       card("Mend palisade", "The builder adds posts where the ground steps.", el("button", { onclick: () => act({ action: "regrade", village: id }, "Mend " + v.name + "'s palisade (it spends wood)") }, "Mend")),
+      card("Check streets", "Stairs where a street climbs, hollows filled, narrow water bridged.", el("button", { onclick: () => act({ action: "grade-streets", village: id }, "Have " + v.name + "'s builders check its streets") }, "Check")),
       card("Cancel project", v.building ? "Give up: " + v.building : "Nothing is being built.",
         el("button", { class: "danger", disabled: !v.building, onclick: () => act({ action: "cancel-project", village: id }, "Give up " + v.name + "'s " + v.building) }, "Cancel")),
       card("Replan", "Forget the plan and lay the streets and lots out again.", el("button", { class: "danger", onclick: () => act({ action: "replan", village: id }, "Forget " + v.name + "'s plan and lay it out again") }, "Replan")),

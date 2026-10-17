@@ -24,6 +24,7 @@ public final class AdminAction {
         CANCEL_PROJECT("Give up the village's open building project", true, true),
         UNSTICK("Free walled-in villagers to the village centre", true, false),
         REGRADE("Have the builder mend the palisade", true, true),
+        GRADE_STREETS("Have the builders check the village's streets: stairs on slopes, hollows filled, narrow water bridged", true, true),
         RENAME("Rename the village", true, true),
         JOB("Set a resident's work and pin them to it", true, false),
         UNPIN("Hand a pinned resident back to the village", true, false),
@@ -138,7 +139,7 @@ public final class AdminAction {
         final UUID id = village;
         final Settlement home = settlement;
         return switch (kind.get()) {
-            case SAVE, REPLAN, CANCEL_PROJECT, UNSTICK, REGRADE -> ok(kind.get(), id, null, null, null, null);
+            case SAVE, REPLAN, CANCEL_PROJECT, UNSTICK, REGRADE, GRADE_STREETS -> ok(kind.get(), id, null, null, null, null);
             case LOCK_LOT, UNLOCK_LOT, RETYPE_LOT -> {
                 if (home.plan() == null) {
                     yield Checked.fail(home.name() + " has no plan yet");

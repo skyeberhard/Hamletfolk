@@ -261,6 +261,7 @@ final class ConstructionService {
             return;
         }
         releaseFinished();
+        endStrandedChecks();
         for (Settlement settlement : new ArrayList<>(service.registry().settlements())) {
             World world = Bukkit.getWorld(settlement.world());
             if (world == null || !service.inScope(world) || settlement.isAbandoned() || settlement.population() == 0) {
@@ -268,12 +269,161 @@ final class ConstructionService {
             }
             try {
                 decide(settlement, world);
+                streetStep(settlement, world); // R8.26
                 settlement.openProject().filter(p -> p.status() == ConstructionProject.Status.ACTIVE)
                         .ifPresent(p -> work(settlement, world, p));
             } catch (RuntimeException e) {
                 plugin.getLogger().log(Level.WARNING, "Construction failed in " + settlement.name(), e);
             }
         }
+    }
+
+    // ----- R8.26: a check of the streets -----
+
+    /** Changes placed in one pass of a street check (a pass is a second): about two thousand blocks a minute at a hitch of no more than a few milliseconds. */
+    private static final int CHECK_BATCH = 400;
+    /** A check not finished in this long (the ground never loaded, nobody near) is given up. */
+    private static final long CHECK_GIVE_UP_MS = 20 * 60_000L;
+
+    /** A street check under way for a village: what is still to be laid, in batches that end on a whole column, and in which style. */
+    private static final class StreetCheck {
+        final long since = System.currentTimeMillis();
+        VillagePlan plan; // the plan it was asked for: a replan (a different plan) ends it, as its batches belong to the old streets
+        String style = "plains";
+        java.util.ArrayDeque<List<StreetGrade.Change>> batches; // null until the grading has been worked out
+        int total;
+        int unloaded; // street columns left alone because their ground was not loaded
+    }
+
+    private final Map<java.util.UUID, StreetCheck> streetChecks = new HashMap<>();
+
+    /** What asking for a street check did: whether it was taken up, and what to tell the admin. */
+    record CheckResult(boolean ok, String message) {
+    }
+
+    /**
+     * R8.26: asks the builders to check a village's streets (an admin's action): the whole plan's streets are graded in one go, so streets
+     * that cross agree, and then laid a little at a time: stairs where a street climbs or falls a block, hollows filled, bumps cut, narrow
+     * water bridged. Only ground that is loaded is touched, and only plain ground (never anything built). Main thread only.
+     */
+    CheckResult checkStreets(Settlement settlement) {
+        if (settlement.plan() == null) {
+            return new CheckResult(false, settlement.name() + " has no plan yet, so it has no streets to check.");
+        }
+        World world = Bukkit.getWorld(settlement.world());
+        if (world == null || !service.inScope(world) || settlement.isAbandoned() || settlement.population() == 0) {
+            return new CheckResult(false, settlement.name() + " is empty, abandoned or in a world that is not simulated: nobody is there to build.");
+        }
+        if (streetChecks.containsKey(settlement.id())) {
+            return new CheckResult(false, settlement.name() + " is already having its streets checked.");
+        }
+        StreetCheck started = new StreetCheck();
+        started.plan = settlement.plan();
+        streetChecks.put(settlement.id(), started);
+        if (unattended()) {
+            hold(world, "s" + settlement.id(), planChunks(settlement, false)); // the ground the plan stands on is loaded for it
+        }
+        return new CheckResult(true, "The builders will check " + settlement.name() + "'s streets: stairs where a street climbs or falls, hollows filled, "
+                + "bumps cut, narrow water bridged. It takes a minute or so" + (unattended() ? "." : "; stand near the village, as only loaded ground is touched."));
+    }
+
+    /** One pass of a street check: work the grading out once the ground is loaded, then lay a batch of it. */
+    private void streetStep(Settlement settlement, World world) {
+        StreetCheck check = streetChecks.get(settlement.id());
+        if (check == null) {
+            return;
+        }
+        String key = "s" + settlement.id();
+        long now = System.currentTimeMillis();
+        VillagePlan plan = settlement.plan();
+        if (plan == null || plan != check.plan) {
+            endCheck(settlement, key, "was dropped: the village was planned again");
+            return;
+        }
+        if (now - check.since > CHECK_GIVE_UP_MS) {
+            endCheck(settlement, key, "was given up: the ground was not there to work on");
+            return;
+        }
+        if (check.batches == null) {
+            Held loading = held.get(key);
+            if (loading != null && !allLoaded(world, loading.chunks()) && now - loading.since() < LOAD_WAIT_MS) {
+                return; // the ground is still loading
+            }
+            List<StreetGrade.Street> streets = new ArrayList<>();
+            for (VillagePlan.Road road : plan.roads()) {
+                streets.add(new StreetGrade.Street(road.rect(), plan.runsAlongX(road)));
+            }
+            if (plan.square() != null && settlement.buildingCount(BuildingType.SQUARE) == 0) {
+                streets.add(new StreetGrade.Street(plan.square(), true)); // (levelled like a street until its building stands)
+            }
+            int unloaded = 0; // street columns whose chunk is not loaded (nothing is loaded for a check unless unattended building holds it)
+            for (StreetGrade.Street street : streets) {
+                Rect r = street.rect();
+                for (int x = r.x(); x <= r.maxX(); x++) {
+                    for (int z = r.z(); z <= r.maxZ(); z++) {
+                        unloaded += world.isChunkLoaded(x >> 4, z >> 4) ? 0 : 1;
+                    }
+                }
+            }
+            if (unloaded > 0 && now - check.since < LOAD_WAIT_MS) {
+                return; // give the ground a few seconds to load
+            }
+            check.unloaded = unloaded;
+            List<StreetGrade.Change> changes = StreetGrade.computeStreets(streets, streetGround(world));
+            check.style = plan.biomeSet();
+            check.total = changes.size();
+            check.batches = new java.util.ArrayDeque<>(StreetGrade.batches(changes, CHECK_BATCH));
+            Map<StreetGrade.Role, Integer> counts = StreetGrade.summarize(changes);
+            if (changes.isEmpty()) {
+                endCheck(settlement, key, check.unloaded == 0 ? "found nothing to change: the streets are in order"
+                        : "found nothing to change in the " + "ground that was loaded (" + check.unloaded + " street blocks were not)");
+            } else {
+                check.style = plan.biomeSet();
+                settlement.record(settlement.lastSimulatedDay(), io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.BUILDING,
+                        "The builders began to check the streets: " + check.total + " blocks to lay (" + counts.getOrDefault(StreetGrade.Role.STAIR, 0)
+                                + " stairs, " + counts.getOrDefault(StreetGrade.Role.BRIDGE, 0) + " bridge planks, "
+                                + (counts.getOrDefault(StreetGrade.Role.RAIL, 0) + counts.getOrDefault(StreetGrade.Role.LAMP, 0)) + " rails and lamps).");
+            }
+            return;
+        }
+        List<StreetGrade.Change> next = check.batches.peek();
+        if (next == null) {
+            endCheck(settlement, key, finished(check));
+            return;
+        }
+        StreetGrade.Change first = next.get(0);
+        StreetGrade.Change last = next.get(next.size() - 1);
+        if (!world.isChunkLoaded(first.x() >> 4, first.z() >> 4) || !world.isChunkLoaded(last.x() >> 4, last.z() >> 4)) {
+            return; // not loaded now: the check waits, up to its time limit
+        }
+        check.batches.poll();
+        applyGrade(world, next, check.style);
+        if (check.batches.isEmpty()) {
+            endCheck(settlement, key, finished(check));
+        }
+    }
+
+    private static String finished(StreetCheck check) {
+        return "finished: " + check.total + " blocks laid" + (check.unloaded == 0 ? "" : " (" + check.unloaded + " street blocks were not loaded and were left alone)");
+    }
+
+    /** Ends the checks of villages that are gone, empty or abandoned: the tick does not look at those, so nothing else would let go of their chunks. */
+    private void endStrandedChecks() {
+        for (java.util.UUID id : new ArrayList<>(streetChecks.keySet())) {
+            Settlement s = service.registry().get(id).orElse(null);
+            World world = s == null ? null : Bukkit.getWorld(s.world());
+            if (s == null || world == null || !service.inScope(world) || s.isAbandoned() || s.population() == 0) {
+                release("s" + id);
+                streetChecks.remove(id);
+            }
+        }
+    }
+
+    private void endCheck(Settlement settlement, String key, String outcome) {
+        release(key);
+        streetChecks.remove(settlement.id());
+        settlement.record(settlement.lastSimulatedDay(), io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.BUILDING,
+                "The builders' check of the streets " + outcome + ".");
     }
 
     // ----- deciding -----
@@ -1295,7 +1445,16 @@ final class ConstructionService {
      */
     private static boolean columnNatural(World world, int x, int z) {
         int y = surfaceY(world, x, z);
-        return y != Construction.UNKNOWN_GROUND && clearable(world.getBlockAt(x, y, z), true);
+        if (y == Construction.UNKNOWN_GROUND) {
+            return false;
+        }
+        Block top = world.getBlockAt(x, y, z);
+        return clearable(top, true) || isStreetStair(top.getType()); // (R8.25: the stairs the builders laid are the street, not a building)
+    }
+
+    /** R8.25: the stairs the builders lay in a street (cobblestone, or sandstone in a desert). */
+    private static boolean isStreetStair(Material m) {
+        return m == Material.COBBLESTONE_STAIRS || m == Material.SANDSTONE_STAIRS;
     }
 
     /** The surface, soil and foundation blocks of a village style. */
@@ -1505,6 +1664,24 @@ final class ConstructionService {
                     } else if (desert ? DESERT_GROUND.contains(here) : PATHABLE.contains(here)) {
                         // R4.51: a desert street is sandstone laid on the sand (it was sand on sand, which no one could see)
                         block.setType(desert ? DESERT_STREET : Material.DIRT_PATH, false);
+                    }
+                }
+                case STAIR -> {
+                    // R8.25: where the street rises or falls a block, a stair facing up the slope, so the slope is a staircase and not a jump.
+                    // Laid where a surface would be (grass, dirt, an old path, sand) and over an old stair; never over anything built.
+                    if (blocked.contains(column) || !clearHeadroom(block)) {
+                        continue;
+                    }
+                    Material here = block.getType();
+                    boolean ours = here.isAir() || Tag.REPLACEABLE.isTagged(here) || isStreetStair(here) || here == Material.DIRT_PATH
+                            || (desert ? DESERT_GROUND.contains(here) || here == DESERT_STREET : PATHABLE.contains(here));
+                    if (ours) {
+                        block.setBlockData(Material.valueOf(desert ? "SANDSTONE_STAIRS" : "COBBLESTONE_STAIRS").createBlockData(d -> {
+                            if (d instanceof org.bukkit.block.data.type.Stairs stair) {
+                                stair.setFacing(COMPASS[change.facing()]);
+                                stair.setHalf(org.bukkit.block.data.Bisected.Half.BOTTOM);
+                            }
+                        }), false);
                     }
                 }
                 case BRIDGE -> {

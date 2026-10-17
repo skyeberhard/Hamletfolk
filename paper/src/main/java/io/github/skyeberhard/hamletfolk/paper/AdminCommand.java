@@ -17,7 +17,7 @@ import org.bukkit.entity.Player;
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
     private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "regrade", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | regrade [name] | replan [name] | warp [name|all] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | regrade [name] | regrade streets [name] | replan [name] | warp [name|all] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
 
     private final SettlementService service;
     private final TemplateCommand templates;
@@ -101,6 +101,11 @@ final class AdminCommand {
      * the ground or shallow water calls for (what stands is left alone). For a palisade put up before the wall followed the ground.
      */
     private void regrade(CommandSender sender, String[] args) {
+        if (args.length >= 3 && args[2].equalsIgnoreCase("streets")) { // R8.21: regrade streets [village]
+            Optional<Settlement> village = args.length >= 4 ? lookup(sender, words(args, 3, args.length)) : here(sender);
+            village.ifPresent(v -> sender.sendMessage(service.plugin().construction().checkStreets(v).message()));
+            return;
+        }
         Optional<Settlement> target = args.length >= 3 ? lookup(sender, words(args, 2, args.length)) : here(sender);
         if (target.isEmpty()) {
             return;

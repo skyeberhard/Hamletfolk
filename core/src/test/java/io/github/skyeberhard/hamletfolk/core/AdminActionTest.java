@@ -160,4 +160,13 @@ class AdminActionTest {
         assertTrue(AdminAction.catalogue().stream().anyMatch(a -> a.get("action").equals("warp-all") && Boolean.TRUE.equals(a.get("confirm"))
                 && Boolean.FALSE.equals(a.get("village"))));
     }
+
+    @Test
+    void aStreetCheckNamesAVillageAndMustBeConfirmed() {
+        String id = village().id().toString();
+        assertFalse(AdminAction.check(body("action", "grade-streets", "village", id), registry).ok());
+        assertTrue(AdminAction.check(body("action", "grade-streets", "village", id, "confirm", true), registry).ok());
+        assertFalse(AdminAction.check(body("action", "grade-streets", "confirm", true), registry).ok(), "no village");
+        assertFalse(AdminAction.check(body("action", "grade-streets", "village", UUID.randomUUID().toString(), "confirm", true), registry).ok());
+    }
 }

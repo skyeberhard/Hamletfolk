@@ -64,6 +64,8 @@ rate are in the config) showing every village, what is in its way, and a page an
 | `ignore` | Look at a villager within 6 blocks: toggles leaving it alone (not in any village, not re-priced, not moved). Player only |
 | `found [name] [residents]` | Founds a new planned village where you stand, with that many founders (default 6). Player only; open, fairly flat land |
 | `replan [name]` | Throws away and regenerates the village plan |
+| `regrade [name]` | Has the builder mend the finished palisade: posts where the ground steps or across shallow water (R5.12) |
+| `regrade streets [name]` | Has the builders check the village's streets: stairs where a street climbs or falls, hollows filled, narrow water bridged; laid about 400 blocks a second (R8.26) |
 | `warp [name] <days>` | Runs a village up to 60 days ahead at once |
 | `warp all <days>` | Runs every village that can be run up to 30 days ahead, one after another (the server stalls for the sum) |
 | `fastforward [name\|all] [speed\|stop]` | Runs a village at several times speed in real time (in memory; stops on restart). No arguments shows what is running |

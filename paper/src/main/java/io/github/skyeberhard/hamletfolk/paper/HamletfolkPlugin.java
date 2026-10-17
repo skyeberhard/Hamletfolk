@@ -146,6 +146,11 @@ public final class HamletfolkPlugin extends JavaPlugin {
         return templates;
     }
 
+    /** The service that builds (R8.21: an admin asks it to check a village's streets). */
+    ConstructionService construction() {
+        return construction;
+    }
+
     @Override
     public void onDisable() {
         if (dashboard != null) {
