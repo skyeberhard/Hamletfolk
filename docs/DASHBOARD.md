@@ -35,6 +35,10 @@ Above a village's plan map: **Slope** (the ground read every 4 blocks where the 
 
 A fourth layer, **Defence and lights**, shows the street lights (gold where one stands), the wall (planned dimly, then in its colour; red where a post is missing), the guards' patrol, and a line with the counts, the threat and recent attacks. It is read from the world only where it is loaded, and only while the layer is open. Point at a building for its tier and (for a house) its beds now and next; click it for a Selected building panel, where with `dashboard.allow-actions` an **Upgrade** button has the builders improve it to the next tier (queued like any project, paid from the stores; refused with the reason for a player's or a found building, the best tier, busy builders, or empty stores). The Buildings tab has the same in its Tier, Beds and last columns.
 
+## Claimed beds (R8.30)
+
+A fifth layer, **Beds**, marks every bed the game knows of in the village: filled if a villager has claimed it as home, a ring if free. The beds card says how many are claimed, and each house shows its own beds and claims (in its tooltip, the Selected building panel and the Buildings tab; the tier's designed beds are shown until the game's own count is read). The count comes from the game's points of interest while the village is loaded and counts only beds inside the settlement radius; a village nobody is near keeps what was last seen.
+
 ## Treasury, Stores and Quests (R1.45)
 
 A village's page has three more read-only tabs. **Treasury**: the balance, the limit and room, what is held aside for requests, and the history lines

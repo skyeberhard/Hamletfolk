@@ -336,6 +336,34 @@ final class DashboardServer {
     private boolean groundChanged;
     private long groundSaved;
 
+    /** R8.30: the beds each village was last seen with and which were claimed (the game's points of interest, read only while the village is loaded). */
+    private final Map<java.util.UUID, List<io.github.skyeberhard.hamletfolk.core.BedCounts.Bed>> bedsSeen = new HashMap<>();
+    private final Map<java.util.UUID, Long> bedsAt = new HashMap<>();
+
+    private List<io.github.skyeberhard.hamletfolk.core.BedCounts.Bed> bedsOf(Settlement s, org.bukkit.World world) {
+        long now = System.currentTimeMillis();
+        if (world.isChunkLoaded(s.centerX() >> 4, s.centerZ() >> 4) && now - bedsAt.getOrDefault(s.id(), 0L) >= 20_000) {
+            bedsAt.put(s.id(), now);
+            List<io.github.skyeberhard.hamletfolk.core.BedCounts.Bed> beds = new ArrayList<>();
+            int y = world.getHighestBlockYAt(s.centerX(), s.centerZ(), org.bukkit.HeightMap.MOTION_BLOCKING_NO_LEAVES);
+            long radiusSquared = (long) service.settlementRadius() * service.settlementRadius(); // only beds inside the village, as the housing count does
+            for (org.bukkit.Location at : service.bedsAround(s, world, io.papermc.paper.entity.poi.PoiType.Occupancy.IS_OCCUPIED, y)) {
+                if (s.distanceSquared(at.getBlockX(), at.getBlockZ()) > radiusSquared) {
+                    continue;
+                }
+                beds.add(new io.github.skyeberhard.hamletfolk.core.BedCounts.Bed(at.getBlockX(), at.getBlockY(), at.getBlockZ(), true));
+            }
+            for (org.bukkit.Location at : service.bedsAround(s, world, io.papermc.paper.entity.poi.PoiType.Occupancy.HAS_SPACE, y)) {
+                if (s.distanceSquared(at.getBlockX(), at.getBlockZ()) > radiusSquared) {
+                    continue;
+                }
+                beds.add(new io.github.skyeberhard.hamletfolk.core.BedCounts.Bed(at.getBlockX(), at.getBlockY(), at.getBlockZ(), false));
+            }
+            bedsSeen.put(s.id(), beds);
+        }
+        return bedsSeen.getOrDefault(s.id(), List.of());
+    }
+
     /** R8.27: adds the slope grid and the homes to a village's page. Loaded ground only; an unmeasured cell stays unknown. Main thread. */
     private void layers(Settlement s, Map<String, Object> page) {
         try {
@@ -357,6 +385,19 @@ final class DashboardServer {
             }
             if (plugin.templates() != null) { // R8.29: each building's tier, beds and whether it can be upgraded
                 page.put("buildingInfo", io.github.skyeberhard.hamletfolk.core.BuildingTiers.asData(s, plugin.templates().catalog(), plugin.templates()::blueprint));
+            }
+            if (world != null) { // R8.30: the beds the game knows of, and which are claimed
+                var beds = bedsOf(s, world);
+                page.put("bedsLive", io.github.skyeberhard.hamletfolk.core.BedCounts.asData(beds));
+                if (page.get("buildingInfo") instanceof Map<?, ?> info) {
+                    io.github.skyeberhard.hamletfolk.core.BedCounts.perHouse(s, beds).forEach((key, counts) -> {
+                        if (info.get(key) instanceof Map<?, ?> row) {
+                            @SuppressWarnings("unchecked") Map<String, Object> mutable = (Map<String, Object>) row;
+                            mutable.put("liveBeds", counts[0]);
+                            mutable.put("claimedBeds", counts[1]);
+                        }
+                    });
+                }
             }
             var signs = plugin.homeSigns();
             if (signs != null) {

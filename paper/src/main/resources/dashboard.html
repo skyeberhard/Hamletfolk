@@ -161,16 +161,22 @@ const TOKEN = "__HAMLETFOLK_TOKEN__";
 const ACTIONS = __HAMLETFOLK_ACTIONS__;
 
 // ----- state -----
+/** R8.30: a house's beds in words: the beds the game knows of there and how many a villager has claimed (the design's count if none is known yet). */
+function bedsText(bi) {
+  if (!bi) return "";
+  if (bi.liveBeds !== undefined && (bi.liveBeds > 0 || !bi.beds)) return bi.liveBeds + (bi.liveBeds === 1 ? " bed" : " beds") + ", " + bi.claimedBeds + " claimed";
+  return bi.beds ? bi.beds + (bi.beds === 1 ? " bed (design)" : " beds (design)") : "";
+}
 // R8.27: which layers of the plan map are on (kept in this browser only)
 function loadLayers() {
-  const base = { slope: false, districts: false, homes: false, defence: false };
+  const base = { slope: false, districts: false, homes: false, defence: false, beds: false };
   let out = base;
   try { out = Object.assign(base, JSON.parse(localStorage.getItem("hamletfolk-layers") || "{}")); } catch (e) { /* not kept */ }
   const asked = new URLSearchParams(location.search).get("layers"); // ?layers=slope,homes turns them on from a link
   if (asked) asked.split(",").forEach((k) => { if (k in out) out[k] = true; });
   return out;
 }
-const LAYERS = [["slope", "Slope"], ["districts", "Districts"], ["homes", "Homes"], ["defence", "Defence and lights"]];
+const LAYERS = [["slope", "Slope"], ["districts", "Districts"], ["homes", "Homes"], ["defence", "Defence and lights"], ["beds", "Beds"]];
 const SLOPE = { "0": "#6fae62", "1": "#cdbf53", "2": "#dd8a3f", "3": "#cf4d3f", "~": "#4c86c6" };
 const familyColour = (name) => { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360; return "hsl(" + h + ",65%,55%)"; };
 const state = {
@@ -508,7 +514,7 @@ function village(v) {
     const left = line.daysLeft >= 0 && line.daysLeft <= 30 ? " \u00b7 " + line.daysLeft + "d left" : "";
     return el("div", { class: "k " + runwayClass(line), title: line.verdict }, rate + left);
   };
-  const stat = (k, n, col, colour, resource) => el("div", { class: "card" }, el("div", { class: "v" }, n), el("div", { class: "k" }, k), resource ? note(resource) : null,
+  const stat = (k, n, col, colour, resource, extra) => el("div", { class: "card" }, el("div", { class: "v" }, n), el("div", { class: "k" }, k), resource ? note(resource) : null, extra ? el("div", { class: "k" }, extra) : null,
     col != null ? spark(v.id, col, colour) : null);
   return [
     el("h1", null, el("span", { class: "dot h" + v.health }), v.name),
@@ -519,7 +525,7 @@ function village(v) {
     el("div", { class: "cards" },
       stat(v.children ? "people (" + v.children + " children)" : "people", v.population, 0), stat("food", fmt(v.stores.food), 1, "var(--accent2)", "food"),
       stat("wood", fmt(v.stores.wood), 2, null, "wood"), stat("stone", fmt(v.stores.stone), 3, null, "stone"), stat("tools", fmt(v.stores.tools), 4, null, "tools"),
-      stat("treasury of " + v.treasuryLimit, v.treasury, 5), stat("beds, " + v.freeBeds + " free", v.beds, 6)),
+      stat("treasury of " + v.treasuryLimit, v.treasury, 5), stat("beds, " + v.freeBeds + " free", v.beds, 6, null, null, v.bedsLive ? v.bedsLive.claimed + " claimed" : null)),
     el("div", { class: "tabs", role: "tablist" }, tabs.map((t) => el("div", { class: "tab" + (state.tab === t.id ? " sel" : ""), role: "tab", onclick: () => { state.tab = t.id; location.hash = v.id + "/" + t.id; renderMain(); } }, t.label))),
     tabs.find((t) => t.id === state.tab).render(v)];
 }
@@ -610,7 +616,7 @@ function tabBuildings(v) {
     el("div", { class: "panel" }, el("h2", null, "Buildings (" + v.buildings.length + ")"), el("div", { class: "scroll" }, el("table", null,
       el("thead", null, el("tr", null, el("th", null, "Kind"), el("th", null, "Name"), el("th", null, "Tier"), el("th", null, "Beds"), el("th", null, "Where"), el("th", null, "Made by"), ACTIONS ? el("th", null, "") : null)),
       el("tbody", null, rows.map((b) => { const bi = (v.buildingInfo || {})[b.x + "," + b.y + "," + b.z];
-        return el("tr", null, el("td", null, b.type), el("td", null, b.name || ""), el("td", null, b.tier + (bi ? " / " + bi.maxTier : "")), el("td", null, bi && bi.beds ? bi.beds : ""), el("td", null, b.x + ", " + b.z), el("td", { class: "sub" }, b.by),
+        return el("tr", null, el("td", null, b.type), el("td", null, b.name || ""), el("td", null, b.tier + (bi ? " / " + bi.maxTier : "")), el("td", { title: bi && bi.beds ? "design: " + bi.beds + " at this tier" : "" }, bi && bedsText(bi) ? (bi.liveBeds !== undefined && (bi.liveBeds > 0 || !bi.beds) ? bi.liveBeds + " (" + bi.claimedBeds + " claimed)" : bi.beds) : ""), el("td", null, b.x + ", " + b.z), el("td", { class: "sub" }, b.by),
           ACTIONS ? el("td", null, bi && bi.upgradable ? el("button", { title: "have the builders improve it", onclick: () => act({ action: "upgrade-building", village: v.id, building: b.x + "," + b.y + "," + b.z }, "Have the builders improve this " + b.type.toLowerCase() + " to tier " + (b.tier + 1) + " (the stores pay for it)") }, "Upgrade") : el("span", { class: "sub", title: bi ? bi.why : "" }, bi ? "no" : "")) : null); }))))),
     el("div", { class: "panel" }, el("h2", null, "Building projects"),
       v.projects.length ? el("ul", { class: "plain" }, v.projects.map((p) => el("li", null, cap(p.type) + " tier " + p.tier + " ", el("span", { class: "chip" + (p.status === "cancelled" ? " bad" : "") }, p.status),
@@ -688,6 +694,8 @@ function tabPlan(v) {
     state.layers.slope ? el("div", { class: "legend" }, [["0", "flat"], ["1", "gentle"], ["2", "steep"], ["3", "cliff"], ["~", "water"]].map(([k, t]) => el("span", null, el("i", { style: "background:" + SLOPE[k] }), t)),
       el("span", null, v.ground ? "height " + v.ground.low + " to " + v.ground.high + " · a cell is " + v.ground.step + " by " + v.ground.step + " blocks · unmeasured ground is left clear" : "ground not measured yet (it is read where the world is loaded)")) : null,
     state.layers.defence ? defenceLegend(v) : null,
+    state.layers.beds ? el("div", { class: "legend" }, el("span", null, el("i", { style: "background:#f2a33a" }), "bed a villager has claimed"), el("span", null, el("i", { style: "background:transparent; border:2px solid #f2a33a; box-sizing:border-box" }), "free bed"),
+      el("span", null, v.bedsLive ? v.bedsLive.total + " beds known: " + v.bedsLive.claimed + " claimed, " + v.bedsLive.free + " free · read from the game while the village is loaded" : "not read yet (needs the village loaded)")) : null,
     state.layers.homes ? el("div", { class: "legend" }, el("span", null, "each house is ringed in its family's colour; grey ring = nobody lives there; point at a house to see who")) : null,
     el("div", { class: "legend" }, Object.entries(LOT).map(([k, c]) => el("span", null, el("i", { style: "background:" + c }), k)),
       el("span", null, el("i", { style: "background:#7aa0be" }), "trade and other"), el("span", null, "solid = built on · outline = ready · dashed = rough · crossed = kept empty · dot = building by kind (grey rim: found) · dashed ring = no lot of the plan here")),
@@ -719,7 +727,7 @@ function selectedBuilding(v) {
   if (!b) return null;
   const bi = (v.buildingInfo || {})[key];
   const head = el("div", null, el("b", null, (b.name ? b.name + " · " : "") + b.type), " ", el("span", { class: "chip" }, "tier " + b.tier + (bi ? " of " + bi.maxTier : "")),
-    bi && bi.beds ? el("span", { class: "chip" }, bi.beds + (bi.beds === 1 ? " bed" : " beds")) : null,
+    bi && bedsText(bi) ? el("span", { class: "chip" }, bedsText(bi)) : null,
     el("div", { class: "sub" }, "at " + b.x + ", " + b.y + ", " + b.z + " · " + (b.by === "found" ? "found standing" : "registered by " + b.by)));
   const next = bi && bi.nextBeds ? el("div", { class: "sub" }, "The next tier has " + bi.nextBeds + " beds.") : null;
   if (!bi) return el("div", { class: "panel" }, el("h2", null, "Selected building"), head);
@@ -839,6 +847,12 @@ function drawMap(canvas, tip, v) {
         if (c === "1") { g.strokeStyle = "rgba(242,199,68,.4)"; g.lineWidth = 3; g.stroke(); }
       });
     }
+    if (state.layers.beds && v.bedsLive) { // R8.30: the beds the game knows of, claimed or free
+      for (const [x, z, claimed] of v.bedsLive.places) {
+        g.beginPath(); g.arc(X(x + .5), Z(z + .5), Math.max(3, m.s * .8), 0, 7);
+        if (claimed) { g.fillStyle = "#f2a33a"; g.fill(); } else { g.lineWidth = 2; g.strokeStyle = "#f2a33a"; g.stroke(); }
+      }
+    }
     if (state.layers.homes) { // R8.27: whose house is whose
       for (const h of v.homes || []) {
         const hx = X(h.x + .5), hz = Z(h.z + .5);
@@ -877,7 +891,7 @@ function drawMap(canvas, tip, v) {
          el("div", { class: "sub" }, hit.rect[2] + " by " + hit.rect[3] + " at " + hit.rect[0] + ", " + hit.rect[1])]
       : [el("b", null, (hit.name ? hit.name + " \u00b7 " : "") + hit.type + (hit.tier > 1 ? " tier " + hit.tier : "")), el("div", { class: "sub" }, "at " + hit.x + ", " + hit.y + ", " + hit.z), el("div", { class: "sub" }, hit.by === "found" ? "found standing (a vanilla building)" : "registered by " + hit.by),
          hit.noLot ? el("div", { class: "sub" }, "No lot in the plan here: built before the plan was redrawn, signed by a player, or found.") : null,
-         (() => { const bi = (v.buildingInfo || {})[hit.x + "," + hit.y + "," + hit.z]; return bi ? el("div", null, "Tier " + bi.tier + " of " + bi.maxTier + (bi.beds ? " · " + bi.beds + (bi.beds === 1 ? " bed" : " beds") + (bi.nextBeds ? " (" + bi.nextBeds + " at tier " + (bi.tier + 1) + ")" : "") : "")) : null; })(),
+         (() => { const bi = (v.buildingInfo || {})[hit.x + "," + hit.y + "," + hit.z]; return bi ? el("div", null, "Tier " + bi.tier + " of " + bi.maxTier + (bedsText(bi) ? " · " + bedsText(bi) + (bi.nextBeds ? " (" + bi.nextBeds + " at tier " + (bi.tier + 1) + ")" : "") : "")) : null; })(),
          (() => { const home = (v.homes || []).find((h) => h.x === hit.x && h.z === hit.z); return home ? el("div", null, home.empty ? "Nobody lives here." : "The " + home.family + " household: " + home.people.join(", ")) : null; })()]));
     tip.style.display = "block";
     tip.style.left = Math.min(ex + 14, W - 240) + "px"; tip.style.top = Math.min(ey + 14, H - 70) + "px";
