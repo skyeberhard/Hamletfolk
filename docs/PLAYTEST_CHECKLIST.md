@@ -20,10 +20,10 @@ turns out to need a player, just do it in game.
 | T | Goal | Mode | Result |
 |---|---|---|---|
 | T1 | Starts clean, `Tracking 0 settlements.`, no errors | C | pass (passive, 2026-10-11): five clean starts today, none with an error; not a fresh world, so it said `Tracking 10` |
-| T17 | `/settlement admin list`, `inspect`, `rename`, `save` | C | |
-| T2 | Villager shows a name on hover | P | |
-| T3 | `/settlement` shows the village summary | P | |
-| T4, T5 | Talking works; the greeting warms up after six talks | P | |
+| T17 | `/settlement admin list`, `inspect`, `rename`, `save` | C | pass (2026-10-16): Renamed Testford to Bill's_Foot, verified list, inspect and save as well |
+| T2 | Villager shows a name on hover | P | pass (2026-10-16) |
+| T3 | `/settlement` shows the village summary | P | pass (2026-10-16) |
+| T4, T5 | Talking works; the greeting warms up after six talks | P | pass (2026-10-16) |
 | T6, T6b | A smith with no metal says so (after the famine line, once food is donated) | P | |
 | T11 | Names and history survive a restart | C | pass (passive, 2026-10-11): every village and its history in each startup backup is in the live save |
 | T13 | Three restarts in a row without losing anything | C | pass (passive, 2026-10-11): five restarts today, nothing lost |
@@ -32,11 +32,11 @@ turns out to need a player, just do it in game.
 
 | T | Goal | Mode | Result |
 |---|---|---|---|
-| T46 | `/settlement survey` in each biome | P | |
-| T51 | `/settlement admin found Testford 8` makes a village | P | |
-| T45 | Planner explains what it wants and why | P | |
-| T47 | `plan` and `lots`: streets and lots outlined | P | |
-| T65 | Land shapes the village's character | P | |
+| T46 | `/settlement survey` in each biome | P | partial pass (2026-10-17) Though the site survey seems pessimistic. I'd ask to revaluate the logic |
+| T51 | `/settlement admin found Testford 8` makes a village | P | pass (2026-10-17) verified |
+| T45 | Planner explains what it wants and why | P | pass (2026-10-17) verified planner outlines what is going on in the settlement.|
+| T47 | `plan` and `lots`: streets and lots outlined | P | pass (2026-10-17) works, visible multicolored particles. If there was a way to turn into actual lines this would be great, but otherwise it works.|
+| T65 | Land shapes the village's character | P | pass (2026-10-17) newly founded village in forest is a timber town.|
 | T74 | A big village grows to later plan stages | P | |
 | T33 | Beds counted as housing | P | |
 | T32 | Building signs register and unregister | P | |
