@@ -425,7 +425,9 @@ function worldPage(w) {
   return [
     el("h1", null, el("span", { class: "dot h" + w.light }), w.name),
     el("div", { class: "sub" }, w.environment + " · day " + w.day + " · " + w.clock + " (" + w.period + ") · " + w.weather + " · " + w.difficulty),
-    el("div", null, el("span", { class: "chip" + (w.light === 2 ? " bad" : w.light === 1 ? " watch" : "") }, lightName[w.light] + ": " + w.why)),
+    el("div", null, el("span", { class: "chip" + (w.light === 2 ? " bad" : w.light === 1 ? " watch" : "") }, lightName[w.light] + ": " + w.why),
+      w.clockRuns === false ? el("span", { class: "chip watch", title: "the world's day count is not advancing" }, "clock stopped") : null,
+      w.clockRuns !== false && w.clockSpeed && Math.abs(w.clockSpeed - 1) > 0.05 ? el("span", { class: "chip", title: "measured: world ticks per server tick" }, "clock x" + w.clockSpeed) : null),
     el("div", { class: "tabs", role: "tablist" }, WORLD_TABS.map((t) => el("div", { class: "tab" + (state.tab === t.id ? " sel" : ""), role: "tab", onclick: () => { state.tab = t.id; location.hash = "~" + w.name + "/" + t.id; renderMain(); } }, t.label))),
     WORLD_TABS.find((t) => t.id === state.tab).render(w)];
 }
@@ -440,7 +442,8 @@ function worldOverview(w) {
 function worldTime(w) {
   const t = w.settings || { speed: 1, warpDays: 5, running: 0, own: [] };
   const stat = (k, n, note) => el("div", { class: "card" }, el("div", { class: "v" }, n), el("div", { class: "k" }, k), note ? el("div", { class: "k" }, note) : null);
-  const cards = el("div", { class: "cards" }, stat("saved speed", t.speed + "x", t.speed > 1 ? "kept over restarts" : "normal"), stat("villages running fast", t.running, "of " + w.villages),
+  const cards = el("div", { class: "cards" }, stat("world clock", w.clockRuns === false ? "stopped" : "x" + (w.clockSpeed || 1), w.clockRuns === false ? "its day count stands still" : "measured"),
+    stat("saved speed", t.speed + "x", t.speed > 1 ? "kept over restarts" : "normal"), stat("villages running fast", t.running, "of " + w.villages),
     stat("warp starts at", t.warpDays + " days"));
   const own = t.own.length ? el("div", { class: "sub", style: "margin-top:8px" }, "With a speed of their own (this wins over the world's): " + t.own.join(", ") + ".") : null;
   if (!ACTIONS) return [cards, own, el("div", { class: "sub", style: "margin-top:12px" }, "Turn on dashboard.allow-actions to change these.")];

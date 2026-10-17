@@ -41,6 +41,8 @@ as today. Nothing new may bypass that. Today's `warp-all` and `fastforward-all` 
 
 ## 3. Portals
 
+See [GOODECRAFT_INTEGRATION.md](GOODECRAFT_INTEGRATION.md) for what GoodeCraft's code actually does (its portal routing, Portal Stones, per-world clocks) and the proposed shared interfaces.
+
 The portal system (goodecraft's, by Owen) is a separate plugin. The world page does not depend on it. It is a panel the portal plugin supplies through
 the extension API of R1.38 (a name, the data to show, and its actions with their parameters, through Bukkit's services manager), drawn on the world tab
 as "Portals" and applying the same login, roles, confirmation, main-thread running and audit log.

@@ -26,7 +26,12 @@ public final class WorldHealth {
 
     /** What the server knows of a world. */
     public record Facts(String name, String environment, long day, long timeOfDay, String weather, String difficulty, boolean simulated,
-            List<PlayerAt> players) {
+            List<PlayerAt> players, boolean clockRuns, double clockSpeed) {
+        /** A world whose clock runs at normal speed. */
+        public Facts(String name, String environment, long day, long timeOfDay, String weather, String difficulty, boolean simulated,
+                List<PlayerAt> players) {
+            this(name, environment, day, timeOfDay, weather, difficulty, simulated, players, true, 1.0);
+        }
     }
 
     /** What a light is, and why. */
@@ -35,6 +40,22 @@ public final class WorldHealth {
 
     /** The light of a world from its villages' summaries (each with {@code health}, {@code population} and {@code abandoned}). */
     public static Light light(boolean simulated, List<Map<String, Object>> villages) {
+        return light(simulated, villages, true);
+    }
+
+    /**
+     * As above; a world whose clock does not advance (its day count is stopped, so its villages make no daily progress) is amber at best:
+     * nothing is wrong with them, but nothing will change either. A village run ahead by an admin still moves.
+     */
+    public static Light light(boolean simulated, List<Map<String, Object>> villages, boolean clockRuns) {
+        Light plain = judge(simulated, villages);
+        if (!clockRuns && simulated && !villages.isEmpty() && plain.colour() == GREEN) {
+            return new Light(AMBER, "its clock is stopped, so its villages make no daily progress");
+        }
+        return plain;
+    }
+
+    private static Light judge(boolean simulated, List<Map<String, Object>> villages) {
         if (!simulated) {
             return new Light(GREY, "this world is not simulated");
         }
@@ -93,7 +114,7 @@ public final class WorldHealth {
 
     /** A world as the dashboard shows it: its facts, its light and why, its numbers and its players. */
     public static Map<String, Object> row(Facts facts, List<Map<String, Object>> villages) {
-        Light light = light(facts.simulated(), villages);
+        Light light = light(facts.simulated(), villages, facts.clockRuns());
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("name", facts.name());
         out.put("environment", facts.environment());
@@ -103,6 +124,8 @@ public final class WorldHealth {
         out.put("weather", facts.weather());
         out.put("difficulty", facts.difficulty());
         out.put("simulated", facts.simulated());
+        out.put("clockRuns", facts.clockRuns());
+        out.put("clockSpeed", Math.round(facts.clockSpeed() * 100) / 100.0);
         out.put("light", light.colour());
         out.put("why", light.why());
         int green = 0;

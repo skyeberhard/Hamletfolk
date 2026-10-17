@@ -193,6 +193,32 @@ final class DashboardServer {
         }
     }
 
+    /** R1.44: false if the world's clock does not advance (the rule is off: a locked time, or a day cycle of zero), so its villages' days stand still. */
+    private static boolean clockRuns(org.bukkit.World world) {
+        try {
+            Boolean advances = world.getGameRuleValue(org.bukkit.GameRules.ADVANCE_TIME);
+            return advances == null || advances;
+        } catch (RuntimeException e) {
+            return true; // a dimension with no clock, or a rule this build does not have: nothing to say
+        }
+    }
+
+    /** The last full time and moment each world was looked at, to measure how fast its clock runs. */
+    private final Map<String, long[]> clockSamples = new HashMap<>();
+
+    /** R1.44: how fast the world's clock ran since the last look, in world ticks per server tick (1 is normal; GoodeCraft's day cycle speed shows here). */
+    private double clockSpeed(org.bukkit.World world) {
+        long full = world.getFullTime();
+        long now = System.nanoTime();
+        long[] last = clockSamples.put(world.getName(), new long[] {full, now});
+        if (last == null || now - last[1] < 1_000_000_000L) {
+            return clockRuns(world) ? 1.0 : 0.0;
+        }
+        double serverTicks = (now - last[1]) / 50_000_000.0;
+        double speed = (full - last[0]) / serverTicks;
+        return Math.max(0, Math.min(1000, speed));
+    }
+
     /** R1.44: every loaded world with its light (from its villages' summaries), facts and the players in it. Main thread. */
     private List<Map<String, Object>> worldRows(List<Map<String, Object>> villageRows) {
         List<Map<String, Object>> out = new ArrayList<>();
@@ -205,7 +231,7 @@ final class DashboardServer {
             }
             var facts = new io.github.skyeberhard.hamletfolk.core.WorldHealth.Facts(world.getName(), world.getEnvironment().name().toLowerCase(Locale.ROOT),
                     SettlementService.day(world), world.getTime(), world.isThundering() ? "thunder" : world.hasStorm() ? "rain" : "clear",
-                    world.getDifficulty().name().toLowerCase(Locale.ROOT), service.inScope(world), players);
+                    world.getDifficulty().name().toLowerCase(Locale.ROOT), service.inScope(world), players, clockRuns(world), clockSpeed(world));
             List<Map<String, Object>> mine = villageRows.stream().filter(r -> world.getName().equals(r.get("world"))).toList();
             Map<String, Object> row = io.github.skyeberhard.hamletfolk.core.WorldHealth.row(facts, mine);
             Map<String, Object> settings = new java.util.LinkedHashMap<>(); // R1.46

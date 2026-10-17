@@ -57,6 +57,16 @@ class WorldHealthTest {
     }
 
     @Test
+    void aStoppedClockMakesAHealthyWorldAmberAndChangesNothingElse() {
+        List<Map<String, Object>> healthy = List.of(village(0, 10, false));
+        assertEquals(WorldHealth.AMBER, WorldHealth.light(true, healthy, false).colour());
+        assertTrue(WorldHealth.light(true, healthy, false).why().contains("clock is stopped"));
+        assertEquals(WorldHealth.GREEN, WorldHealth.light(true, healthy, true).colour());
+        assertEquals(WorldHealth.RED, WorldHealth.light(true, List.of(village(2, 10, false)), false).colour(), "a worse light is left as it is");
+        assertEquals(WorldHealth.GREY, WorldHealth.light(true, List.of(), false).colour(), "no villages, nothing to freeze");
+    }
+
+    @Test
     void theClockStartsAtSixAndThePeriodsFollowTheSky() {
         assertEquals("6:00", WorldHealth.clock(0));
         assertEquals("12:00", WorldHealth.clock(6000));
