@@ -37,7 +37,10 @@ public final class BrainBehaviours {
             new Spec(GuardDuty.BEHAVIOUR, BrainFamily.GUARDS, 1500),
             // R9.6: a guard on duty walks the village's streets between fights (PatrolRoute), through the pathing service. Idle it
             // is a few microseconds; the dear moment is starting a journey, once every few seconds.
-            new Spec(GuardDuty.PATROL, BrainFamily.GUARDS, 1000));
+            new Spec(GuardDuty.PATROL, BrainFamily.GUARDS, 1000),
+            // R4.17: a resident whose trade has a workplace walks there in working hours and works it (WorkDuty), through the pathing
+            // service. Idle it is a few microseconds; the dear moment is starting a journey, once every minute or so per villager.
+            new Spec(WorkDuty.BEHAVIOUR, BrainFamily.WORK, 1000));
 
     /** Default distance (blocks) from a player within which villagers get their behaviours. */
     public static final int DEFAULT_WATCH = 48;

@@ -471,7 +471,13 @@ final class BrainService implements Listener {
         try {
             boolean near = isResident(id) && behaviours.keepWatching(module.has(id), nearestPlayer(villager, players));
             boolean duty = near && onDuty(id);
-            module.attach(villager, near ? io.github.skyeberhard.hamletfolk.core.GuardDuty.fit(running, duty) : Set.of());
+            io.github.skyeberhard.hamletfolk.core.WorkDuty.Place place = near && !duty
+                    && running.contains(io.github.skyeberhard.hamletfolk.core.WorkDuty.BEHAVIOUR) ? workplaceOf(id) : null;
+            module.attach(villager, near ? io.github.skyeberhard.hamletfolk.core.WorkDuty.fit(
+                    io.github.skyeberhard.hamletfolk.core.GuardDuty.fit(running, duty), place != null) : Set.of());
+            if (place != null && module.has(id) && running.contains(io.github.skyeberhard.hamletfolk.core.WorkDuty.BEHAVIOUR)) {
+                module.setWork(id, groundedPlace(villager.getWorld(), place));
+            }
             if (duty && module.has(id) && running.contains(io.github.skyeberhard.hamletfolk.core.GuardDuty.PATROL)) {
                 routeFor(id);
             }
@@ -548,6 +554,20 @@ final class BrainService implements Listener {
                     : spot);
         }
         return out;
+    }
+
+    /** R4.17: where this resident works, if its trade has a registered workplace (looked up once a second, for villagers near a player only). */
+    private io.github.skyeberhard.hamletfolk.core.WorkDuty.Place workplaceOf(UUID id) {
+        Optional<Settlement> home = settlements.registry().settlementOf(id);
+        return home.flatMap(s -> s.resident(id).flatMap(r -> io.github.skyeberhard.hamletfolk.core.WorkDuty.workplace(s, r))).orElse(null);
+    }
+
+    /**
+     * The workplace as a spot to walk to: where the building is registered (the pathing service looks for the floor within a few blocks of
+     * the height given, so a smithy's door or a farm's post is walked to, not the roof of the building).
+     */
+    private static io.github.skyeberhard.hamletfolk.core.PatrolRoute.Spot groundedPlace(World world, io.github.skyeberhard.hamletfolk.core.WorkDuty.Place place) {
+        return new io.github.skyeberhard.hamletfolk.core.PatrolRoute.Spot(place.x(), place.y(), place.z());
     }
 
     /** R9.3: the simulation's guard, in a village with tools in its stores (checked each second, so it stops when they run out). */

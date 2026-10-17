@@ -208,6 +208,9 @@ public final class BrainSelfCheck {
             Requirement.field(MEMORY, "HURT_BY_ENTITY", MEMORY),
             Requirement.method(LIVING, "void", "heal", "float"),
             Requirement.method(LIVING, "boolean", "hasLineOfSight", ENTITY),
+            // R4.17: work turns its head to the workplace
+            Requirement.type("net.minecraft.world.entity.ai.behavior.BlockPosTracker"),
+            Requirement.constructor("net.minecraft.world.entity.ai.behavior.BlockPosTracker", BLOCK_POS),
             // R9.6: the patrol
             Requirement.method(LIVING, "void", "stopSleeping"),
             Requirement.method(ENTITY, "org.bukkit.craftbukkit.entity.CraftEntity", "getBukkitEntity"),

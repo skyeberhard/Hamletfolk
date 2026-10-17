@@ -47,7 +47,8 @@ public final class VillagerBrains implements BrainModule {
      */
     static int priority(Behavior<Villager> behaviour) {
         return behaviour instanceof GuardBehaviour ? GuardBehaviour.PRIORITY
-                : behaviour instanceof PatrolBehaviour ? PatrolBehaviour.PRIORITY : PRIORITY;
+                : behaviour instanceof PatrolBehaviour ? PatrolBehaviour.PRIORITY
+                : behaviour instanceof WorkBehaviour ? WorkBehaviour.PRIORITY : PRIORITY;
     }
 
     /** Makes one villager's instance of a behaviour. */
@@ -61,7 +62,8 @@ public final class VillagerBrains implements BrainModule {
             "attention", AttentionBehaviour::new,
             "journey", JourneyBehaviour::new,
             GuardDuty.BEHAVIOUR, GuardBehaviour::new,
-            GuardDuty.PATROL, PatrolBehaviour::new);
+            GuardDuty.PATROL, PatrolBehaviour::new,
+            io.github.skyeberhard.hamletfolk.core.WorkDuty.BEHAVIOUR, WorkBehaviour::new);
 
     private final Field table;
     private final Map<UUID, Attachment> attached = new HashMap<>();
@@ -193,6 +195,25 @@ public final class VillagerBrains implements BrainModule {
     }
 
     @Override
+    public void setWork(UUID villager, io.github.skyeberhard.hamletfolk.core.PatrolRoute.Spot workplace) {
+        Attachment a = attached.get(villager);
+        if (a != null && a.behaviours().get(io.github.skyeberhard.hamletfolk.core.WorkDuty.BEHAVIOUR) instanceof WorkBehaviour work) {
+            work.set(workplace);
+        }
+    }
+
+    /** How many residents are walking to their workplaces now (main thread; each asks before it sets out, to keep the number at once down). */
+    int walkingToWork() {
+        int walking = 0;
+        for (Attachment a : attached.values()) {
+            if (a.behaviours().get(io.github.skyeberhard.hamletfolk.core.WorkDuty.BEHAVIOUR) instanceof WorkBehaviour work && work.walking()) {
+                walking++;
+            }
+        }
+        return walking;
+    }
+
+    @Override
     public void detachAll() {
         for (Attachment a : attached.values()) {
             takeAllOff(a);
@@ -233,6 +254,9 @@ public final class VillagerBrains implements BrainModule {
         }
         if (behaviour instanceof PatrolBehaviour patrol) {
             patrol.release();
+        }
+        if (behaviour instanceof WorkBehaviour work) {
+            work.release();
         }
         if (behaviour.getStatus() == Behavior.Status.RUNNING && a.villager().level() instanceof ServerLevel level) {
             behaviour.doStop(level, a.villager(), level.getGameTime());
@@ -442,7 +466,8 @@ public final class VillagerBrains implements BrainModule {
                 for (Map.Entry<String, Behavior<Villager>> b : ours.behaviours().entrySet()) {
                     String doing = b.getValue() instanceof JourneyBehaviour journey ? journey.describe()
                             : b.getValue() instanceof GuardBehaviour guard ? guard.describe()
-                            : b.getValue() instanceof PatrolBehaviour patrol ? patrol.describe() : "";
+                            : b.getValue() instanceof PatrolBehaviour patrol ? patrol.describe()
+                            : b.getValue() instanceof WorkBehaviour work ? work.describe() : "";
                     added.add(b.getValue().debugString() + (aside.contains(b.getKey()) ? " (standing aside: over its budget)" : "")
                             + (doing.isEmpty() ? "" : " (" + doing + ")"));
                 }

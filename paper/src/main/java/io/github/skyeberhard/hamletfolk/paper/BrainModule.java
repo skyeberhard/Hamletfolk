@@ -52,6 +52,12 @@ public interface BrainModule {
      */
     void setPatrol(UUID villager, List<io.github.skyeberhard.hamletfolk.core.PatrolRoute.Spot> route, boolean watchesNight);
 
+    /**
+     * R4.17: tells a resident's work behaviour where it works (the building's place, with the ground height if known), or null for
+     * nowhere. Nothing happens if the villager has no work behaviour.
+     */
+    void setWork(UUID villager, io.github.skyeberhard.hamletfolk.core.PatrolRoute.Spot workplace);
+
     /** R9.4: takes one behaviour off every villager it is on (it, or its family, was switched off, or it went over its budget). */
     void detachEverywhere(String behaviour);
 

@@ -221,6 +221,7 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   R8.18: `SettlementService.ensurePlan` holds the ground a plan needs (`ChunkRegion.covering`, key "g"+village id, through
   `ConstructionService.holdKey`) when `construction.unattended` is on, retries every 40 ticks for 30 s, and lets go once planned; it used to wait for a
   player to load it, so a village nobody visited never had a plan.
+  R4.17: `WorkBehaviour` (priority -1, "never runs" like the patrol) walks a resident to `WorkDuty.workplace` (the registered building of its trade's kind, picked by id) through `JourneyBehaviour.begin` in the working hours `WorkDuty.workHours` (the world's clock: vanilla's WORK activity needs a claimed workstation), to the registered height (never the roof: `Journey` finds the floor within a few blocks), then turns its head with a `BlockPosTracker` look target and swings; at most `WorkDuty.MAX_WALKING` walk at once (`VillagerBrains.walkingToWork`). `BrainService.fit` gives it only to a near non-guard resident that has a workplace (`WorkDuty.fit`) and feeds it each second with `setWork`.
   R9.7: a guard's experience is `Resident.guardXp` (kept apart from `xp`/`xpTrade`, so no other trade resets it, and it resets no other);
   `xp()` of a GUARD reads it. `paper/GuardArms` holds the sword (tagged with a persistent-data byte, drop chance 0): only an on-duty guard near a
   player has one, `BrainService.fit` sets or clears it each second, and every place that detaches the behaviours also calls `arms.clearAll()`.

@@ -172,6 +172,12 @@ brain:
     patrol:
       enabled: true
       budget-microseconds: 1000
+    # R4.17: a resident whose trade has a registered workplace (a farmer at a farm, a miner at a mine, a smith at a smithy) walks
+    # there in working hours, swings its arm for half a minute or so, and goes about its day (needs the journey behaviour). At most
+    # 8 walk at once on the whole server. Presentation only: it changes nothing in the village.
+    work:
+      enabled: true
+      budget-microseconds: 1000
 
 # What the server console shows (R1.34). events: every new line of a village's history as it is written (all), only the
 # births, deaths, arrivals, famines, raids and shortages (important), or nothing (off). digest-minutes: how often every village is
