@@ -67,6 +67,7 @@ rate are in the config) showing every village, what is in its way, and a page an
 | `regrade [name]` | Has the builder mend the finished palisade: posts where the ground steps or across shallow water (R5.12) |
 | `regrade streets [name]` | Has the builders check the village's streets: stairs where a street climbs or falls, hollows filled, narrow water bridged; laid about 400 blocks a second (R8.26) |
 | `noticeboard [name]` | Puts the village's notice board (a lectern with its book) beside its bell now, loading the square's ground, and says where it is (R4.53) |
+| `trade [name]` | Forgets the village's last trades and runs a caravan to its neighbours now, and says why nothing trades if nothing does (R6.5) |
 | `homes [name]` | Writes the household names on the village's house signs now, loading the ground, and lists who lives where (R6.1) |
 | `stores [name]` | Draws the village's store barrels now, loading the ground by each building, and says where they are (R4.55) |
 | `warp [name] <days>` | Runs a village up to 60 days ahead at once |

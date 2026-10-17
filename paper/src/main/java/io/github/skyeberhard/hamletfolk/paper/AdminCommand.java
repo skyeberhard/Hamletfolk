@@ -16,8 +16,8 @@ import org.bukkit.entity.Player;
  */
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
-    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "noticeboard", "stores", "homes", "worlds", "worldspeed", "regrade", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | noticeboard [name] | stores [name] | homes [name] | worlds | worldspeed <world> <speed|off> | regrade [name] | regrade streets [name] | replan [name] | warp [name|all|world <world>] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all|world <world>] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
+    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "noticeboard", "stores", "homes", "trade", "worlds", "worldspeed", "regrade", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | noticeboard [name] | stores [name] | homes [name] | trade [name] | worlds | worldspeed <world> <speed|off> | regrade [name] | regrade streets [name] | replan [name] | warp [name|all|world <world>] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all|world <world>] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
 
     private final SettlementService service;
     private final TemplateCommand templates;
@@ -56,6 +56,26 @@ final class AdminCommand {
             case "regrade" -> regrade(sender, args);
             case "replan" -> replan(sender, args);
             case "warp" -> warp(sender, args);
+            case "trade" -> {
+                Optional<Settlement> village = args.length >= 3 ? lookup(sender, words(args, 2, args.length)) : here(sender);
+                village.ifPresent(v -> {
+                    io.github.skyeberhard.hamletfolk.core.Exchange.reset(v, service.registry());
+                    var made = io.github.skyeberhard.hamletfolk.core.Exchange.run(service.registry(), v, service.worldDayOf(v), service::treasuryRoom, service.tradeRange(), service::tradeActive);
+                    if (made.isEmpty()) {
+                        sender.sendMessage(io.github.skyeberhard.hamletfolk.core.Exchange.nearest(service.registry(), v, service.tradeRange())
+                                .map(n -> io.github.skyeberhard.hamletfolk.core.Exchange.explain(v, n, service.tradeRange()))
+                                .orElse(v.name() + " has no neighbour within " + service.tradeRange() + " blocks in its world."));
+                    }
+                    made.forEach(plan -> {
+                        plan.loads().forEach(s -> sender.sendMessage(s.from().name() + " -> " + s.to().name() + ": " + s.units() + " " + s.type().name().toLowerCase(Locale.ROOT)
+                                + (s.received() < s.units() ? " (" + s.received() + " arrive)" : "") + (s.relief() ? " as relief" : ", worth " + s.worth() + " emeralds")));
+                        if (plan.cash() > 0) {
+                            sender.sendMessage(plan.payer().name() + " pays " + plan.cash() + " emeralds to settle.");
+                        }
+                    });
+                    service.plugin().requestSave();
+                });
+            }
             case "homes" -> {
                 Optional<Settlement> village = args.length >= 3 ? lookup(sender, words(args, 2, args.length)) : here(sender);
                 village.ifPresent(v -> service.plugin().homeSigns().writeNow(v).forEach(sender::sendMessage));

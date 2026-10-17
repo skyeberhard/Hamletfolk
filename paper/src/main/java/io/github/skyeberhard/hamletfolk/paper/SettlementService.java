@@ -871,6 +871,15 @@ final class SettlementService {
             }
             considerNewcomer(settlement);
             considerBirth(settlement); // R4.28
+            try {
+                World tradeWorld = Bukkit.getWorld(settlement.world());
+                if (tradeWorld != null && plugin.getConfig().getBoolean("trade.enabled", true) && !io.github.skyeberhard.hamletfolk.core.Exchange.run(registry, settlement,
+                        day(tradeWorld), this::treasuryRoom, tradeRange(), this::tradeActive).isEmpty()) {
+                    plugin.requestSave(); // R6.5: a caravan went
+                }
+            } catch (RuntimeException e) {
+                plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not trade for " + settlement.name(), e);
+            }
             readTheLand(settlement); // R8.11
             try {
                 surveyLand(settlement); // R8.13
@@ -1321,6 +1330,23 @@ final class SettlementService {
                 stillSince.remove(resident.id());
             }
         }
+    }
+
+    /** R6.5: the day of a village's world (0 if it is not loaded). */
+    long worldDayOf(Settlement settlement) {
+        World world = Bukkit.getWorld(settlement.world());
+        return world == null ? 0 : day(world);
+    }
+
+    /** R6.5: true if a village's world is loaded and simulated, so it may trade. */
+    boolean tradeActive(Settlement settlement) {
+        World world = Bukkit.getWorld(settlement.world());
+        return world != null && inScope(world);
+    }
+
+    /** R6.5: the most blocks between two villages for a caravan (config {@code trade.range}). */
+    int tradeRange() {
+        return Math.max(50, Math.min(5000, plugin.getConfig().getInt("trade.range", io.github.skyeberhard.hamletfolk.core.Exchange.DEFAULT_RANGE)));
     }
 
     // ----- R4.27: fast-forward -----

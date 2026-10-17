@@ -40,7 +40,8 @@ public final class VillageBooks {
         out.put("hasCounter", s.buildingCount(BuildingType.TREASURY) > 0);
         out.put("merchants", s.residents().stream().filter(r -> r.occupation() == Occupation.MERCHANT).count());
         out.put("lines", lines(s, e -> e.kind() == HistoryEvent.Kind.DONATION
-                || (e.kind() == HistoryEvent.Kind.MILESTONE && (e.text().contains("trader") || e.text().contains("emeralds") || e.text().startsWith("The request")))));
+                || (e.kind() == HistoryEvent.Kind.MILESTONE && (e.text().contains("trader") || e.text().contains("emeralds") || e.text().startsWith("The request")
+                        || e.text().startsWith("A caravan")))));
         return out;
     }
 
