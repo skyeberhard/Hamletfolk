@@ -10,6 +10,7 @@ import io.github.skyeberhard.hamletfolk.core.HeightSource;
 import io.github.skyeberhard.hamletfolk.core.PlanGenerator;
 import io.github.skyeberhard.hamletfolk.core.Rampart;
 import io.github.skyeberhard.hamletfolk.core.Rect;
+import io.github.skyeberhard.hamletfolk.core.WorkKey;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.TerrainPad;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
@@ -67,17 +68,17 @@ final class ConstructionService {
     private final HamletfolkPlugin plugin;
     private final SettlementService service;
     /** Not saved: blocks given up on, and how often each was placed, per project. Start again after a restart. */
-    private final Map<Integer, Map<Long, Integer>> attempts = new HashMap<>();
-    private final Map<Integer, Set<Long>> skipped = new HashMap<>();
-    private final Map<Integer, Integer> signTries = new HashMap<>();
+    private final Map<WorkKey, Map<Long, Integer>> attempts = new HashMap<>();
+    private final Map<WorkKey, Set<Long>> skipped = new HashMap<>();
+    private final Map<WorkKey, Integer> signTries = new HashMap<>();
     /** Not saved: how many passes of levelling a project has had, so water or sand flowing back cannot hold it up for ever. */
-    private final Map<Integer, Integer> gradingPasses = new HashMap<>();
+    private final Map<WorkKey, Integer> gradingPasses = new HashMap<>();
     /** R8.21: projects whose ground is laid out as a terrace (decided once, so a half-built one is not re-planned the usual way as the ground changes). */
-    private final Set<Integer> terraced = new HashSet<>();
+    private final Set<WorkKey> terraced = new HashSet<>();
     /** Not saved: the spots of a work found standing (so a post in a chunk that has since unloaded still counts), per project. */
-    private final Map<Integer, Set<Long>> standingSpots = new HashMap<>();
+    private final Map<WorkKey, Set<Long>> standingSpots = new HashMap<>();
     /** Not saved: the village day on which a work last made progress (placed a post, or waited for wood). */
-    private final Map<Integer, Long> workProgress = new HashMap<>();
+    private final Map<WorkKey, Long> workProgress = new HashMap<>();
     /** Village days a work may go with nothing placed and nothing awaited before it is finished with gaps where it could not be built. */
     private static final int WORKS_STALL_DAYS = 6;
     private static final int MAX_GRADING_PASSES = 60;
@@ -598,12 +599,12 @@ final class ConstructionService {
         // Level the ground once, for a new building only: an upgrade is built over the old one, and a building already
         // standing (after a restart, say) must not be graded again over its own walls.
         if (!project.graded() && !project.isUpgrade() && project.blocksLeft() < 0) {
-            int passes = gradingPasses.merge(project.id(), 1, Integer::sum);
+            int passes = gradingPasses.merge(workKey(settlement, project), 1, Integer::sum);
             // (a slow builder does less each pass, so it is given more passes before the ground is left as it is)
             int[] gained = new int[2]; // R8.20: rock blocks cut and logs felled
-            int allowed = (int) (MAX_GRADING_PASSES / Math.min(1.0, speed())) * (terraced.contains(project.id()) ? 4 : 1); // (a terrace cuts and fills far more)
+            int allowed = (int) (MAX_GRADING_PASSES / Math.min(1.0, speed())) * (terraced.contains(workKey(settlement, project)) ? 4 : 1); // (a terrace cuts and fills far more)
             int graded = passes > allowed ? 0
-                    : prepareGround(world, bp, ox, oy, oz, project.biomeSet(), Math.min(speed(settlement), MAX_BLOCKS_PER_PASS / 48.0), gained, project.id());
+                    : prepareGround(world, bp, ox, oy, oz, project.biomeSet(), Math.min(speed(settlement), MAX_BLOCKS_PER_PASS / 48.0), gained, workKey(settlement, project));
             if (gained[0] > 0 || gained[1] > 0) {
                 io.github.skyeberhard.hamletfolk.core.GroundWork.credit(settlement, settlement.lastSimulatedDay(), gained[0], gained[1]);
             }
@@ -617,10 +618,10 @@ final class ConstructionService {
         }
         if (!project.graded()) {
             project.setGraded(true);
-            gradingPasses.remove(project.id());
-        terraced.remove(project.id());
+            gradingPasses.remove(workKey(settlement, project));
+        terraced.remove(workKey(settlement, project));
         }
-        Set<Long> given = skipped.computeIfAbsent(project.id(), k -> new HashSet<>());
+        Set<Long> given = skipped.computeIfAbsent(workKey(settlement, project), k -> new HashSet<>());
         List<Construction.Step> steps = new ArrayList<>(Construction.worklist(bp, old, b -> materialAt(world, ox, oy, oz, b)));
         steps.removeIf(step -> given.contains(key(step.block())));
         project.setBlocksLeft(steps.size());
@@ -628,7 +629,7 @@ final class ConstructionService {
             complete(settlement, world, project, bp);
             return;
         }
-        Map<Long, Integer> tries = attempts.computeIfAbsent(project.id(), k -> new HashMap<>());
+        Map<Long, Integer> tries = attempts.computeIfAbsent(workKey(settlement, project), k -> new HashMap<>());
         Map<Long, String> oldBlocks = new HashMap<>();
         if (old != null) {
             for (Blueprint.Block b : old.blocks()) {
@@ -705,8 +706,8 @@ final class ConstructionService {
         if (!unattended && !playerNear(new Location(world, plan.centerX(), 64, plan.centerZ()))) {
             return;
         }
-        Set<Long> given = skipped.computeIfAbsent(project.id(), k -> new HashSet<>());
-        Set<Long> standing = standingSpots.computeIfAbsent(project.id(), k -> new HashSet<>());
+        Set<Long> given = skipped.computeIfAbsent(workKey(settlement, project), k -> new HashSet<>());
+        Set<Long> standing = standingSpots.computeIfAbsent(workKey(settlement, project), k -> new HashSet<>());
         long day = settlement.lastSimulatedDay();
         int placed = 0;
         int left = 0;
@@ -811,9 +812,9 @@ final class ConstructionService {
             placed++;
         }
         project.setBlocksLeft(left);
-        Long progressed = workProgress.get(project.id());
+        Long progressed = workProgress.get(workKey(settlement, project));
         if (progressed == null || placed > 0 || dry) {
-            workProgress.put(project.id(), day); // waiting for wood is not a stall
+            workProgress.put(workKey(settlement, project), day); // waiting for wood is not a stall
         }
         boolean stalled = left > 0 && !dry && placed == 0 && progressed != null && day - progressed >= WORKS_STALL_DAYS;
         if (left == 0 || stalled) {
@@ -826,7 +827,7 @@ final class ConstructionService {
                         + " posts could not be reached.");
             }
             Construction.finish(settlement, project, day);
-            forget(project.id());
+            forget(workKey(settlement, project));
             plugin.requestSave();
         } else if (placed > 0) {
             plugin.requestSave();
@@ -967,7 +968,7 @@ final class ConstructionService {
     /** How long (village days) a rampart may wait for materials with nothing placed before it steps aside. */
     private static final int RAMPART_PATIENCE_DAYS = 20;
     /** Not saved: the village day a rampart began waiting for materials, per project. */
-    private final Map<Integer, Long> workDry = new HashMap<>();
+    private final Map<WorkKey, Long> workDry = new HashMap<>();
 
     /**
      * R5.10: raises the rampart a few blocks a pass, piece by piece (a wall column, a gate pillar with its lintel, a tower),
@@ -1010,8 +1011,8 @@ final class ConstructionService {
             return;
         }
         Map<Rampart.Pos, String> replaceable = Rampart.replaced(plan, project.stage(), project.tier());
-        Set<Long> given = skipped.computeIfAbsent(project.id(), k -> new HashSet<>());
-        Set<Long> standing = standingSpots.computeIfAbsent(project.id(), k -> new HashSet<>());
+        Set<Long> given = skipped.computeIfAbsent(workKey(settlement, project), k -> new HashSet<>());
+        Set<Long> standing = standingSpots.computeIfAbsent(workKey(settlement, project), k -> new HashSet<>());
         long day = settlement.lastSimulatedDay();
         int placed = 0;
         int left = 0;
@@ -1184,17 +1185,17 @@ final class ConstructionService {
             }
         }
         project.setBlocksLeft(left);
-        Long progressed = workProgress.get(project.id());
+        Long progressed = workProgress.get(workKey(settlement, project));
         if (progressed == null || placed > 0) {
-            workProgress.put(project.id(), day);
+            workProgress.put(workKey(settlement, project), day);
         }
         if (placed > 0 || !dry) {
-            workDry.remove(project.id());
+            workDry.remove(workKey(settlement, project));
         } else {
-            workDry.putIfAbsent(project.id(), day);
+            workDry.putIfAbsent(workKey(settlement, project), day);
         }
-        if (dry && placed == 0 && day - workDry.getOrDefault(project.id(), day) >= RAMPART_PATIENCE_DAYS) {
-            workDry.remove(project.id());
+        if (dry && placed == 0 && day - workDry.getOrDefault(workKey(settlement, project), day) >= RAMPART_PATIENCE_DAYS) {
+            workDry.remove(workKey(settlement, project));
             giveUp(settlement, project, "the stores could not supply it", false); // asked for again after a while
             return;
         }
@@ -1205,7 +1206,7 @@ final class ConstructionService {
                         + left + " pieces could not be reached.");
             }
             Construction.finish(settlement, project, day);
-            forget(project.id());
+            forget(workKey(settlement, project));
             plugin.requestSave();
         } else if (placed > 0) {
             plugin.requestSave();
@@ -1266,7 +1267,11 @@ final class ConstructionService {
         }
     }
 
-    private void forget(int projectId) {
+    private static WorkKey workKey(Settlement settlement, ConstructionProject project) {
+        return new WorkKey(settlement.id(), project.id());
+    }
+
+    private void forget(WorkKey projectId) {
         attempts.remove(projectId);
         skipped.remove(projectId);
         signTries.remove(projectId);
@@ -1278,7 +1283,7 @@ final class ConstructionService {
 
     private void giveUp(Settlement settlement, ConstructionProject project, String reason, boolean abandonLot) {
         Construction.cancel(settlement, project, settlement.lastSimulatedDay(), reason, abandonLot);
-        forget(project.id());
+        forget(workKey(settlement, project));
         plugin.requestSave();
     }
 
@@ -1384,7 +1389,7 @@ final class ConstructionService {
      * out of the building's space. Only terrain and growth are ever changed. Returns how many blocks it changed, or -1
      * if the ground cannot be levelled at all.
      */
-    private int prepareGround(World world, Blueprint bp, int ox, int oy, int oz, String style, double speed, int[] gained, int projectId) {
+    private int prepareGround(World world, Blueprint bp, int ox, int oy, int oz, String style, double speed, int[] gained, WorkKey projectId) {
         int groundPerPass = (int) Math.round(GROUND_PER_PASS * speed);
         Rect footprint = new Rect(ox, oz, bp.width(), bp.depth());
         // (R8.21: a terrace, with a retaining wall, where the ground is too steep for the usual grading. Once a project is a terrace it stays
@@ -1538,7 +1543,7 @@ final class ConstructionService {
         pave(world, settlement, project, bp);
         // Without a registered sign the planner would still think the building missing and build another: try a few
         // more times (a corner may be blocked for now) before giving up on the sign.
-        if (!registered && signTries.merge(project.id(), 1, Integer::sum) < SIGN_TRIES) {
+        if (!registered && signTries.merge(workKey(settlement, project), 1, Integer::sum) < SIGN_TRIES) {
             return;
         }
         if (!registered) {
@@ -1547,11 +1552,11 @@ final class ConstructionService {
                             + " sign on it to put it to use.");
         }
         Construction.finish(settlement, project, settlement.lastSimulatedDay());
-        attempts.remove(project.id());
-        skipped.remove(project.id());
-        signTries.remove(project.id());
-        gradingPasses.remove(project.id());
-        terraced.remove(project.id());
+        attempts.remove(workKey(settlement, project));
+        skipped.remove(workKey(settlement, project));
+        signTries.remove(workKey(settlement, project));
+        gradingPasses.remove(workKey(settlement, project));
+        terraced.remove(workKey(settlement, project));
         plugin.requestSave();
     }
 
