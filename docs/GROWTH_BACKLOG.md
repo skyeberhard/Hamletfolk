@@ -308,6 +308,8 @@ Watch for:
 
 ### R8.21 Buildings that follow the slope
 
+**Built (2026-10-17) as a terrace with a retaining wall, not foundation pillars**: see the CHANGELOG. The notes below are the original plan; farm terraces are not built.
+
 Approach: in `Construction.queue`, when a lot is too steep for `TerrainPad`, add a foundation to the blueprint
 (pillars or a filled base from the floor down to the ground at each column) and charge it like the building. Farms
 on a slope become terraces: split the farm footprint in two or three strips at different levels. This changes

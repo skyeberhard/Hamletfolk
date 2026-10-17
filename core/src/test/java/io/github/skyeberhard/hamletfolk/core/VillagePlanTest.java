@@ -86,8 +86,9 @@ class VillagePlanTest {
         VillagePlan plan = PlanGenerator.generate(0, 0, 1, "plains", cliffEast);
         assertTrue(plan.dropped() + plan.roughCount() > 0, "some lots are on the slope");
         for (VillagePlan.Lot lot : plan.lots()) {
-            if (lot.status() == VillagePlan.LotStatus.ROUGH) { // R8.19: kept if the builders can level it
-                assertTrue(PlanGenerator.gradable(cliffEast, lot.rect()) && !PlanGenerator.buildable(cliffEast, lot.rect()), "rough lot " + lot.id());
+            if (lot.status() == VillagePlan.LotStatus.ROUGH) { // R8.19: kept if the builders can level it; R8.21: or cut a terrace for it
+                assertTrue((PlanGenerator.gradable(cliffEast, lot.rect()) || PlanGenerator.terraceable(cliffEast, lot.rect()))
+                        && !PlanGenerator.buildable(cliffEast, lot.rect()), "rough lot " + lot.id());
             } else {
                 assertTrue(PlanGenerator.buildable(cliffEast, lot.rect()), "lot " + lot.id() + " is too steep");
             }

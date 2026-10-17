@@ -15,12 +15,19 @@ import java.util.Map;
  *
  * <p>The plan says what role each block has ({@link Role}); the Paper layer maps roles to the biome's blocks (grass
  * and dirt on plains, sand and sandstone in a desert) and places them.
+ *
+ * <p>R8.21: ground too steep for that (more than {@link #MAX_CHANGE} blocks to cut or fill) can still be built on as a terrace
+ * ({@link #terrace}): the pad is levelled to the median as before, up to {@link #TERRACE_CHANGE} blocks, and instead of a blended
+ * edge the ring of blocks round the building is a retaining wall where it stands above the ground (filled solid, in wall blocks) and
+ * the cut face of a hill beside it is armoured with wall blocks, so the building sits in a clean cut-out.
  */
 public final class TerrainPad {
     /** The most a column may be cut or filled, in blocks; a lot needing more is refused. */
     public static final int MAX_CHANGE = 8;
     /** The deepest water a pad will be built into (it is filled to the surface). */
     public static final int MAX_WATER = 3;
+    /** R8.21: the most a column of a terraced pad may be cut or filled, in blocks. */
+    public static final int TERRACE_CHANGE = 16;
     /** How many blocks below the top the loose soil goes, before the fill is foundation. */
     static final int SOIL_DEPTH = 3;
 
@@ -29,7 +36,9 @@ public final class TerrainPad {
 
     /** What a placed block is: nothing (a cut), the surface on top, soil below it, or foundation under that. */
     public enum Role {
-        AIR, SURFACE, FILL, FOUNDATION
+        AIR, SURFACE, FILL, FOUNDATION,
+        /** R8.21: a block of a retaining wall (stone brick; cut sandstone in a desert): the fill under a terrace's edge, and the cut face above it. */
+        WALL
     }
 
     /** One block to change. */
@@ -46,7 +55,12 @@ public final class TerrainPad {
      * @param finalHeights  the surface height of every column of the footprint and buffer once graded, keyed by {@link #key}
      */
     public record Pad(Rect footprint, int buffer, boolean valid, String reason, int targetHeight, List<Change> changes,
-            Map<Long, Integer> finalHeights) {
+            Map<Long, Integer> finalHeights, boolean terraced) {
+        /** A pad with a blended edge (not terraced). */
+        public Pad(Rect footprint, int buffer, boolean valid, String reason, int targetHeight, List<Change> changes, Map<Long, Integer> finalHeights) {
+            this(footprint, buffer, valid, reason, targetHeight, changes, finalHeights, false);
+        }
+
         /** How many blocks are removed. */
         public int cut() {
             return (int) changes.stream().filter(c -> c.role() == Role.AIR).count();
@@ -140,6 +154,99 @@ public final class TerrainPad {
             }
         }
         return new Pad(footprint, buffer, true, "", target, List.copyOf(changes), Map.copyOf(finals));
+    }
+
+    /**
+     * R8.21: the pad for a lot, by the usual grading if that will do, and if it refuses for the steepness of the ground (and only then) as
+     * a terrace. Unmeasured ground or deep water is still refused, as no terrace helps with those.
+     */
+    public static Pad fit(Rect footprint, int buffer, HeightSource terrain, Integer fixedTarget) {
+        Pad usual = compute(footprint, buffer, terrain, fixedTarget);
+        if (usual.valid() || !usual.reason().contains(" blocks of ")) {
+            return usual;
+        }
+        Pad terraced = terrace(footprint, terrain, fixedTarget);
+        return terraced.valid() ? terraced : usual; // (the usual refusal is the one to tell)
+    }
+
+    /**
+     * R8.21: a terraced pad: the footprint levelled to the median height (or {@code fixedTarget}) by up to {@link #TERRACE_CHANGE} blocks of
+     * cut or fill, the ring one block outside it levelled too and made a retaining wall where it is filled, and the hillside one block
+     * further out, where it stands above the pad, armoured with wall blocks up to its top. Water inside the footprint is filled to the
+     * target as usual; water outside it is left alone. Nothing beyond that second ring is touched.
+     */
+    public static Pad terrace(Rect footprint, HeightSource terrain, Integer fixedTarget) {
+        List<Integer> heights = new ArrayList<>();
+        for (int x = footprint.x(); x <= footprint.maxX(); x++) {
+            for (int z = footprint.z(); z <= footprint.maxZ(); z++) {
+                int h = terrain.height(x, z);
+                if (h == HeightSource.UNKNOWN) {
+                    return invalid(footprint, 2, "the ground at " + x + ", " + z + " has not been measured");
+                }
+                heights.add(h);
+            }
+        }
+        int[] sorted = heights.stream().mapToInt(Integer::intValue).sorted().toArray();
+        int target = fixedTarget != null ? fixedTarget : sorted[(sorted.length - 1) / 2];
+        int wetColumns = 0; // a lot that is mostly water is not built into a lake, terrace or not (as the plan keeps only lots a quarter wet at most)
+        for (int x = footprint.x(); x <= footprint.maxX(); x++) {
+            for (int z = footprint.z(); z <= footprint.maxZ(); z++) {
+                wetColumns += terrain.water(x, z) ? 1 : 0;
+            }
+        }
+        if (wetColumns * 4 > footprint.width() * footprint.depth()) {
+            return invalid(footprint, 2, "more than a quarter of the ground is water");
+        }
+
+        List<Change> changes = new ArrayList<>();
+        Map<Long, Integer> finals = new HashMap<>();
+        Rect area = footprint.inflated(2);
+        for (int x = area.x(); x <= area.maxX(); x++) {
+            for (int z = area.z(); z <= area.maxZ(); z++) {
+                int h = terrain.height(x, z);
+                if (h == HeightSource.UNKNOWN) {
+                    continue; // beyond what is loaded: the edge simply stops
+                }
+                int outward = Math.max(Math.max(footprint.x() - x, x - footprint.maxX()),
+                        Math.max(Math.max(footprint.z() - z, z - footprint.maxZ()), 0));
+                boolean wet = terrain.water(x, z);
+                if (outward == 2) {
+                    finals.put(key(x, z), h);
+                    // the face of a hill standing above the pad: armoured with wall, so the cut is clean and does not slump into the building
+                    if (!wet && h > target + 1 && h - target <= TERRACE_CHANGE + 2) {
+                        for (int y = target + 1; y <= h; y++) {
+                            changes.add(new Change(x, y, z, Role.WALL));
+                        }
+                    }
+                    continue;
+                }
+                if (wet && outward == 1) {
+                    finals.put(key(x, z), h);
+                    continue; // the ring does not build out into water
+                }
+                int floor = wet ? terrain.floor(x, z) : h;
+                if (wet && h - floor > MAX_WATER) {
+                    return invalid(footprint, 2, "the water at " + x + ", " + z + " is " + (h - floor) + " blocks deep");
+                }
+                if (Math.abs(target - h) > TERRACE_CHANGE) {
+                    return invalid(footprint, 2, "a terrace at " + x + ", " + z + " needs " + Math.abs(target - h) + " blocks of "
+                            + (target < h ? "cut" : "fill"));
+                }
+                if (target < h) {
+                    for (int y = target + 1; y <= h; y++) {
+                        changes.add(new Change(x, y, z, Role.AIR));
+                    }
+                    changes.add(new Change(x, target, z, Role.SURFACE));
+                } else if (target > h || wet) {
+                    for (int y = floor + 1; y <= target; y++) {
+                        Role role = y == target ? Role.SURFACE : outward == 1 ? Role.WALL : y >= target - SOIL_DEPTH ? Role.FILL : Role.FOUNDATION;
+                        changes.add(new Change(x, y, z, role));
+                    }
+                }
+                finals.put(key(x, z), target);
+            }
+        }
+        return new Pad(footprint, 2, true, "", target, List.copyOf(changes), Map.copyOf(finals), true);
     }
 
     // ----- roads -----

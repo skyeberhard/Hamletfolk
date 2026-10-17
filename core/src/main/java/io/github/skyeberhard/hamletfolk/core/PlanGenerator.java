@@ -328,7 +328,7 @@ public final class PlanGenerator {
                     }
                     // R8.19: ground the builders can level is kept, as rough; only what they could not build on is dropped
                     boolean ready = buildable(terrain, candidate);
-                    if (!ready && !gradable(terrain, candidate)) {
+                    if (!ready && !gradable(terrain, candidate) && !terraceable(terrain, candidate)) {
                         plan.addDropped(1);
                         cursor += size[0] + 2;
                         continue;
@@ -472,7 +472,7 @@ public final class PlanGenerator {
                 for (Rect ground : occupied) {
                     taken |= ground.overlaps(candidate);
                 }
-                if (taken || !(grading ? gradable(terrain, candidate) : buildable(terrain, candidate))) {
+                if (taken || !(grading ? gradable(terrain, candidate) || terraceable(terrain, candidate) : buildable(terrain, candidate))) {
                     continue;
                 }
                 best = candidate;
@@ -571,6 +571,14 @@ public final class PlanGenerator {
             }
         }
         return highest - lowest <= TerrainPad.MAX_CHANGE && wet * 4 <= footprint.width() * footprint.depth();
+    }
+
+    /**
+     * R8.21: true if the ground is too steep to level in the usual way but a terrace (a retaining wall round the building) can be cut
+     * for it: what {@link TerrainPad#terrace} will do when it is built. Steep, so such a lot is always rough, never ready.
+     */
+    static boolean terraceable(HeightSource terrain, Rect footprint) {
+        return TerrainPad.terrace(footprint, terrain, null).valid();
     }
 
     /** True if every column of the footprint is measured, dry, and within {@link #SLOPE_LIMIT} of the others. */

@@ -1047,7 +1047,7 @@ public final class Construction {
         if (replacing != null) {
             ground = replacing.y();
         } else {
-            TerrainPad.Pad pad = TerrainPad.compute(new Rect(x, z, blueprint.width(), blueprint.depth()), PAD_BUFFER, terrain);
+            TerrainPad.Pad pad = TerrainPad.fit(new Rect(x, z, blueprint.width(), blueprint.depth()), PAD_BUFFER, terrain, null); // (R8.21: a terrace if it is too steep)
             if (!pad.valid()) {
                 // R8.20: rough ground the builders find they cannot level (a cliff beyond the lot) is given up, so the plan moves on to
                 // other ground and, with none left, grows; ground only unmeasured (not loaded yet) is tried again

@@ -72,6 +72,8 @@ final class ConstructionService {
     private final Map<Integer, Integer> signTries = new HashMap<>();
     /** Not saved: how many passes of levelling a project has had, so water or sand flowing back cannot hold it up for ever. */
     private final Map<Integer, Integer> gradingPasses = new HashMap<>();
+    /** R8.21: projects whose ground is laid out as a terrace (decided once, so a half-built one is not re-planned the usual way as the ground changes). */
+    private final Set<Integer> terraced = new HashSet<>();
     /** Not saved: the spots of a work found standing (so a post in a chunk that has since unloaded still counts), per project. */
     private final Map<Integer, Set<Long>> standingSpots = new HashMap<>();
     /** Not saved: the village day on which a work last made progress (placed a post, or waited for wood). */
@@ -599,8 +601,9 @@ final class ConstructionService {
             int passes = gradingPasses.merge(project.id(), 1, Integer::sum);
             // (a slow builder does less each pass, so it is given more passes before the ground is left as it is)
             int[] gained = new int[2]; // R8.20: rock blocks cut and logs felled
-            int graded = passes > (int) (MAX_GRADING_PASSES / Math.min(1.0, speed())) ? 0
-                    : prepareGround(world, bp, ox, oy, oz, project.biomeSet(), Math.min(speed(settlement), MAX_BLOCKS_PER_PASS / 48.0), gained);
+            int allowed = (int) (MAX_GRADING_PASSES / Math.min(1.0, speed())) * (terraced.contains(project.id()) ? 4 : 1); // (a terrace cuts and fills far more)
+            int graded = passes > allowed ? 0
+                    : prepareGround(world, bp, ox, oy, oz, project.biomeSet(), Math.min(speed(settlement), MAX_BLOCKS_PER_PASS / 48.0), gained, project.id());
             if (gained[0] > 0 || gained[1] > 0) {
                 io.github.skyeberhard.hamletfolk.core.GroundWork.credit(settlement, settlement.lastSimulatedDay(), gained[0], gained[1]);
             }
@@ -615,6 +618,7 @@ final class ConstructionService {
         if (!project.graded()) {
             project.setGraded(true);
             gradingPasses.remove(project.id());
+        terraced.remove(project.id());
         }
         Set<Long> given = skipped.computeIfAbsent(project.id(), k -> new HashSet<>());
         List<Construction.Step> steps = new ArrayList<>(Construction.worklist(bp, old, b -> materialAt(world, ox, oy, oz, b)));
@@ -1380,20 +1384,31 @@ final class ConstructionService {
      * out of the building's space. Only terrain and growth are ever changed. Returns how many blocks it changed, or -1
      * if the ground cannot be levelled at all.
      */
-    private int prepareGround(World world, Blueprint bp, int ox, int oy, int oz, String style, double speed, int[] gained) {
+    private int prepareGround(World world, Blueprint bp, int ox, int oy, int oz, String style, double speed, int[] gained, int projectId) {
         int groundPerPass = (int) Math.round(GROUND_PER_PASS * speed);
-        TerrainPad.Pad pad = TerrainPad.compute(new Rect(ox, oz, bp.width(), bp.depth()), Construction.PAD_BUFFER,
-                groundOf(world), oy);
+        Rect footprint = new Rect(ox, oz, bp.width(), bp.depth());
+        // (R8.21: a terrace, with a retaining wall, where the ground is too steep for the usual grading. Once a project is a terrace it stays
+        // one: asked again each pass from the ground as it now is, the usual grading would take over as the cut grew shallow and lay a blended
+        // slope over the half-built wall)
+        TerrainPad.Pad pad = terraced.contains(projectId) ? TerrainPad.terrace(footprint, groundOf(world), oy)
+                : TerrainPad.fit(footprint, Construction.PAD_BUFFER, groundOf(world), oy);
         if (!pad.valid()) {
             return -1;
         }
+        if (pad.terraced()) {
+            terraced.add(projectId);
+        }
         Material[] soil = soilFor(style); // surface, fill, foundation
+        Material wall = BiomeSet.DESERT.equals(style) ? Material.CUT_SANDSTONE : Material.STONE_BRICKS; // R8.21: a retaining wall
         Map<Long, Boolean> natural = new HashMap<>();
         int done = 0;
+        long lastColumn = Long.MIN_VALUE;
         for (TerrainPad.Change change : pad.changes()) {
-            if (done >= groundPerPass) {
-                return done;
+            long column = ((long) change.x() << 32) ^ (change.z() & 0xffffffffL);
+            if (done >= groundPerPass && column != lastColumn) {
+                return done; // (only between columns: a column left with its wall laid and its top not would read as built on, and be skipped for ever)
             }
+            lastColumn = column;
             if (!natural.computeIfAbsent(((long) change.x() << 32) ^ (change.z() & 0xffffffffL), k -> columnNatural(world, change.x(), change.z()))) {
                 continue; // something built stands on this column (a neighbour's wall, say): its ground is not ours to cut
             }
@@ -1403,6 +1418,7 @@ final class ConstructionService {
                 case SURFACE -> soil[0];
                 case FILL -> soil[1];
                 case FOUNDATION -> soil[2];
+                case WALL -> wall;
             };
             if (block.getType() == want || !clearable(block, true)) {
                 continue; // already right, or not ours to change
@@ -1524,6 +1540,7 @@ final class ConstructionService {
         skipped.remove(project.id());
         signTries.remove(project.id());
         gradingPasses.remove(project.id());
+        terraced.remove(project.id());
         plugin.requestSave();
     }
 
