@@ -163,6 +163,36 @@ public record Blueprint(String key, int width, int height, int depth, List<Block
         return blocks.stream().filter(b -> name(b.material()).endsWith("_WALL_SIGN")).findFirst();
     }
 
+    /** The building's (lowest) door, its lower half, if it has one (R2.9: where a hanging sign hangs). */
+    public Optional<Block> door() {
+        Block door = null;
+        for (Block block : blocks) {
+            if (name(block.material()).toUpperCase(Locale.ROOT).endsWith("_DOOR")
+                    && !"upper".equals(Construction.stateOf(block.material(), "half"))
+                    && (door == null || block.y() < door.y())) {
+                door = block;
+            }
+        }
+        return Optional.ofNullable(door);
+    }
+
+    /** A bed of the building (its head where the block says which part it is), if it has one (R2.9: what marks a house). */
+    public Optional<Block> bed() {
+        Block any = null;
+        for (Block block : blocks) {
+            if (!name(block.material()).toUpperCase(Locale.ROOT).endsWith("_BED")) {
+                continue;
+            }
+            if ("head".equals(Construction.stateOf(block.material(), "part"))) {
+                return Optional.of(block);
+            }
+            if (any == null) {
+                any = block;
+            }
+        }
+        return Optional.ofNullable(any);
+    }
+
     private static final String[] COMPASS = {"north", "east", "south", "west"};
 
     private static int compass(String direction) {

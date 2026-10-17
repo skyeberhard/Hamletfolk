@@ -20,7 +20,7 @@ pieces each biome has), [VILLAGE_PLANNING.md](VILLAGE_PLANNING.md) (how the plan
   mine costs no stone (R4.39). Cutting rock and felling trees while levelling the ground *adds* stone and wood (R8.20).
 - **Levelling is free.** The ground under the building is graded to the median height: up to 8 blocks cut or filled, shallow
   water (3 deep) filled, a blended edge 2 blocks wide (`TerrainPad`).
-- **Registration.** A finished building gets a sign (`[Farm]`, `[Smithy]` and so on) and is registered; a sign you place yourself
+- **Registration.** A finished building is marked by what it is (R2.9): a house has no sign and is registered at its bed, a business has a hanging sign over its door, a farm, pen, apiary or harbour a sign on a fence post (a sign on the ground beside it where the world will not take that), each reading `[Farm]`, `[Smithy]` and so on, and is registered; a sign you place yourself
   registers a building the same way, without checking its blocks (R2.4 is not built). Buildings already standing in an adopted
   village are found without signs (R2.8). At most 200 buildings are registered per village.
 - **Places.** A work building gives 4 places (a shop 1), and 2 more for each tier above the first (a shop 1 more); an armoury

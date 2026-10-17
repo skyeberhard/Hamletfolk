@@ -672,7 +672,14 @@ final class SettlementService {
                     || io.github.skyeberhard.hamletfolk.core.BuildingFinder.FOUND_BY.equals(building.registeredBy())) {
                 continue; // (a building that was found has no sign: findBuildings drops it when it is gone)
             }
-            if (!Tag.ALL_SIGNS.isTagged(world.getBlockAt(building.x(), building.y(), building.z()).getType())) {
+            if (building.type() == BuildingType.HOUSE
+                    && settlement.openProject().filter(p -> p.isUpgrade() && p.type() == BuildingType.HOUSE).isPresent()) {
+                continue; // R2.9: its bed may be taken down before the better house's stands: it is marked again when that is finished
+            }
+            org.bukkit.Material at = world.getBlockAt(building.x(), building.y(), building.z()).getType();
+            boolean marked = Tag.ALL_SIGNS.isTagged(at)
+                    || (building.type() == BuildingType.HOUSE && Tag.BEDS.isTagged(at)); // R2.9: a house is marked by its bed, not a sign
+            if (!marked) {
                 settlement.removeBuilding(building.x(), building.y(), building.z(), settlement.effectiveDay(day(world)));
                 pruned = true;
             }

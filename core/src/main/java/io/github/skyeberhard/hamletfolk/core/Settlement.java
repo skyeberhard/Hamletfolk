@@ -236,7 +236,14 @@ public final class Settlement {
     public Registration registerBuilding(Building building) {
         Building existing = buildings.get(building.key());
         if (existing != null && existing.type() == building.type()) {
-            return Registration.ALREADY_REGISTERED;
+            if (BuildingFinder.FOUND_BY.equals(existing.registeredBy()) && !BuildingFinder.FOUND_BY.equals(building.registeredBy())) {
+                // R2.9: a house marked by its bed is registered where the finder (R2.8) puts a found house, at the bed: the one the
+                // village raised stands in the place of the one found, or it could never be upgraded
+                buildings.remove(building.key());
+                existing = null;
+            } else {
+                return Registration.ALREADY_REGISTERED;
+            }
         }
         if (existing == null && buildings.size() >= MAX_BUILDINGS) {
             return Registration.TOO_MANY;

@@ -13,6 +13,7 @@ import io.github.skyeberhard.hamletfolk.core.Rect;
 import io.github.skyeberhard.hamletfolk.core.Resident;
 import io.github.skyeberhard.hamletfolk.core.TerrainPad;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
+import io.github.skyeberhard.hamletfolk.core.SignPlacement;
 import io.github.skyeberhard.hamletfolk.core.StreetGrade;
 import io.github.skyeberhard.hamletfolk.core.TemplateCatalog;
 import io.github.skyeberhard.hamletfolk.core.VillagePlan;
@@ -34,6 +35,7 @@ import org.bukkit.Material;
 import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.Leaves;
@@ -1308,24 +1310,43 @@ final class ConstructionService {
     private void complete(Settlement settlement, World world, ConstructionProject project, Blueprint bp) {
         BuildingType type = project.type();
         Optional<Blueprint.Block> own = bp.sign();
-        Block signBlock;
+        Block signBlock = null;
+        Block marker = null; // R2.9: what marks a house, which has no sign: its bed
         if (own.isPresent()) {
             signBlock = world.getBlockAt(project.x() + own.get().x(), project.y() + own.get().y(), project.z() + own.get().z());
         } else {
-            signBlock = standingSignSpot(world, project, bp);
-            if (signBlock != null) {
-                signBlock.setType(Material.OAK_SIGN, false);
+            // R2.9: a building is marked by what it is; where the world will not take the form, a sign on the ground beside it, as before
+            switch (SignPlacement.formOf(type)) {
+                case NONE -> marker = houseMarker(world, project, bp);
+                case HANGING -> signBlock = hangingSign(world, project, bp);
+                case POST -> signBlock = postSign(world, project, bp);
+            }
+            if (marker == null && signBlock == null) {
+                signBlock = standingSignSpot(world, project, bp);
+                if (signBlock != null) {
+                    signBlock.setType(Material.OAK_SIGN, false);
+                }
             }
         }
         boolean registered = false;
-        if (signBlock != null && signBlock.getState() instanceof Sign sign) {
+        if (marker != null) {
+            replacePreviousBuilding(settlement, world, project);
+            Location at = marker.getLocation();
+            registered = service.registerBuilding(settlement, type, at, "the builders") == Settlement.Registration.REGISTERED;
+            if (registered) {
+                project.setSign(at.getBlockX(), at.getBlockY(), at.getBlockZ());
+            }
+        } else if (signBlock != null && signBlock.getState() instanceof Sign sign) {
             sign.getSide(Side.FRONT).line(1, Component.text(type.signText()));
+            sign.getSide(Side.BACK).line(1, Component.text(type.signText())); // (a hanging sign is read from both sides)
             sign.update(true, false);
             replacePreviousBuilding(settlement, world, project);
             Location at = signBlock.getLocation();
             registered = service.registerBuilding(settlement, type, at, "the builders") == Settlement.Registration.REGISTERED;
             if (registered) {
                 project.setSign(at.getBlockX(), at.getBlockY(), at.getBlockZ());
+            } else if (own.isEmpty()) {
+                takeDown(signBlock, type); // (what was placed for this try goes, or each try would leave another)
             }
         }
         pave(world, settlement, project, bp);
@@ -1574,10 +1595,69 @@ final class ConstructionService {
                 service.removeBuildingAt(world, earlier.signX(), earlier.signY(), earlier.signZ());
                 Block old = world.getBlockAt(earlier.signX(), earlier.signY(), earlier.signZ());
                 if (Tag.ALL_SIGNS.isTagged(old.getType())) {
-                    old.setType(Material.AIR, false);
+                    takeDown(old, earlier.type());
                 }
             }
         }
+    }
+
+    /** R2.9: takes down a sign the village placed (and the post under one on a post), as when its registration failed or an upgrade replaced it. */
+    private static void takeDown(Block sign, BuildingType type) {
+        boolean post = sign.getType() == Material.OAK_SIGN && SignPlacement.formOf(type) == SignPlacement.Form.POST
+                && sign.getRelative(0, -1, 0).getType() == Material.OAK_FENCE;
+        sign.setType(Material.AIR, false);
+        if (post) {
+            sign.getRelative(0, -1, 0).setType(Material.AIR, false);
+        }
+    }
+
+    /** R2.9: the bed that marks a house (it carries no sign), if the building has one standing. */
+    private static Block houseMarker(World world, ConstructionProject project, Blueprint bp) {
+        return SignPlacement.marker(bp).map(b -> world.getBlockAt(project.x() + b.x(), project.y() + b.y(), project.z() + b.z()))
+                .filter(block -> Tag.BEDS.isTagged(block.getType())).orElse(null);
+    }
+
+    private static final BlockFace[] COMPASS = {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
+
+    /**
+     * R2.9: a hanging sign over the door (or beside it, if the wall above will not carry one): hung from a whole block, in a free cell,
+     * its boards across the wall. Null where the building has no door or no spot will do; the caller falls back on a sign on the ground.
+     */
+    private static Block hangingSign(World world, ConstructionProject project, Blueprint bp) {
+        for (SignPlacement.Hanging spot : SignPlacement.hangingSpots(bp)) {
+            Block cell = world.getBlockAt(project.x() + spot.x(), project.y() + spot.y(), project.z() + spot.z());
+            Block support = world.getBlockAt(project.x() + spot.supportX(), project.y() + spot.supportY(), project.z() + spot.supportZ());
+            boolean free = cell.getType().isAir() || (Tag.REPLACEABLE.isTagged(cell.getType()) && !cell.isLiquid());
+            if (!free || !support.getType().isOccluding()) {
+                continue;
+            }
+            BlockFace facing = COMPASS[spot.facing()];
+            cell.setBlockData(Material.OAK_WALL_HANGING_SIGN.createBlockData(d -> {
+                if (d instanceof org.bukkit.block.data.type.WallHangingSign hanging) {
+                    hanging.setFacing(facing);
+                }
+            }), false);
+            if (cell.getState() instanceof Sign) {
+                return cell;
+            }
+            cell.setType(Material.AIR, false); // not what was asked for: leave nothing behind
+        }
+        return null;
+    }
+
+    /** R2.9: a sign on a fence post just outside a corner of a field, pen or pit; null where there is no room for one. */
+    private static Block postSign(World world, ConstructionProject project, Blueprint bp) {
+        Block spot = standingSignSpot(world, project, bp);
+        if (spot == null) {
+            return null;
+        }
+        Block top = spot.getRelative(0, 1, 0);
+        if (!(top.getType().isAir() || Tag.REPLACEABLE.isTagged(top.getType()))) {
+            return null;
+        }
+        spot.setType(Material.OAK_FENCE, false);
+        top.setType(Material.OAK_SIGN, false);
+        return top;
     }
 
     /** A free spot for a sign beside a vanilla building, which has none of its own: just outside a corner, on the ground. */
