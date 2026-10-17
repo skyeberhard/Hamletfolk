@@ -31,6 +31,10 @@ The page refreshes itself every few seconds.
 
 Above a village's plan map: **Slope** (the ground read every 4 blocks where the world is loaded: green flat, yellow gentle, orange steep, red cliff, blue water; ground nobody has measured is left clear, and what was seen is kept, also in `ground-cache.json`), **Districts** (each district outlined and named with how many of its lots are built) and **Homes** (each house ringed in its household's colour, grey when empty; point at it to see who lives there). Nothing is loaded to draw them, so a village nobody has been near since the plugin started has no slope yet. They are off by default and remembered in the browser; `?layers=slope,homes` in the address turns them on.
 
+## Defence and lights, tiers, beds and upgrades (R8.28, R8.29)
+
+A fourth layer, **Defence and lights**, shows the street lights (gold where one stands), the wall (planned dimly, then in its colour; red where a post is missing), the guards' patrol, and a line with the counts, the threat and recent attacks. It is read from the world only where it is loaded, and only while the layer is open. Point at a building for its tier and (for a house) its beds now and next; click it for a Selected building panel, where with `dashboard.allow-actions` an **Upgrade** button has the builders improve it to the next tier (queued like any project, paid from the stores; refused with the reason for a player's or a found building, the best tier, busy builders, or empty stores). The Buildings tab has the same in its Tier, Beds and last columns.
+
 ## Treasury, Stores and Quests (R1.45)
 
 A village's page has three more read-only tabs. **Treasury**: the balance, the limit and room, what is held aside for requests, and the history lines

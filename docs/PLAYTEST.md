@@ -47,6 +47,9 @@ Rough time: 90 to 120 minutes in all. Each part stands alone, so you can stop af
 
 - [ ] **T132 map layers.** A village's Plan tab: switch on Slope (a hillside village: its rough lots sit on orange and red), Districts (named outlines with lots built) and Homes (a ring per house in its family's colour; hover a house for who lives there). Check a village you are not near: no slope yet, then some after you visit.
 
+- [ ] **T133 defence and lights.** Plan tab, Defence and lights: gold lights, the wall dim where planned and in its colour where built (red gaps), the patrol route; the line under the map says what stands. Try a village that has been attacked.
+- [ ] **T134 tiers, beds, upgrades.** Click a house and a farm or mine on the map; Selected building shows the tier and beds; press Upgrade on one the stores can pay for and on one they cannot; the Buildings tab has Tier and Beds columns.
+
 ## 4. Trade (10 to 15 minutes)
 
 - [ ] **T131.** Two villages within 800 blocks. Let one build a surplus and the other run short (give one a lot of bread, the other none). `/settlement admin trade <village>`; read both histories. Without a merchant a fifth is lost on the road; starve one: the other sends food unpaid; only the difference in emeralds moves. Try `trade.enabled: false` and restart: no caravans by themselves.

@@ -163,6 +163,19 @@ class AdminActionTest {
     }
 
     @Test
+    void aBuildingCanBeUpgradedByItsKeyIfItIsInTheVillage() {
+        Settlement s = village();
+        s.registerBuilding(new Building(BuildingType.FARM, 10, 64, -20, 1, "village"));
+        UUID id = s.id();
+        AdminAction.Checked ok = AdminAction.check(body("action", "upgrade-building", "village", id.toString(), "building", "10,64,-20", "confirm", true), registry);
+        assertTrue(ok.ok(), "" + ok.error());
+        assertEquals("10,64,-20", ok.request().text());
+        assertFalse(AdminAction.check(body("action", "upgrade-building", "village", id.toString(), "building", "10,64,-20"), registry).ok(), "it must be confirmed");
+        assertFalse(AdminAction.check(body("action", "upgrade-building", "village", id.toString(), "building", "1,2,3", "confirm", true), registry).ok(), "not in this village");
+        assertFalse(AdminAction.check(body("action", "upgrade-building", "village", id.toString(), "building", "x; rm", "confirm", true), registry).ok());
+    }
+
+    @Test
     void aWorldsSpeedAndWarpDefaultCanBeSaved() {
         village();
         AdminAction.Checked speed = AdminAction.check(body("action", "set-world-speed", "world", "world", "speed", 5), registry);

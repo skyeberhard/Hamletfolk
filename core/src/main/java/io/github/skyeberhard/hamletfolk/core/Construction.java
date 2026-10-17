@@ -980,14 +980,14 @@ public final class Construction {
     /** Days before a given-up upgrade of a building may be tried again. */
     static final int UPGRADE_RETRY_DAYS = 20;
 
-    private static boolean isLatestOnLot(List<ConstructionProject> all, ConstructionProject project, long day) {
+    static boolean isLatestOnLot(List<ConstructionProject> all, ConstructionProject project, long day) {
         // A later project on the lot, even a given-up upgrade, means this one is not ours to try again.
         return all.stream().noneMatch(p -> p != project && p.lotId() == project.lotId() && p.id() > project.id()
                 && !(p.status() == ConstructionProject.Status.CANCELLED && day - p.finishedDay() >= UPGRADE_RETRY_DAYS));
     }
 
     /** The building the project made still has its sign registered, so it still stands and was not replaced. */
-    private static boolean standing(Settlement settlement, ConstructionProject project) {
+    static boolean standing(Settlement settlement, ConstructionProject project) {
         return project.signY() != ConstructionProject.NO_SIGN && settlement.hasBuildingAt(project.signX(), project.signY(), project.signZ());
     }
 
@@ -995,7 +995,7 @@ public final class Construction {
      * Queues the best tier above {@code currentTier} that fits the lot and the stores can pay for (with {@code margin}
      * times the cost in stock: 1 for something the village lacks, 2 for an upgrade).
      */
-    private static Optional<ConstructionProject> queue(Settlement settlement, long day, String biome, BuildingType type,
+    static Optional<ConstructionProject> queue(Settlement settlement, long day, String biome, BuildingType type,
             int currentTier, VillagePlan.Lot lot, int margin, TemplateCatalog catalog,
             Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints, HeightSource terrain, String reason,
             ConstructionProject replacing, boolean explain) {

@@ -163,19 +163,19 @@ const ACTIONS = __HAMLETFOLK_ACTIONS__;
 // ----- state -----
 // R8.27: which layers of the plan map are on (kept in this browser only)
 function loadLayers() {
-  const base = { slope: false, districts: false, homes: false };
+  const base = { slope: false, districts: false, homes: false, defence: false };
   let out = base;
   try { out = Object.assign(base, JSON.parse(localStorage.getItem("hamletfolk-layers") || "{}")); } catch (e) { /* not kept */ }
   const asked = new URLSearchParams(location.search).get("layers"); // ?layers=slope,homes turns them on from a link
   if (asked) asked.split(",").forEach((k) => { if (k in out) out[k] = true; });
   return out;
 }
-const LAYERS = [["slope", "Slope"], ["districts", "Districts"], ["homes", "Homes"]];
+const LAYERS = [["slope", "Slope"], ["districts", "Districts"], ["homes", "Homes"], ["defence", "Defence and lights"]];
 const SLOPE = { "0": "#6fae62", "1": "#cdbf53", "2": "#dd8a3f", "3": "#cf4d3f", "~": "#4c86c6" };
 const familyColour = (name) => { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360; return "hsl(" + h + ",65%,55%)"; };
 const state = {
   worlds: [], worldsText: "", villages: [], villagesText: "", detail: null, detailText: "", trends: {}, events: [], latest: 0, catalogue: null,
-  layers: loadLayers(), current: null, tab: "overview", filter: "", feedFilter: "all", seenFeed: 0, map: null, busy: false, sel: null,
+  layers: loadLayers(), defence: null, defenceText: "", current: null, tab: "overview", filter: "", feedFilter: "all", seenFeed: 0, map: null, busy: false, sel: null,
 };
 const $ = (id) => document.getElementById(id);
 const main = $("main");
@@ -279,6 +279,10 @@ async function poll(force) {
     if (state.current && !isWorld(state.current)) {
       const t = await get("/api/village/" + encodeURIComponent(state.current)).catch(() => null);
       if (t && t !== state.detailText) { state.detailText = t; state.detail = JSON.parse(t); changed = true; }
+    }
+    if (state.current && !isWorld(state.current) && state.tab === "plan" && state.layers.defence) { // R8.28: asked for only while it is looked at
+      const d = await get("/api/defence/" + encodeURIComponent(state.current)).catch(() => null);
+      if (d && d !== state.defenceText) { state.defenceText = d; state.defence = JSON.parse(d); changed = true; }
     }
     setLive(true);
     renderTop();
@@ -604,8 +608,10 @@ function tabBuildings(v) {
   const rows = v.buildings.slice().sort((a, b) => a.type.localeCompare(b.type));
   return el("div", { class: "two" },
     el("div", { class: "panel" }, el("h2", null, "Buildings (" + v.buildings.length + ")"), el("div", { class: "scroll" }, el("table", null,
-      el("thead", null, el("tr", null, el("th", null, "Kind"), el("th", null, "Name"), el("th", null, "Tier"), el("th", null, "Where"), el("th", null, "Made by"))),
-      el("tbody", null, rows.map((b) => el("tr", null, el("td", null, b.type), el("td", null, b.name || ""), el("td", null, b.tier), el("td", null, b.x + ", " + b.z), el("td", { class: "sub" }, b.by))))))),
+      el("thead", null, el("tr", null, el("th", null, "Kind"), el("th", null, "Name"), el("th", null, "Tier"), el("th", null, "Beds"), el("th", null, "Where"), el("th", null, "Made by"), ACTIONS ? el("th", null, "") : null)),
+      el("tbody", null, rows.map((b) => { const bi = (v.buildingInfo || {})[b.x + "," + b.y + "," + b.z];
+        return el("tr", null, el("td", null, b.type), el("td", null, b.name || ""), el("td", null, b.tier + (bi ? " / " + bi.maxTier : "")), el("td", null, bi && bi.beds ? bi.beds : ""), el("td", null, b.x + ", " + b.z), el("td", { class: "sub" }, b.by),
+          ACTIONS ? el("td", null, bi && bi.upgradable ? el("button", { title: "have the builders improve it", onclick: () => act({ action: "upgrade-building", village: v.id, building: b.x + "," + b.y + "," + b.z }, "Have the builders improve this " + b.type.toLowerCase() + " to tier " + (b.tier + 1) + " (the stores pay for it)") }, "Upgrade") : el("span", { class: "sub", title: bi ? bi.why : "" }, bi ? "no" : "")) : null); }))))),
     el("div", { class: "panel" }, el("h2", null, "Building projects"),
       v.projects.length ? el("ul", { class: "plain" }, v.projects.map((p) => el("li", null, cap(p.type) + " tier " + p.tier + " ", el("span", { class: "chip" + (p.status === "cancelled" ? " bad" : "") }, p.status),
         el("span", { class: "sub" }, p.finished > 0 ? " day " + p.finished : " queued day " + p.queued)))) : el("div", { class: "empty" }, "Nothing built yet.")));
@@ -681,11 +687,47 @@ function tabPlan(v) {
     el("div", { class: "mapwrap" }, canvas, tip),
     state.layers.slope ? el("div", { class: "legend" }, [["0", "flat"], ["1", "gentle"], ["2", "steep"], ["3", "cliff"], ["~", "water"]].map(([k, t]) => el("span", null, el("i", { style: "background:" + SLOPE[k] }), t)),
       el("span", null, v.ground ? "height " + v.ground.low + " to " + v.ground.high + " · a cell is " + v.ground.step + " by " + v.ground.step + " blocks · unmeasured ground is left clear" : "ground not measured yet (it is read where the world is loaded)")) : null,
+    state.layers.defence ? defenceLegend(v) : null,
     state.layers.homes ? el("div", { class: "legend" }, el("span", null, "each house is ringed in its family's colour; grey ring = nobody lives there; point at a house to see who")) : null,
     el("div", { class: "legend" }, Object.entries(LOT).map(([k, c]) => el("span", null, el("i", { style: "background:" + c }), k)),
       el("span", null, el("i", { style: "background:#7aa0be" }), "trade and other"), el("span", null, "solid = built on · outline = ready · dashed = rough · crossed = kept empty · dot = building by kind (grey rim: found) · dashed ring = no lot of the plan here")),
     el("div", { class: "sub", style: "margin-top:6px" }, "Scroll to zoom, drag to move, point at a lot or building for details" + (ACTIONS ? ", click a lot to change it." : "."))),
-    selectedLot(v), rules(v));
+    selectedBuilding(v), selectedLot(v), rules(v));
+}
+
+/** R8.28: what the defence and lights layer shows, in words. */
+function defenceLegend(v) {
+  const d = state.defence && state.defence.id === v.id ? state.defence : null;
+  if (!d) return el("div", { class: "legend" }, el("span", null, "reading the defences..."));
+  if (d.pending || !d.lights) return el("div", { class: "legend" }, el("span", null, d.pending ? "reading the defences..." : "no plan yet"));
+  const count = (s) => (s || "").split("").filter((c) => c === "1").length, unknown = (s) => (s || "").split("").filter((c) => c === "?").length;
+  const wallName = d.tier >= 3 ? "stone rampart" : d.tier === 2 ? "timber rampart" : d.tier === 1 ? "palisade" : "no wall yet (the planned palisade is dotted)";
+  return el("div", { class: "legend" },
+    el("span", null, el("i", { style: "background:#f2c744" }), "light standing (" + count(d.lightsBuilt) + " of " + d.lights.length + ")"),
+    el("span", null, el("i", { style: "background:#6b6b6b" }), "light not built or not seen"),
+    el("span", null, el("i", { style: "background:#c8a86a" }), wallName + " (" + count(d.wallBuilt) + " of " + d.wall.length + " standing)"),
+    el("span", null, el("i", { style: "background:#d5493d" }), "gap in the wall"),
+    el("span", null, el("i", { style: "background:#5fa8ff" }), "guards' patrol (" + d.guards + " guards, " + d.guardPosts + " posts)"),
+    el("span", { class: d.danger ? "low" : "" }, "threat " + d.threat + (d.danger ? " · in danger" : "") + (d.incidents ? " · " + d.incidents + " attacks lately" : "")),
+    unknown(d.wallBuilt) + unknown(d.lightsBuilt) ? el("span", null, "grey: ground not loaded, never seen") : null);
+}
+
+/** R8.29: the building clicked on the map: its tier and beds, and (with actions on) a button to have the builders improve it. */
+function selectedBuilding(v) {
+  const [vid, key] = (state.selB || "").split(":");
+  const b = vid === v.id ? v.buildings.find((x) => x.x + "," + x.y + "," + x.z === key) : null;
+  if (!b) return null;
+  const bi = (v.buildingInfo || {})[key];
+  const head = el("div", null, el("b", null, (b.name ? b.name + " · " : "") + b.type), " ", el("span", { class: "chip" }, "tier " + b.tier + (bi ? " of " + bi.maxTier : "")),
+    bi && bi.beds ? el("span", { class: "chip" }, bi.beds + (bi.beds === 1 ? " bed" : " beds")) : null,
+    el("div", { class: "sub" }, "at " + b.x + ", " + b.y + ", " + b.z + " · " + (b.by === "found" ? "found standing" : "registered by " + b.by)));
+  const next = bi && bi.nextBeds ? el("div", { class: "sub" }, "The next tier has " + bi.nextBeds + " beds.") : null;
+  if (!bi) return el("div", { class: "panel" }, el("h2", null, "Selected building"), head);
+  if (!ACTIONS || !state.catalogue) return el("div", { class: "panel" }, el("h2", null, "Selected building"), head, next, bi.upgradable ? null : el("div", { class: "sub" }, "Cannot be upgraded: " + bi.why + "."));
+  return el("div", { class: "panel" }, el("h2", null, "Selected building"), head, next,
+    bi.upgradable ? el("div", { style: "margin-top:10px" }, el("button", { onclick: () => act({ action: "upgrade-building", village: v.id, building: key }, "Have the builders improve this " + b.type.toLowerCase() + " to tier " + (b.tier + 1) + " (the stores pay for it)") }, "Upgrade to tier " + (b.tier + 1)),
+      el("div", { class: "sub", style: "margin-top:6px" }, "It is queued like any other project, paid from the village's stores and built by its builder. If the stores cannot pay yet, nothing is queued."))
+      : el("div", { class: "sub", style: "margin-top:8px" }, "Cannot be upgraded: " + bi.why + "."));
 }
 
 /** R8.23: the lot clicked on the map, with what an admin may do to it. */
@@ -777,6 +819,26 @@ function drawMap(canvas, tip, v) {
         g.fillStyle = c; g.fillText(d.name + " (" + d.built + " of " + d.lots + " lots)", X(x) + 6, Z(z) + 4);
       });
     }
+    const def = state.layers.defence && state.defence && state.defence.id === v.id && state.defence.lights ? state.defence : null;
+    if (def) { // R8.28: the wall, the lights and the guards' round
+      const tierColour = def.tier >= 3 ? "#aab0b8" : def.tier === 2 ? "#b98b57" : "#c8a86a", sz = Math.max(2, m.s);
+      def.wall.forEach(([x, z], i) => {
+        const c = (def.wallBuilt || "")[i];
+        g.fillStyle = c === "1" ? tierColour : c === "?" ? "#7a7a7a" : def.tier ? "#d5493d" : "rgba(200,168,106,.45)";
+        g.fillRect(X(x) - sz / 2 + m.s / 2, Z(z) - sz / 2 + m.s / 2, sz, sz);
+      });
+      if (def.patrol.length > 1) {
+        g.beginPath(); def.patrol.forEach(([x, z], i) => { if (i) g.lineTo(X(x + .5), Z(z + .5)); else g.moveTo(X(x + .5), Z(z + .5)); }); g.closePath();
+        g.setLineDash([6, 5]); g.lineWidth = 1.5; g.strokeStyle = "#5fa8ff"; g.stroke(); g.setLineDash([]);
+        g.fillStyle = "#5fa8ff"; def.patrol.forEach(([x, z]) => { g.beginPath(); g.arc(X(x + .5), Z(z + .5), 2.5, 0, 7); g.fill(); });
+      }
+      def.lights.forEach(([x, z], i) => {
+        const c = (def.lightsBuilt || "")[i];
+        g.beginPath(); g.arc(X(x + .5), Z(z + .5), Math.max(2.5, m.s * .7), 0, 7);
+        g.fillStyle = c === "1" ? "#f2c744" : "#6b6b6b"; g.globalAlpha = c === "?" ? .4 : 1; g.fill(); g.globalAlpha = 1;
+        if (c === "1") { g.strokeStyle = "rgba(242,199,68,.4)"; g.lineWidth = 3; g.stroke(); }
+      });
+    }
     if (state.layers.homes) { // R8.27: whose house is whose
       for (const h of v.homes || []) {
         const hx = X(h.x + .5), hz = Z(h.z + .5);
@@ -815,6 +877,7 @@ function drawMap(canvas, tip, v) {
          el("div", { class: "sub" }, hit.rect[2] + " by " + hit.rect[3] + " at " + hit.rect[0] + ", " + hit.rect[1])]
       : [el("b", null, (hit.name ? hit.name + " \u00b7 " : "") + hit.type + (hit.tier > 1 ? " tier " + hit.tier : "")), el("div", { class: "sub" }, "at " + hit.x + ", " + hit.y + ", " + hit.z), el("div", { class: "sub" }, hit.by === "found" ? "found standing (a vanilla building)" : "registered by " + hit.by),
          hit.noLot ? el("div", { class: "sub" }, "No lot in the plan here: built before the plan was redrawn, signed by a player, or found.") : null,
+         (() => { const bi = (v.buildingInfo || {})[hit.x + "," + hit.y + "," + hit.z]; return bi ? el("div", null, "Tier " + bi.tier + " of " + bi.maxTier + (bi.beds ? " · " + bi.beds + (bi.beds === 1 ? " bed" : " beds") + (bi.nextBeds ? " (" + bi.nextBeds + " at tier " + (bi.tier + 1) + ")" : "") : "")) : null; })(),
          (() => { const home = (v.homes || []).find((h) => h.x === hit.x && h.z === hit.z); return home ? el("div", null, home.empty ? "Nobody lives here." : "The " + home.family + " household: " + home.people.join(", ")) : null; })()]));
     tip.style.display = "block";
     tip.style.left = Math.min(ex + 14, W - 240) + "px"; tip.style.top = Math.min(ey + 14, H - 70) + "px";
@@ -829,6 +892,7 @@ function drawMap(canvas, tip, v) {
     const [ex, ey] = pos(e), hit = at(ex, ey);
     const lotHit = hit && hit.rect ? hit : (hit ? p.lots.find((l) => { const [x, z, w, d] = l.rect; return hit.x >= x && hit.x < x + w && hit.z >= z && hit.z < z + d; }) : null);
     state.sel = lotHit ? v.id + ":" + lotHit.id : null;
+    state.selB = hit && !hit.rect ? v.id + ":" + hit.x + "," + hit.y + "," + hit.z : null; // R8.29: a building clicked on the map
     renderMain();
   };
   canvas.onwheel = (e) => {

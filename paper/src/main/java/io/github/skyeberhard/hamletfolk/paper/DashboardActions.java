@@ -128,6 +128,10 @@ final class DashboardActions {
                 yield new Outcome(true, freed == 0 ? "Nobody in " + s.name() + " is walled in (only loaded villagers are checked)."
                         : "Freed " + freed + (freed == 1 ? " villager" : " villagers") + " of " + s.name() + ".");
             }
+            case UPGRADE_BUILDING -> {
+                var order = plugin.construction().orderUpgrade(s, request.text());
+                yield new Outcome(order.ok(), order.message());
+            }
             case REGRADE -> {
                 Optional<String> why = Construction.reopenPalisade(s, s.lastSimulatedDay());
                 yield why.map(w -> new Outcome(false, w)).orElse(new Outcome(true, s.name() + " will mend its palisade."));

@@ -31,6 +31,7 @@ public final class AdminAction {
         RENAME("Rename the village", true, true),
         JOB("Set a resident's work and pin them to it", true, false),
         UNPIN("Hand a pinned resident back to the village", true, false),
+        UPGRADE_BUILDING("Have the builders improve a building to its next tier", true, true),
         // R8.23: plan overrides. All can be undone with the opposite action, so none asks first.
         LOCK_LOT("Keep a lot empty: no building is put on it", true, false),
         UNLOCK_LOT("Open a kept-empty lot to building again", true, false),
@@ -163,6 +164,12 @@ public final class AdminAction {
                         kind.get() == Kind.BUILD_NEXT ? PlanOverrides::orderable : PlanOverrides::nameable);
                 yield building.isEmpty() ? Checked.fail("no such kind of building")
                         : new Checked(new Request(kind.get(), id, null, null, null, null, building.get()), null);
+            }
+            case UPGRADE_BUILDING -> {
+                String key = body.get("building") instanceof String s ? s.strip() : "";
+                yield !key.matches("-?[0-9]{1,9},-?[0-9]{1,9},-?[0-9]{1,9}") || home.buildings().stream().noneMatch(b -> b.key().equals(key))
+                        ? Checked.fail("no such building in " + home.name())
+                        : ok(kind.get(), id, null, key, null, null);
             }
             case WARP -> number(body.get("days"), 1, MAX_WARP_DAYS)
                     .map(n -> ok(kind.get(), id, n, null, null, null))

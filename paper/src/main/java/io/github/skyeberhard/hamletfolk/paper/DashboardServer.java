@@ -239,9 +239,94 @@ final class DashboardServer {
                 pages = detail;
                 saveGround();
             }
+            if (!defenceWanted.isEmpty()) {
+                refreshDefence();
+            }
         } catch (RuntimeException e) {
             plugin.getLogger().log(Level.WARNING, "Could not refresh the dashboard", e);
         }
+    }
+
+    /** R8.28: the villages whose defence layer someone has asked for lately (id to when), and the pages made for them. */
+    private final Map<String, Long> defenceWanted = new java.util.concurrent.ConcurrentHashMap<>();
+    private volatile Map<String, String> defencePages = Map.of();
+    /** What was last seen of each village's lights and wall, so ground that is not loaded keeps its last known state. */
+    private final Map<java.util.UUID, String[]> builtSeen = new HashMap<>();
+
+    /** R8.28: the defence layer of the villages someone is looking at: the plan's lights and wall, and which of them stand (read where the world is loaded). Main thread. */
+    private void refreshDefence() {
+        long now = System.currentTimeMillis();
+        defenceWanted.values().removeIf(at -> now - at > 120_000);
+        Map<String, String> pages = new HashMap<>();
+        for (String id : defenceWanted.keySet()) {
+            try {
+                Settlement s = service.registry().get(java.util.UUID.fromString(id)).orElse(null);
+                if (s != null) {
+                    pages.put(id, gson.toJson(defenceOf(s)));
+                }
+            } catch (RuntimeException e) {
+                plugin.getLogger().log(Level.WARNING, "Could not build the defence layer", e);
+            }
+        }
+        defencePages = pages;
+    }
+
+    private Map<String, Object> defenceOf(Settlement s) {
+        Map<String, Object> data = new java.util.LinkedHashMap<>(io.github.skyeberhard.hamletfolk.core.Defence.asData(s, s.lastSimulatedDay()));
+        data.put("id", s.id().toString());
+        org.bukkit.World world = plugin.getServer().getWorld(s.world());
+        if (world == null || data.isEmpty()) {
+            return data;
+        }
+        int tier = ((Number) data.get("tier")).intValue();
+        String[] seen = builtSeen.computeIfAbsent(s.id(), k -> new String[] {"", ""});
+        String lights = standing(world, (List<int[]>) data.get("lights"), seen[0], (w, x, z) -> lightAt(w, x, z));
+        String wall = standing(world, (List<int[]>) data.get("wall"), seen[1], (w, x, z) -> wallAt(w, x, z, tier));
+        seen[0] = lights;
+        seen[1] = wall;
+        data.put("lightsBuilt", lights);
+        data.put("wallBuilt", wall);
+        return data;
+    }
+
+    private interface Probe {
+        char at(org.bukkit.World world, int x, int z);
+    }
+
+    /** One character for each spot: '1' standing, '0' not, '?' unknown (its chunk is not loaded and it was never seen). */
+    private static String standing(org.bukkit.World world, List<int[]> spots, String before, Probe probe) {
+        StringBuilder out = new StringBuilder(spots.size());
+        for (int i = 0; i < spots.size(); i++) {
+            char c = probe.at(world, spots.get(i)[0], spots.get(i)[1]);
+            if (c == '?' && before.length() == spots.size()) {
+                c = before.charAt(i); // not loaded now: what was last seen
+            }
+            out.append(c);
+        }
+        return out.toString();
+    }
+
+    private static char lightAt(org.bukkit.World world, int x, int z) {
+        if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+            return '?';
+        }
+        org.bukkit.block.Block top = world.getHighestBlockAt(x, z, org.bukkit.HeightMap.MOTION_BLOCKING_NO_LEAVES);
+        org.bukkit.Material m = top.getType();
+        if (ConstructionService.isLamp(m)) {
+            return '1';
+        }
+        return org.bukkit.Tag.FENCES.isTagged(m) && ConstructionService.isLamp(top.getRelative(0, 1, 0).getType()) ? '1' : '0';
+    }
+
+    private static char wallAt(org.bukkit.World world, int x, int z, int tier) {
+        if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+            return '?';
+        }
+        org.bukkit.Material m = world.getHighestBlockAt(x, z, org.bukkit.HeightMap.MOTION_BLOCKING_NO_LEAVES).getType();
+        if (org.bukkit.Tag.FENCES.isTagged(m) || org.bukkit.Tag.WALLS.isTagged(m)) {
+            return '1';
+        }
+        return tier >= 2 && (m == org.bukkit.Material.STONE_BRICKS || m == org.bukkit.Material.OAK_PLANKS || m == org.bukkit.Material.OAK_LOG) ? '1' : '0';
     }
 
     /** R8.27: the ground each village was last seen on, kept so a village nobody is near still has its slope layer. */
@@ -269,6 +354,9 @@ final class DashboardServer {
                     groundChanged = true;
                 }
                 page.put("ground", io.github.skyeberhard.hamletfolk.core.Terrain.asData(ground.get(s.id())));
+            }
+            if (plugin.templates() != null) { // R8.29: each building's tier, beds and whether it can be upgraded
+                page.put("buildingInfo", io.github.skyeberhard.hamletfolk.core.BuildingTiers.asData(s, plugin.templates().catalog(), plugin.templates()::blueprint));
             }
             var signs = plugin.homeSigns();
             if (signs != null) {
@@ -392,6 +480,11 @@ final class DashboardServer {
                 send(exchange, 200, "application/json; charset=utf-8", gson.toJson(catalogue).getBytes(StandardCharsets.UTF_8));
             } else if (path.equals("/") || path.equals("/index.html")) {
                 send(exchange, 200, "text/html; charset=utf-8", index);
+            } else if (path.startsWith("/api/defence/")) { // R8.28
+                String id = path.substring("/api/defence/".length());
+                defenceWanted.put(id, System.currentTimeMillis());
+                String page = defencePages.get(id);
+                send(exchange, 200, "application/json; charset=utf-8", (page == null ? "{\"pending\":true}" : page).getBytes(StandardCharsets.UTF_8));
             } else if (path.equals("/api/worlds")) {
                 send(exchange, 200, "application/json; charset=utf-8", worldsJson.getBytes(StandardCharsets.UTF_8));
             } else if (path.equals("/api/villages")) {

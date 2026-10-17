@@ -475,6 +475,20 @@ final class ConstructionService {
         }
     }
 
+    /** R8.29: an admin's order to upgrade one building to its next tier: queued like any other project (paid from the stores, built by the builder). */
+    io.github.skyeberhard.hamletfolk.core.BuildingTiers.Order orderUpgrade(Settlement settlement, String buildingKey) {
+        World world = Bukkit.getWorld(settlement.world());
+        if (world == null || settlement.plan() == null) {
+            return new io.github.skyeberhard.hamletfolk.core.BuildingTiers.Order(false, settlement.name() + " is in a world that is not loaded, or has no plan.");
+        }
+        var order = io.github.skyeberhard.hamletfolk.core.BuildingTiers.order(settlement, buildingKey, settlement.lastSimulatedDay(), plugin.templates().catalog(),
+                plugin.templates()::blueprint, groundOf(world));
+        if (order.ok()) {
+            plugin.requestSave();
+        }
+        return order;
+    }
+
     /** The chunks the village's plan covers: its lots, streets and square, which is where a decision needs the ground. */
     private static Set<Long> planChunks(Settlement settlement, boolean wide) {
         Set<Long> out = new HashSet<>();
