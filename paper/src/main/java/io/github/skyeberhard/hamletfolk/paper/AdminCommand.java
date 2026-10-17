@@ -16,8 +16,8 @@ import org.bukkit.entity.Player;
  */
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
-    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "noticeboard", "stores", "regrade", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | noticeboard [name] | stores [name] | regrade [name] | regrade streets [name] | replan [name] | warp [name|all] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
+    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "noticeboard", "stores", "worlds", "regrade", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | noticeboard [name] | stores [name] | worlds | regrade [name] | regrade streets [name] | replan [name] | warp [name|all|world <world>] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all|world <world>] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
 
     private final SettlementService service;
     private final TemplateCommand templates;
@@ -56,6 +56,15 @@ final class AdminCommand {
             case "regrade" -> regrade(sender, args);
             case "replan" -> replan(sender, args);
             case "warp" -> warp(sender, args);
+            case "worlds" -> {
+                service.worldReport().forEach(sender::sendMessage);
+                service.registry().settlements().forEach(s -> {
+                    List<String> inside = service.playersInside(s);
+                    if (!inside.isEmpty()) {
+                        sender.sendMessage("  inside " + s.name() + " (" + s.world() + "): " + String.join(", ", inside));
+                    }
+                });
+            }
             case "stores" -> {
                 Optional<Settlement> village = args.length >= 3 ? lookup(sender, words(args, 2, args.length)) : here(sender);
                 village.ifPresent(v -> service.plugin().stores().drawNow(v).forEach(sender::sendMessage));
@@ -182,6 +191,13 @@ final class AdminCommand {
      * number of days; any words before it name the village (from the console a name is needed; in game, the one you are in).
      */
     private void warp(CommandSender sender, String[] args) {
+        if (args.length == 5 && args[2].equalsIgnoreCase("world") && !args[4].isEmpty() && args[4].chars().allMatch(Character::isDigit)) {
+            int days = args[4].length() > 4 ? AdminAction.MAX_WARP_ALL_DAYS : Integer.parseInt(args[4]);
+            sender.sendMessage(!service.simulatedWorld(args[3]) ? "No simulated world called " + args[3] + "."
+                    : days < 1 ? "Give at least one day: /settlement admin warp world <world> <days>   (1 to " + AdminAction.MAX_WARP_ALL_DAYS + ")"
+                    : service.warpAll(days, sender.getName(), args[3]));
+            return;
+        }
         if (args.length == 4 && args[2].equalsIgnoreCase("all") && args[3].chars().allMatch(Character::isDigit) && !args[3].isEmpty()) {
             int all = args[3].length() > 4 ? AdminAction.MAX_WARP_ALL_DAYS : Integer.parseInt(args[3]);
             sender.sendMessage(all < 1 ? "Give at least one day: /settlement admin warp all <days>   (1 to " + AdminAction.MAX_WARP_ALL_DAYS + ")"
@@ -305,6 +321,16 @@ final class AdminCommand {
         }
         int capped = Math.min(speed, io.github.skyeberhard.hamletfolk.core.FastForward.MAX_SPEED);
         List<Settlement> targets;
+        if (args.length == 5 && args[2].equalsIgnoreCase("world")) {
+            if (!service.simulatedWorld(args[3])) {
+                sender.sendMessage("No simulated world called " + args[3] + ".");
+                return;
+            }
+            int n = service.setFastForwardAll(capped, args[3]);
+            sender.sendMessage(capped <= 1 ? n + " villages of " + args[3] + " back to normal speed."
+                    : n + " villages of " + args[3] + " now running at " + capped + "x. /settlement admin fastforward world " + args[3] + " stop to end it.");
+            return;
+        }
         if (args.length >= 4 && args[2].equalsIgnoreCase("all") && args.length == 4) {
             targets = service.registry().settlements().stream().filter(s -> !s.isAbandoned()).toList();
         } else {

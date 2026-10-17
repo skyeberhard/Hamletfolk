@@ -335,7 +335,8 @@ function overview() {
   const v = state.villages;
   const cards = el("div", { class: "vcards" }, v.map((x) => el("div", { class: "vcard", onclick: () => go(x.id) },
     el("div", { class: "t" }, el("span", { class: "dot h" + x.health }), x.name, el("span", { class: "pop" }, x.population + " people")),
-    el("div", { class: "sub" }, x.character || x.world),
+    el("div", { class: "sub" }, (x.character ? x.character + " · " : "") + x.world),
+    x.inside && x.inside.length ? el("div", null, el("span", { class: "chip" }, "👤 " + x.inside.join(", "))) : null,
     storeBars(x),
     el("div", null, el("span", { class: "chip" }, x.beds + " beds, " + x.freeBeds + " free"), x.building ? el("span", { class: "chip" }, "⚒ " + x.building) : null,
       x.idle ? el("span", { class: "chip watch" }, x.idle + " idle") : null),
@@ -343,11 +344,23 @@ function overview() {
     el("div", null, x.blockers.slice(0, 2).map((b) => el("span", { class: "chip bad" }, b)), x.blockers.length > 2 ? el("span", { class: "sub" }, " +" + (x.blockers.length - 2) + " more") : null))));
   const everyone = !ACTIONS ? null : (() => {
     const days = el("input", { type: "number", value: "5", min: "1", max: "30", "aria-label": "days to run every village" });
-    return el("div", { class: "panel", style: "margin: 12px 0" }, el("h2", null, "Every village"),
-      el("div", { style: "display:flex; gap:8px; flex-wrap:wrap; align-items:center" },
-        el("span", null, "Run every village"), days, el("span", { class: "sub" }, "days ahead (up to 30)"),
-        el("button", { onclick: () => act({ action: "warp-all", days: days.value }, "Run every village " + days.value + " days ahead (the server stalls while it does)") }, "Warp all"),
-        el("button", { onclick: () => act({ action: "save" }) }, "Save all")));
+    const speed = el("input", { type: "number", value: "10", min: "1", max: "100", "aria-label": "speed for every village" });
+    const worlds = [...new Set(state.villages.map((x) => x.world))].sort();
+    const world = el("select", { "aria-label": "which world" }, [el("option", { value: "" }, "every world")].concat(worlds.map((w) => el("option", { value: w }, w))));
+    const which = () => world.value ? "every village of " + world.value : "every village";
+    const body = (o) => world.value ? Object.assign(o, { world: world.value }) : o;
+    return el("div", { class: "panel", style: "margin: 12px 0" }, el("h2", null, "Worlds"),
+      el("div", { class: "sub" }, worlds.map((w) => {
+        const vs = state.villages.filter((x) => x.world === w);
+        return w + ": " + vs.length + " villages, " + vs.reduce((n, x) => n + x.population, 0) + " people, " + vs.reduce((n, x) => n + (x.inside ? x.inside.length : 0), 0) + " players inside a village";
+      }).join(" · ")),
+      el("div", { style: "display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px" },
+        el("span", null, "Run"), world, days, el("span", { class: "sub" }, "days ahead (up to 30)"),
+        el("button", { onclick: () => act(body({ action: "warp-all", days: days.value }), "Run " + which() + " " + days.value + " days ahead (the server stalls while it does)") }, "Warp"),
+        el("button", { onclick: () => act({ action: "save" }) }, "Save all")),
+      el("div", { style: "display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px" },
+        el("span", null, "Run " ), el("span", { class: "sub" }, "at"), speed, el("span", { class: "sub" }, "x (1 is normal)"),
+        el("button", { onclick: () => act(body({ action: "fastforward-all", speed: speed.value }), Number(speed.value) > 20 ? "Run " + which() + " at " + speed.value + "x (heavy on the server)" : null) }, "Set speed")));
   })();
   return [el("h1", null, "All villages"), el("div", { class: "sub" }, "Worst off first. Bars are half full at what a village wants; red is short."), everyone,
     el("div", { class: "two", style: "margin-top:14px" }, cards, feedPanel(null))];

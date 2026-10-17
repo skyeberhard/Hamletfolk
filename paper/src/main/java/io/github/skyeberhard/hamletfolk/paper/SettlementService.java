@@ -729,6 +729,68 @@ final class SettlementService {
      * always saved. Each village's history says an admin ran it ahead.
      */
     String warpAll(int days, String actor) {
+        return warpAll(days, actor, null);
+    }
+
+    /** R1.43: the simulated worlds: name, villages, people, players online and how many of those are inside a village's boundary. */
+    List<String> worldReport() {
+        List<String> out = new ArrayList<>();
+        for (World world : Bukkit.getWorlds()) {
+            if (!inScope(world)) {
+                continue;
+            }
+            int villages = 0;
+            int people = 0;
+            for (Settlement s : registry.settlements()) {
+                if (s.world().equals(world.getName())) {
+                    villages++;
+                    people += s.population();
+                }
+            }
+            long inside = world.getPlayers().stream().filter(p -> settlementAt(p.getLocation()).isPresent()).count();
+            out.add(world.getName() + ": " + villages + (villages == 1 ? " village, " : " villages, ") + people + " people, day " + day(world)
+                    + ", " + world.getPlayers().size() + " players online (" + inside + " inside a village)");
+        }
+        return out;
+    }
+
+    /** R1.43: the names of the online players inside a village's boundary (the settlement radius from its centre, in its world). */
+    List<String> playersInside(Settlement settlement) {
+        World world = Bukkit.getWorld(settlement.world());
+        if (world == null) {
+            return List.of();
+        }
+        long radiusSquared = (long) config.settlementRadius() * config.settlementRadius();
+        List<String> names = new ArrayList<>();
+        for (org.bukkit.entity.Player player : world.getPlayers()) {
+            Location at = player.getLocation();
+            if (settlement.distanceSquared(at.getBlockX(), at.getBlockZ()) <= radiusSquared) {
+                names.add(player.getName());
+            }
+        }
+        return names;
+    }
+
+    /** R1.43: true if the world exists and is simulated. */
+    boolean simulatedWorld(String name) {
+        World world = Bukkit.getWorld(name);
+        return world != null && inScope(world);
+    }
+
+    /** R1.43: runs every village of a world (or of every world, if {@code world} is null) at {@code speed}; returns how many. */
+    int setFastForwardAll(int speed, String world) {
+        int n = 0;
+        for (Settlement s : new ArrayList<>(registry.settlements())) {
+            if (!s.isAbandoned() && (world == null || s.world().equals(world))) {
+                setFastForward(s, speed);
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** As {@link #warpAll(int, String)}, for the villages of one world only (all of them if {@code world} is null). */
+    String warpAll(int days, String actor, String world) {
         if (warpingAll) {
             return "Every village is already being run ahead: wait for it to finish.";
         }
@@ -740,10 +802,13 @@ final class SettlementService {
             int failed = 0;
             for (Settlement s : new ArrayList<>(registry.settlements())) {
                 try {
+                    if (world != null && !s.world().equals(world)) {
+                        continue;
+                    }
                     if (warp(s, n, false) > 0) {
                         villages++;
                         s.record(s.lastSimulatedDay(), io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.MILESTONE,
-                                "An admin (" + actor + ") ran every village " + n + (n == 1 ? " day" : " days") + " ahead.");
+                                "An admin (" + actor + ") ran " + (world == null ? "every village " : "every village of " + world + " ") + n + (n == 1 ? " day" : " days") + " ahead.");
                     } else {
                         skipped++;
                     }
@@ -753,7 +818,7 @@ final class SettlementService {
                 }
             }
             plugin.requestSave();
-            return "Ran " + villages + (villages == 1 ? " village " : " villages ") + n + (n == 1 ? " day" : " days") + " ahead"
+            return "Ran " + villages + (villages == 1 ? " village " : " villages ") + (world == null ? "" : "of " + world + " ") + n + (n == 1 ? " day" : " days") + " ahead"
                     + (skipped == 0 ? "" : ", " + skipped + " left alone (abandoned, or in a world that is not simulated)")
                     + (failed == 0 ? "." : ", and " + failed + " failed: see the server log.");
         } finally {

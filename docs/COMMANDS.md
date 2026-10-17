@@ -69,8 +69,11 @@ rate are in the config) showing every village, what is in its way, and a page an
 | `noticeboard [name]` | Puts the village's notice board (a lectern with its book) beside its bell now, loading the square's ground, and says where it is (R4.53) |
 | `stores [name]` | Draws the village's store barrels now, loading the ground by each building, and says where they are (R4.55) |
 | `warp [name] <days>` | Runs a village up to 60 days ahead at once |
+| `warp world <world> <days>` | As `warp all`, for the villages of one world (R1.43) |
 | `warp all <days>` | Runs every village that can be run up to 30 days ahead, one after another (the server stalls for the sum) |
 | `fastforward [name\|all] [speed\|stop]` | Runs a village at several times speed in real time (in memory; stops on restart). No arguments shows what is running |
+| `fastforward world <world> <speed\|stop>` | As above for every village of one world (R1.43) |
+| `worlds` | Lists each simulated world with its villages, people and players online, and who is inside which village (R1.43) |
 | `job <occupation>\|unpin` | Look at a villager: pin them to a job, or release them |
 | `unstick [name]` | Frees residents of a village that are walled in |
 | `cancelproject [name]` | Cancels the village's open construction project |

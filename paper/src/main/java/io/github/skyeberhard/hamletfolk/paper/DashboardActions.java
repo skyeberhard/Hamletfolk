@@ -72,7 +72,18 @@ final class DashboardActions {
                         : new Outcome(true, s.name() + " ran " + ran + (ran == 1 ? " day" : " days") + " ahead (day " + before + " to "
                                 + s.lastSimulatedDay() + ").");
             }
-            case WARP_ALL -> new Outcome(true, service.warpAll(request.number(), actor));
+            case WARP_ALL -> request.text() != null && !service.simulatedWorld(request.text())
+                    ? new Outcome(false, "No simulated world called " + request.text() + ".")
+                    : new Outcome(true, service.warpAll(request.number(), actor, request.text()));
+            case FASTFORWARD_ALL -> {
+                if (request.text() != null && !service.simulatedWorld(request.text())) {
+                    yield new Outcome(false, "No simulated world called " + request.text() + ".");
+                }
+                int n = service.setFastForwardAll(request.number(), request.text());
+                String where = request.text() == null ? "every village" : n + " villages of " + request.text();
+                yield new Outcome(true, request.number() <= 1 ? where + " back to normal speed."
+                        : (request.text() == null ? n + " villages" : where) + " now run at " + request.number() + "x.");
+            }
             case FASTFORWARD -> {
                 service.setFastForward(s, request.number());
                 yield new Outcome(true, request.number() <= 1 ? s.name() + " is back to normal speed."

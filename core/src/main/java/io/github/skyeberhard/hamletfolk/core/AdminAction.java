@@ -18,7 +18,8 @@ public final class AdminAction {
         SAVE("Save every village now", false, false),
         REPLAN("Forget the village's plan and lay it out again", true, true),
         WARP("Run the village ahead a number of days", true, true),
-        WARP_ALL("Run every village ahead a number of days", false, true),
+        WARP_ALL("Run every village (or every village of one world) ahead a number of days", false, true),
+        FASTFORWARD_ALL("Run every village (or every village of one world) fast (2 to 100 times), or back to normal (1)", false, false),
         FASTFORWARD("Run the village fast (2 to 100 times), or back to normal (1)", true, false),
         RESETTLE("Send travellers to a village that has lost its people", true, true),
         CANCEL_PROJECT("Give up the village's open building project", true, true),
@@ -164,9 +165,18 @@ public final class AdminAction {
             case WARP -> number(body.get("days"), 1, MAX_WARP_DAYS)
                     .map(n -> ok(kind.get(), id, n, null, null, null))
                     .orElse(Checked.fail("days must be a whole number from 1 to " + MAX_WARP_DAYS));
-            case WARP_ALL -> number(body.get("days"), 1, MAX_WARP_ALL_DAYS)
-                    .map(n -> ok(kind.get(), null, n, null, null, null))
-                    .orElse(Checked.fail("days must be a whole number from 1 to " + MAX_WARP_ALL_DAYS + " when every village is run"));
+            case WARP_ALL -> worldName(body.get("world")).isEmpty() && body.get("world") != null && !String.valueOf(body.get("world")).isBlank()
+                    ? Checked.fail("not a world name")
+                    : number(body.get("days"), 1, MAX_WARP_ALL_DAYS)
+                            .map(n -> ok(kind.get(), null, n, worldName(body.get("world")).orElse(null), null, null))
+                            .orElse(Checked.fail("days must be a whole number from 1 to " + MAX_WARP_ALL_DAYS + " when every village is run"));
+            case FASTFORWARD_ALL -> worldName(body.get("world")).isEmpty() && body.get("world") != null && !String.valueOf(body.get("world")).isBlank()
+                    ? Checked.fail("not a world name")
+                    : number(body.get("speed"), 1, FastForward.MAX_SPEED)
+                            .map(n -> n > CONFIRM_SPEED_ABOVE && !Boolean.TRUE.equals(body.get("confirm"))
+                                    ? Checked.fail("a speed above " + CONFIRM_SPEED_ABOVE + " must be confirmed")
+                                    : ok(kind.get(), null, n, worldName(body.get("world")).orElse(null), null, null))
+                            .orElse(Checked.fail("speed must be 1 (normal) or 2 to " + FastForward.MAX_SPEED));
             case FASTFORWARD -> number(body.get("speed"), 1, FastForward.MAX_SPEED)
                     .map(n -> n > CONFIRM_SPEED_ABOVE && !Boolean.TRUE.equals(body.get("confirm"))
                             ? Checked.fail("a speed above " + CONFIRM_SPEED_ABOVE + " must be confirmed")
@@ -201,6 +211,14 @@ public final class AdminAction {
                 yield ok(kind.get(), id, null, null, resident, job);
             }
         };
+    }
+
+    /** R1.43: a world named in a request (letters, digits and the few marks a world's name has), or empty if none was given or it is not a name. */
+    static Optional<String> worldName(Object value) {
+        if (value instanceof String s && s.strip().matches("[A-Za-z0-9_./:-]{1,64}")) {
+            return Optional.of(s.strip());
+        }
+        return Optional.empty();
     }
 
     private static Checked ok(Kind kind, UUID id, Integer number, String text, UUID resident, Occupation occupation) {

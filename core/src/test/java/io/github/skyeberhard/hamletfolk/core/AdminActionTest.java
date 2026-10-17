@@ -146,6 +146,23 @@ class AdminActionTest {
     }
 
     @Test
+    void aWorldCanBeWarpedOrFastForwardedOnItsOwn() {
+        village();
+        AdminAction.Checked warp = AdminAction.check(body("action", "warp-all", "days", 3, "world", "world_nether", "confirm", true), registry);
+        assertTrue(warp.ok(), "" + warp.error());
+        assertEquals("world_nether", warp.request().text());
+        assertEquals(null, AdminAction.check(body("action", "warp-all", "days", 3, "confirm", true), registry).request().text(), "no world: every village");
+        assertFalse(AdminAction.check(body("action", "warp-all", "days", 3, "world", "a b; rm", "confirm", true), registry).ok(), "not a world name");
+        AdminAction.Checked fast = AdminAction.check(body("action", "fastforward-all", "speed", 10, "world", "world"), registry);
+        assertTrue(fast.ok(), "" + fast.error());
+        assertEquals("world", fast.request().text());
+        assertEquals(null, fast.request().village());
+        assertFalse(AdminAction.check(body("action", "fastforward-all", "speed", 50, "world", "world"), registry).ok(), "above 20 must be confirmed");
+        assertTrue(AdminAction.check(body("action", "fastforward-all", "speed", 50, "confirm", true), registry).ok());
+        assertFalse(AdminAction.check(body("action", "fastforward-all", "speed", 101), registry).ok());
+    }
+
+    @Test
     void everyVillageCanBeWarpedUpToThirtyDaysAfterAConfirmation() {
         village();
         assertFalse(AdminAction.check(body("action", "warp-all", "days", 5), registry).ok(), "it must be confirmed");

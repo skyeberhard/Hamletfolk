@@ -60,7 +60,7 @@ a player signed it, or it was found. A town square never has a lot.
 ## Actions (R1.36)
 
 With `allow-actions: true`, a village's page has an Admin panel and each resident's job is a picker. The actions are a closed list
-(`AdminAction.Kind` in core): save, replan, check streets, warp, warp all (the overview's button, 1 to 30 days), fast-forward, resettle, cancel project, unstick, mend palisade, rename, set a
+(`AdminAction.Kind` in core): save, replan, check streets, warp, warp all (the overview's button, 1 to 30 days, for one world or every world), fast-forward (one village, or all of a world with fast-forward-all), resettle, cancel project, unstick, mend palisade, rename, set a
 resident's job (pins them), unpin. There is no free-text console: nothing outside that list can run.
 
 Every action:

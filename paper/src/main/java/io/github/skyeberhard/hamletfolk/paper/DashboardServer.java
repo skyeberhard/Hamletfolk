@@ -171,6 +171,7 @@ final class DashboardServer {
             for (Settlement s : service.registry().settlements()) {
                 int limit = service.treasuryLimit(s);
                 Map<String, Object> summary = Dashboard.summary(s, limit);
+                summary.put("inside", service.playersInside(s)); // R1.43
                 rows.add(summary);
                 if (detail != null) {
                     detail.put(s.id().toString(), gson.toJson(Dashboard.detail(s, limit, summary)));
