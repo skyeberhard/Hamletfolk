@@ -27,6 +27,12 @@ Restart the server and open `http://127.0.0.1:8123/` in a browser on the same ma
 
 The page refreshes itself every few seconds.
 
+## Treasury, Stores and Quests (R1.45)
+
+A village's page has three more read-only tabs. **Treasury**: the balance, the limit and room, what is held aside for requests, and the history lines
+that moved money (the treasury keeps no list of what came in and went out). **Stores**: each category with its commodities, how much more fits, where
+its barrel is drawn (R4.55) and any theft. **Quests**: the village's open requests (R3.3) with their age, and gifts and closed requests from the history.
+
 ## Worlds (R1.44)
 
 The side tray lists every loaded world with a light (green, amber, red, or grey for a world with no villages or one that is not simulated), its villages

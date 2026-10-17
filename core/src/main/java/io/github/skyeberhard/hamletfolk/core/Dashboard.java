@@ -168,6 +168,7 @@ public final class Dashboard {
             history.add(row);
         }
         out.put("history", history);
+        out.putAll(VillageBooks.asData(s, treasuryLimit, day)); // R1.45
 
         List<Map<String, Object>> decisions = new ArrayList<>();
         List<Planner.Decision> made = s.decisions();

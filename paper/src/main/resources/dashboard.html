@@ -450,6 +450,9 @@ const TABS = [
   { id: "plan", label: "Plan", render: tabPlan },
   { id: "residents", label: "Residents", render: tabResidents },
   { id: "buildings", label: "Buildings", render: tabBuildings },
+  { id: "treasury", label: "Treasury", render: tabTreasury },
+  { id: "stores", label: "Stores", render: tabStores },
+  { id: "quests", label: "Quests", render: tabQuests },
   { id: "history", label: "History", render: tabHistory },
   { id: "admin", label: "Admin", render: tabAdmin, when: () => ACTIONS },
 ];
@@ -478,6 +481,39 @@ function village(v) {
       stat("treasury of " + v.treasuryLimit, v.treasury, 5), stat("beds, " + v.freeBeds + " free", v.beds, 6)),
     el("div", { class: "tabs", role: "tablist" }, tabs.map((t) => el("div", { class: "tab" + (state.tab === t.id ? " sel" : ""), role: "tab", onclick: () => { state.tab = t.id; location.hash = v.id + "/" + t.id; renderMain(); } }, t.label))),
     tabs.find((t) => t.id === state.tab).render(v)];
+}
+
+// ----- R1.45: the books (read-only) -----
+function bookLines(lines, empty) {
+  return lines && lines.length ? el("div", { class: "feed" }, lines.map((e) => el("div", { class: "ev" }, el("span", { class: "k " + (KIND[e.kind] || "") }),
+    el("div", null, el("div", null, e.text), el("div", { class: "m" }, "day " + e.day))))) : el("div", { class: "empty" }, empty);
+}
+function tabTreasury(v) {
+  const t = v.treasuryTab;
+  const stat = (k, n, note) => el("div", { class: "card" }, el("div", { class: "v" }, n), el("div", { class: "k" }, k), note ? el("div", { class: "k" }, note) : null);
+  const pct = t.limit ? Math.min(100, Math.round(t.balance * 100 / t.limit)) : 0;
+  return [el("div", { class: "cards" }, stat("emeralds in the treasury", t.balance, "of " + t.limit), stat("room left", t.room), stat("held for requests", t.heldForRequests, "paid out as they are filled"),
+      stat("merchants", t.merchants, t.hasCounter ? "a treasury counter stands" : "no treasury counter")),
+    el("div", { class: "panel", style: "margin-top:14px" }, el("h2", null, "How full"), el("div", { class: "bar" }, el("i", { style: "width:" + Math.max(2, pct) + "%" })),
+      el("div", { class: "sub" }, "The treasury keeps no list of money in and out, so below are the history lines that moved it: gifts, a passing trader, requests filled or lapsed.")),
+    el("div", { class: "panel", style: "margin-top:14px" }, el("h2", null, "What moved it"), bookLines(t.lines, "Nothing has moved the treasury lately."))];
+}
+function tabStores(v) {
+  const s = v.storesTab;
+  const rows = s.categories.map((c) => el("tr", null, el("td", null, cap(c.type)), el("td", null, fmt(c.units)), el("td", { class: "sub" }, fmt(c.room) + " more fits"),
+    el("td", null, c.commodities.length ? c.commodities.map((x) => el("span", { class: "chip", title: x.item ? "shown as " + x.shown + " " + x.item.replace(/_/g, " ") : "not shown" }, x.commodity + " " + fmt(x.units))) : el("span", { class: "sub" }, "empty")),
+    el("td", { class: "sub" }, c.shownAt ? "barrel at the " + c.shownAt.toLowerCase() : "no barrel (no " + "building for it)")));
+  return [el("div", { class: "panel" }, el("table", null, el("thead", null, el("tr", null, ["Store", "Units", "Room", "Holds", "Shown"].map((h) => el("th", null, h)))), el("tbody", null, rows))),
+    el("div", { class: "panel", style: "margin-top:14px" }, el("h2", null, "Taken from the stores"), bookLines(s.lines, "Nothing has been taken."))];
+}
+function tabQuests(v) {
+  const q = v.questsTab;
+  const open = q.open.length ? el("table", null, el("thead", null, el("tr", null, ["Wanted", "Given", "Pays", "Open", ""].map((h) => el("th", null, h)))),
+    el("tbody", null, q.open.map((r) => el("tr", null, el("td", null, r.wanted + " " + r.item), el("td", null, r.filled + " of " + r.wanted),
+      el("td", null, r.thanksOnly ? "thanks only" : r.reward + " emeralds (" + r.unpaid + " still held)"), el("td", { class: "sub" }, r.daysOpen + " days"), el("td", null))))) : el("div", { class: "empty" }, "The village is asking for nothing.");
+  return [el("div", { class: "panel" }, el("h2", null, "Asking for"), open),
+    el("div", { class: "panel", style: "margin-top:14px" }, el("h2", null, "Gifts and what became of requests"),
+      el("div", { class: "sub" }, "A request does not keep a list of who filled it; the gifts and the closed requests are read from the history."), bookLines(q.lines, "No gifts or closed requests lately."))];
 }
 
 function tabOverview(v) {
