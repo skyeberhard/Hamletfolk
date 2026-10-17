@@ -163,6 +163,21 @@ class AdminActionTest {
     }
 
     @Test
+    void aWorldsSpeedAndWarpDefaultCanBeSaved() {
+        village();
+        AdminAction.Checked speed = AdminAction.check(body("action", "set-world-speed", "world", "world", "speed", 5), registry);
+        assertTrue(speed.ok(), "" + speed.error());
+        assertEquals("world", speed.request().text());
+        assertEquals(5, speed.request().number());
+        assertFalse(AdminAction.check(body("action", "set-world-speed", "speed", 5), registry).ok(), "it must name a world");
+        assertFalse(AdminAction.check(body("action", "set-world-speed", "world", "world", "speed", 40), registry).ok(), "above 20 must be confirmed");
+        assertTrue(AdminAction.check(body("action", "set-world-speed", "world", "world", "speed", 40, "confirm", true), registry).ok());
+        assertFalse(AdminAction.check(body("action", "set-world-speed", "world", "world", "speed", 0), registry).ok());
+        assertTrue(AdminAction.check(body("action", "set-world-warp", "world", "world", "days", 7), registry).ok());
+        assertFalse(AdminAction.check(body("action", "set-world-warp", "world", "world", "days", 31), registry).ok());
+    }
+
+    @Test
     void everyVillageCanBeWarpedUpToThirtyDaysAfterAConfirmation() {
         village();
         assertFalse(AdminAction.check(body("action", "warp-all", "days", 5), registry).ok(), "it must be confirmed");

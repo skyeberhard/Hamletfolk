@@ -75,6 +75,24 @@ final class DashboardActions {
             case WARP_ALL -> request.text() != null && !service.simulatedWorld(request.text())
                     ? new Outcome(false, "No simulated world called " + request.text() + ".")
                     : new Outcome(true, service.warpAll(request.number(), actor, request.text()));
+            case SET_WORLD_SPEED -> {
+                if (!service.simulatedWorld(request.text())) {
+                    yield new Outcome(false, "No simulated world called " + request.text() + ".");
+                }
+                service.worldSettings().setSpeed(request.text(), request.number());
+                boolean saved = service.saveWorldSettings();
+                yield new Outcome(saved, saved ? (request.number() <= 1 ? request.text() + " is back to normal speed, and will stay so after a restart."
+                        : request.text() + " now runs at " + request.number() + "x, and will keep doing so after a restart (a village with a speed of its own keeps that).")
+                        : "The speed is set for now but could not be saved: see the server log.");
+            }
+            case SET_WORLD_WARP -> {
+                if (!service.simulatedWorld(request.text())) {
+                    yield new Outcome(false, "No simulated world called " + request.text() + ".");
+                }
+                service.worldSettings().setWarpDays(request.text(), request.number());
+                boolean saved = service.saveWorldSettings();
+                yield new Outcome(saved, saved ? request.text() + "'s warp now starts at " + request.number() + " days." : "It is set for now but could not be saved: see the server log.");
+            }
             case FASTFORWARD_ALL -> {
                 if (request.text() != null && !service.simulatedWorld(request.text())) {
                     yield new Outcome(false, "No simulated world called " + request.text() + ".");

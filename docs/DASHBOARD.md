@@ -33,6 +33,12 @@ A village's page has three more read-only tabs. **Treasury**: the balance, the l
 that moved money (the treasury keeps no list of what came in and went out). **Stores**: each category with its commodities, how much more fits, where
 its barrel is drawn (R4.55) and any theft. **Quests**: the village's open requests (R3.3) with their age, and gifts and closed requests from the history.
 
+## World time (R1.46)
+
+A world's page has a Time tab: the saved speed (every village of the world runs that many times faster than the world, kept over restarts in
+`plugins/Hamletfolk/world-settings.json`), the villages that run fast, and the warp default. With `dashboard.allow-actions` it can save a speed or a
+warp default and warp the world now. A village's own fast-forward, if set, wins over its world's.
+
 ## Worlds (R1.44)
 
 The side tray lists every loaded world with a light (green, amber, red, or grey for a world with no villages or one that is not simulated), its villages

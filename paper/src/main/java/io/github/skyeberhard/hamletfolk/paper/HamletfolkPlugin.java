@@ -71,6 +71,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
         templates.load();
         loadDialogue(); // R4.30
         service = new SettlementService(this, registry, HamletfolkConfig.from(getConfig()));
+        service.loadWorldSettings(new WorldSettingsFile(getDataFolder().toPath().resolve("world-settings.json"))); // R1.46
         getServer().getPluginManager().registerEvents(new VillagerListener(this, service), this);
         getServer().getPluginManager().registerEvents(new RaidListener(service), this);
         getServer().getPluginManager().registerEvents(new BuildingListener(service), this);

@@ -207,7 +207,27 @@ final class DashboardServer {
                     SettlementService.day(world), world.getTime(), world.isThundering() ? "thunder" : world.hasStorm() ? "rain" : "clear",
                     world.getDifficulty().name().toLowerCase(Locale.ROOT), service.inScope(world), players);
             List<Map<String, Object>> mine = villageRows.stream().filter(r -> world.getName().equals(r.get("world"))).toList();
-            out.add(io.github.skyeberhard.hamletfolk.core.WorldHealth.row(facts, mine));
+            Map<String, Object> row = io.github.skyeberhard.hamletfolk.core.WorldHealth.row(facts, mine);
+            Map<String, Object> settings = new java.util.LinkedHashMap<>(); // R1.46
+            var saved = service.worldSettings().of(world.getName());
+            settings.put("speed", saved.speed());
+            settings.put("warpDays", saved.warpDays());
+            List<String> own = new ArrayList<>();
+            int running = 0;
+            for (Settlement s : service.registry().settlements()) {
+                if (world.getName().equals(s.world()) && !s.isAbandoned()) {
+                    if (service.fastForwardSpeed(s) > 1) {
+                        running++;
+                    }
+                    if (service.hasOwnSpeed(s)) {
+                        own.add(s.name() + " " + service.fastForwardSpeed(s) + "x");
+                    }
+                }
+            }
+            settings.put("running", running);
+            settings.put("own", own);
+            row.put("settings", settings);
+            out.add(row);
         }
         return out;
     }

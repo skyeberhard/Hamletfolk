@@ -73,6 +73,7 @@ rate are in the config) showing every village, what is in its way, and a page an
 | `warp all <days>` | Runs every village that can be run up to 30 days ahead, one after another (the server stalls for the sum) |
 | `fastforward [name\|all] [speed\|stop]` | Runs a village at several times speed in real time (in memory; stops on restart). No arguments shows what is running |
 | `fastforward world <world> <speed\|stop>` | As above for every village of one world (R1.43) |
+| `worldspeed <world> <speed\|off>` | Saves the speed every village of a world runs at, kept over restarts in `world-settings.json` (a village's own fast-forward wins) (R1.46) |
 | `worlds` | Lists each simulated world with its villages, people and players online, and who is inside which village (R1.43) |
 | `job <occupation>\|unpin` | Look at a villager: pin them to a job, or release them |
 | `unstick [name]` | Frees residents of a village that are walled in |

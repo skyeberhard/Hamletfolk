@@ -1325,7 +1325,39 @@ final class SettlementService {
 
     // ----- R4.27: fast-forward -----
 
-    /** Not saved: the villages running fast, with their speed, and the fraction of a day each is owed. A restart stops them. */
+    /** R1.46: what an admin has saved for each world (the speed its villages run at, the days its warp starts at). */
+    private io.github.skyeberhard.hamletfolk.core.WorldSettings worldSettings = new io.github.skyeberhard.hamletfolk.core.WorldSettings();
+    private WorldSettingsFile worldSettingsFile;
+
+    /** Reads the saved world settings from the file (and remembers it for saving). */
+    void loadWorldSettings(WorldSettingsFile file) {
+        worldSettingsFile = file;
+        try {
+            worldSettings = file.load();
+        } catch (java.io.IOException | RuntimeException e) {
+            plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not read the world settings; every world runs at normal speed until they are set again", e);
+        }
+    }
+
+    io.github.skyeberhard.hamletfolk.core.WorldSettings worldSettings() {
+        return worldSettings;
+    }
+
+    /** Writes the world settings (after a change). Returns false, and logs, if the file could not be written. */
+    boolean saveWorldSettings() {
+        if (worldSettingsFile == null) {
+            return false;
+        }
+        try {
+            worldSettingsFile.save(worldSettings);
+            return true;
+        } catch (java.io.IOException e) {
+            plugin.getLogger().log(java.util.logging.Level.WARNING, "Could not save the world settings", e);
+            return false;
+        }
+    }
+
+    /** Not saved: the villages running fast on their own account (an admin set it for that village), with their speed, and the fraction of a day each is owed. A restart stops them; a world's saved speed does not. */
     private final Map<UUID, Integer> fastForward = new java.util.LinkedHashMap<>();
     private final Map<UUID, Double> owed = new HashMap<>();
     private static final long FAST_FORWARD_PERIOD = 20;
@@ -1346,13 +1378,26 @@ final class SettlementService {
         }
     }
 
-    /** The speed a village runs at: 1 unless it is fast-forwarding. */
+    /** The speed a village runs at: its own if an admin set one, else its world's saved speed, else 1. */
     int fastForwardSpeed(Settlement settlement) {
-        return fastForward.getOrDefault(settlement.id(), 1);
+        return fastForward.getOrDefault(settlement.id(), worldSettings.speed(settlement.world()));
     }
 
+    /** The villages running fast, whether by their own setting or their world's, with the speed each runs at. */
     Map<UUID, Integer> fastForwarding() {
-        return java.util.Collections.unmodifiableMap(fastForward);
+        Map<UUID, Integer> out = new java.util.LinkedHashMap<>();
+        for (Settlement s : registry.settlements()) {
+            int speed = fastForwardSpeed(s);
+            if (speed > 1 && !s.isAbandoned()) {
+                out.put(s.id(), speed);
+            }
+        }
+        return out;
+    }
+
+    /** True if the village runs at a speed of its own rather than its world's. */
+    boolean hasOwnSpeed(Settlement settlement) {
+        return fastForward.containsKey(settlement.id());
     }
 
     /** Real time between saves while villages fast-forward, so a run of warps does not save every second. */
@@ -1361,16 +1406,18 @@ final class SettlementService {
 
     private void fastForwardPass() {
         boolean ran = false;
-        for (Map.Entry<UUID, Integer> entry : new ArrayList<>(fastForward.entrySet())) {
-            Settlement settlement = registry.settlements().stream().filter(s -> s.id().equals(entry.getKey())).findFirst().orElse(null);
-            if (settlement == null || settlement.isAbandoned()) {
-                fastForward.remove(entry.getKey());
-                owed.remove(entry.getKey());
+        for (Settlement settlement : new ArrayList<>(registry.settlements())) {
+            UUID id = settlement.id();
+            int speed = fastForwardSpeed(settlement);
+            if (settlement.isAbandoned()) {
+                fastForward.remove(id);
+            }
+            if (speed <= 1 || settlement.isAbandoned()) {
+                owed.remove(id);
                 continue;
             }
-            FastForward.Step step = FastForward.advance(owed.getOrDefault(entry.getKey(), 0.0), entry.getValue(),
-                    FAST_FORWARD_PERIOD, FAST_FORWARD_MAX_DAYS);
-            owed.put(entry.getKey(), step.carry());
+            FastForward.Step step = FastForward.advance(owed.getOrDefault(id, 0.0), speed, FAST_FORWARD_PERIOD, FAST_FORWARD_MAX_DAYS);
+            owed.put(id, step.carry());
             if (step.days() > 0) {
                 warp(settlement, step.days(), false);
                 ran = true;

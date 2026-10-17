@@ -416,6 +416,7 @@ const WORLD_TABS = [
   { id: "overview", label: "Overview", render: worldOverview },
   { id: "players", label: "Players", render: worldPlayers },
   { id: "villages", label: "Villages", render: (w) => villageCards(state.villages.filter((x) => x.world === w.name)) },
+  { id: "time", label: "Time", render: worldTime },
   { id: "feed", label: "Feed", render: (w) => feedPanel(null, w.name) },
 ];
 function worldPage(w) {
@@ -434,6 +435,27 @@ function worldOverview(w) {
   return [el("div", { class: "cards" }, stat("villages", w.villages), stat("people", w.people), stat("players online", w.players.length),
       stat("going well", w.green), stat("held back", w.amber), stat("in trouble", w.red)),
     el("div", { class: "two", style: "margin-top:14px" }, villageCards(state.villages.filter((x) => x.world === w.name)), feedPanel(null, w.name))];
+}
+// R1.46: the world's saved speed and warp (read-only unless actions are on)
+function worldTime(w) {
+  const t = w.settings || { speed: 1, warpDays: 5, running: 0, own: [] };
+  const stat = (k, n, note) => el("div", { class: "card" }, el("div", { class: "v" }, n), el("div", { class: "k" }, k), note ? el("div", { class: "k" }, note) : null);
+  const cards = el("div", { class: "cards" }, stat("saved speed", t.speed + "x", t.speed > 1 ? "kept over restarts" : "normal"), stat("villages running fast", t.running, "of " + w.villages),
+    stat("warp starts at", t.warpDays + " days"));
+  const own = t.own.length ? el("div", { class: "sub", style: "margin-top:8px" }, "With a speed of their own (this wins over the world's): " + t.own.join(", ") + ".") : null;
+  if (!ACTIONS) return [cards, own, el("div", { class: "sub", style: "margin-top:12px" }, "Turn on dashboard.allow-actions to change these.")];
+  if (!w.simulated) return [cards, el("div", { class: "empty", style: "margin-top:12px" }, "This world is not simulated.")];
+  const speed = el("input", { type: "number", value: String(t.speed), min: "1", max: "100", "aria-label": "saved speed" });
+  const days = el("input", { type: "number", value: String(t.warpDays), min: "1", max: "30", "aria-label": "warp days" });
+  return [cards, own, el("div", { class: "panel", style: "margin-top:14px" }, el("h2", null, "Speed"),
+      el("div", { class: "sub" }, "Every village here runs this many times faster than the world, until you set it back to 1. It is saved, so it survives a restart. Heavy on the server above about 20."),
+      el("div", { style: "display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px" }, speed, el("span", { class: "sub" }, "x (1 is normal)"),
+        el("button", { onclick: () => act({ action: "set-world-speed", world: w.name, speed: speed.value }, Number(speed.value) > 20 ? "Run every village of " + w.name + " at " + speed.value + "x (heavy on the server)" : null) }, "Save speed"))),
+    el("div", { class: "panel", style: "margin-top:14px" }, el("h2", null, "Warp"),
+      el("div", { class: "sub" }, "Runs every village here ahead at once (up to 30 days; the server stalls while it does)."),
+      el("div", { style: "display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px" }, days, el("span", { class: "sub" }, "days"),
+        el("button", { onclick: () => act({ action: "set-world-warp", world: w.name, days: days.value }) }, "Save as the default"),
+        el("button", { onclick: () => act({ action: "warp-all", world: w.name, days: days.value }, "Run every village of " + w.name + " " + days.value + " days ahead (the server stalls while it does)") }, "Warp now")))];
 }
 function worldPlayers(w) {
   if (!w.players.length) return el("div", { class: "empty" }, "Nobody is online in this world.");

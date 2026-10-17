@@ -55,6 +55,10 @@ What Hamletfolk needs from it, for its own uses:
 Open questions, to settle with a look at the portal plugin's code rather than guesses: where it stores links; whether it publishes events; whether it
 already has an admin surface we would duplicate; how it names worlds.
 
+R1.46 built the saved *run-faster* setting: each world has a speed (fast-forward for all its villages, saved in `world-settings.json`) and a default for
+warp days, and a village's own fast-forward wins. It is a setting for the admin's convenience. R1.47's world speed, the lived-time ratio with its age and
+trade rules, is a separate and later thing, and may reuse the same file.
+
 ## 4. World speed (time dilation)
 
 What it means: **the villages of a world live faster or slower than the hub's.** A world with speed 2 has two village days for each day of the hub.

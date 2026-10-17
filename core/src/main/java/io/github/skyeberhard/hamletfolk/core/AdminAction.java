@@ -19,6 +19,8 @@ public final class AdminAction {
         REPLAN("Forget the village's plan and lay it out again", true, true),
         WARP("Run the village ahead a number of days", true, true),
         WARP_ALL("Run every village (or every village of one world) ahead a number of days", false, true),
+        SET_WORLD_SPEED("Save the speed a world's villages run at (1 is normal), kept over restarts", false, false),
+        SET_WORLD_WARP("Save the number of days a world's warp starts at", false, false),
         FASTFORWARD_ALL("Run every village (or every village of one world) fast (2 to 100 times), or back to normal (1)", false, false),
         FASTFORWARD("Run the village fast (2 to 100 times), or back to normal (1)", true, false),
         RESETTLE("Send travellers to a village that has lost its people", true, true),
@@ -170,6 +172,20 @@ public final class AdminAction {
                     : number(body.get("days"), 1, MAX_WARP_ALL_DAYS)
                             .map(n -> ok(kind.get(), null, n, worldName(body.get("world")).orElse(null), null, null))
                             .orElse(Checked.fail("days must be a whole number from 1 to " + MAX_WARP_ALL_DAYS + " when every village is run"));
+            case SET_WORLD_SPEED, SET_WORLD_WARP -> {
+                Optional<String> world = worldName(body.get("world"));
+                boolean speed = kind.get() == Kind.SET_WORLD_SPEED;
+                if (world.isEmpty()) {
+                    yield Checked.fail("name a world");
+                }
+                Optional<Integer> n = number(body.get(speed ? "speed" : "days"), 1, speed ? FastForward.MAX_SPEED : WorldSettings.MAX_WARP_DAYS);
+                if (n.isEmpty()) {
+                    yield Checked.fail(speed ? "speed must be 1 (normal) or 2 to " + FastForward.MAX_SPEED : "days must be 1 to " + WorldSettings.MAX_WARP_DAYS);
+                }
+                yield speed && n.get() > CONFIRM_SPEED_ABOVE && !Boolean.TRUE.equals(body.get("confirm"))
+                        ? Checked.fail("a speed above " + CONFIRM_SPEED_ABOVE + " must be confirmed")
+                        : ok(kind.get(), null, n.get(), world.get(), null, null);
+            }
             case FASTFORWARD_ALL -> worldName(body.get("world")).isEmpty() && body.get("world") != null && !String.valueOf(body.get("world")).isBlank()
                     ? Checked.fail("not a world name")
                     : number(body.get("speed"), 1, FastForward.MAX_SPEED)
