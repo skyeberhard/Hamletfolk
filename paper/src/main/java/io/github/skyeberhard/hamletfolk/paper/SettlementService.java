@@ -871,6 +871,45 @@ final class SettlementService {
 
     // ----- R8.11: the land -----
 
+    /** The columns looked at round a sampled cell's centre (spaced this many blocks apart, three each way) to see what is on the ground. */
+    private static final int LOOK_SPACING = 8;
+
+    /**
+     * R8.24: the sample grid of a site: the biome at every cell from the game's computed lookup (which generates nothing) and, if
+     * {@code lookAtTheGround} and where the chunks are already loaded, what is on the ground there (surface water, trees, bare stone: nine columns a cell), so a lake, a grove or a
+     * cliff face counts for what it is. A cell whose chunks are not loaded is left to its biome: nothing is loaded or generated for a survey.
+     */
+    List<SiteSurvey.Cell> siteGrid(World world, int x, int z, int y, boolean lookAtTheGround) {
+        return SiteSurvey.grid(SiteSurvey.MAX_RADIUS, 24, (dx, dz) -> world.getComputedBiome(x + dx, y, z + dz).getKey().getKey(),
+                (dx, dz) -> lookAtTheGround ? observe(world, x + dx, z + dz) : null);
+    }
+
+    private static SiteSurvey.Observed observe(World world, int cx, int cz) {
+        int looked = 0;
+        int water = 0;
+        int trees = 0;
+        int stone = 0;
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                int px = cx + i * LOOK_SPACING;
+                int pz = cz + j * LOOK_SPACING;
+                if (!world.isChunkLoaded(px >> 4, pz >> 4)) {
+                    continue;
+                }
+                looked++;
+                org.bukkit.Material top = world.getBlockAt(px, world.getHighestBlockYAt(px, pz), pz).getType();
+                if (top == org.bukkit.Material.WATER) {
+                    water++;
+                } else if (org.bukkit.Tag.LEAVES.isTagged(top) || org.bukkit.Tag.LOGS.isTagged(top)) {
+                    trees++;
+                } else if (org.bukkit.Tag.BASE_STONE_OVERWORLD.isTagged(top)) {
+                    stone++;
+                }
+            }
+        }
+        return looked == 0 ? null : new SiteSurvey.Observed((double) water / looked, (double) trees / looked, (double) stone / looked);
+    }
+
     /**
      * Reads the land round a village once, from the game's computed biomes (which generate nothing), and keeps the survey
      * and the leaning it gives. Done again by an admin's replan.
@@ -891,8 +930,8 @@ final class SettlementService {
         int x = settlement.centerX();
         int z = settlement.centerZ();
         int y = Math.max(world.getSeaLevel(), 64);
-        SiteSurvey.Profile profile = SiteSurvey.score(SiteSurvey.grid(SiteSurvey.MAX_RADIUS, 24,
-                (dx, dz) -> world.getComputedBiome(x + dx, y, z + dz).getKey().getKey()));
+        // (the biome alone: a village's character must not depend on which chunks happen to be loaded, or on what players have built)
+        SiteSurvey.Profile profile = SiteSurvey.score(siteGrid(world, x, z, y, false));
         settlement.setLand(profile);
         Leaning leaning = settlement.leaning();
         if (leaning != before) {

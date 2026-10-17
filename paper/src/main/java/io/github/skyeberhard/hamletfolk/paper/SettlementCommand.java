@@ -555,16 +555,19 @@ final class SettlementCommand implements TabExecutor {
         int x = here.getBlockX();
         int z = here.getBlockZ();
         int y = Math.max(world.getSeaLevel(), here.getBlockY());
-        SiteSurvey.Profile profile = SiteSurvey.score(SiteSurvey.grid(SiteSurvey.MAX_RADIUS, 24,
-                (dx, dz) -> world.getComputedBiome(x + dx, y, z + dz).getKey().getKey()));
+        List<SiteSurvey.Cell> cells = service.siteGrid(world, x, z, y, true);
+        SiteSurvey.Profile profile = SiteSurvey.score(cells);
+        long seen = cells.stream().filter(c -> c.seen() != null).count();
         player.sendMessage(Component.text("Site survey, " + SiteSurvey.MAX_RADIUS + " blocks around " + x + ", " + z + ":",
                 NamedTextColor.GOLD));
         StringBuilder scores = new StringBuilder();
         for (SiteResource resource : SiteResource.values()) {
             scores.append(scores.isEmpty() ? "" : ", ").append(resource.label()).append(' ')
-                    .append(Math.round(profile.score(resource)));
+                    .append(Math.round(profile.reach(resource)));
         }
-        line(player, "Resources", scores.toString());
+        line(player, "Within reach", scores.toString());
+        line(player, "Read from", seen + " of " + cells.size() + " places on the ground (loaded chunks), the rest from the biome"
+                + "; stone and ore count as under any land");
         line(player, "Overall", Math.round(profile.overall()) + " out of 100; growth " + profile.growth().label()
                 + "; food " + (profile.foodBalance() >= 0.2 ? "surplus" : profile.foodBalance() <= -0.2 ? "short" : "balanced"));
         if (!profile.imports().isEmpty()) {

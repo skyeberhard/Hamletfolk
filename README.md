@@ -102,7 +102,7 @@ Beds set how many people a village can house. Nothing checks that a sign is on a
 | `/settlement beds` | The beds in the village, which are free and which a villager has claimed. |
 | `/settlement plan` | What the village wants next and why, its layout, and its recent decisions. |
 | `/settlement lots [on\|off]` | Outlines the village's planned lots, square and streets with particles, until you turn it off. |
-| `/settlement survey` | Scores the ground where you stand as a village site: water, timber, farmland, grazing, stone, ore. Works anywhere. |
+| `/settlement survey` | Scores the ground where you stand as a village site: how much water, timber, farmland, grazing, stone and ore a village there could reach (stone and ore are under any land), read from the biome and, where the land is loaded, from what is on the surface. Works anywhere. |
 | `/settlement donate [amount\|all]` | With no amount, says what the stack in your hand is worth. With an amount (or `all`), gives that many to the village. Items count by value: an iron block is worth nine ingots, and a better tool is worth more. Food, wood, stone, metal, tools, wool, leather, paper, or emeralds (into the treasury). Once the village has a `[Treasury]` sign you must stand within 12 blocks of it. |
 | `/settlement admin ...` | List, inspect, rename and save settlements (permission `hamletfolk.admin`). |
 
