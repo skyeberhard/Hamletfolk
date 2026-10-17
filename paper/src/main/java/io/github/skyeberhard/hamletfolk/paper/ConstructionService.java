@@ -780,8 +780,8 @@ final class ConstructionService {
             Block at = world.getBlockAt(spot.x(), surfaceY(world, spot.x(), spot.z()), spot.z());
             if (Tag.FENCES.isTagged(at.getType())) {
                 Block torch = at.getRelative(0, 1, 0);
-                if (lights && torch.getType() != Material.TORCH && growthOnly(torch)) {
-                    torch.setType(Material.TORCH, false); // lit again if it was knocked off
+                if (lights && !isLamp(torch.getType()) && growthOnly(torch)) {
+                    setLamp(torch); // put back if it was knocked off
                 }
                 standing.add(key);
                 continue;
@@ -805,7 +805,7 @@ final class ConstructionService {
             }
             post.setType(Material.OAK_FENCE, true); // with physics, so it joins the posts beside it
             if (lights) {
-                top.setType(Material.TORCH, false);
+                setLamp(top);
             }
             standing.add(key);
             placed++;
@@ -939,7 +939,7 @@ final class ConstructionService {
 
     /** What the generated rampart is made of: an admin's part may replace these, but only in columns the rampart stood on. */
     private static final Set<Material> RAMPART_MATERIALS = java.util.EnumSet.of(Material.OAK_FENCE, Material.OAK_PLANKS,
-            Material.OAK_LOG, Material.STONE_BRICKS, Material.STONE_BRICK_WALL, Material.TORCH, Material.LADDER, Material.COBBLESTONE);
+            Material.OAK_LOG, Material.STONE_BRICKS, Material.STONE_BRICK_WALL, Material.TORCH, Material.WAXED_COPPER_BULB, Material.LADDER, Material.COBBLESTONE);
 
     /**
      * The ground level under a captured part's anchor column: the first solid block that is not the rampart's own work, looking
@@ -1244,7 +1244,7 @@ final class ConstructionService {
             }
             // (and never the rail on top of a rampart: that stands on the wall, not on the ground)
             Material below = at.getRelative(0, -1, 0).getType();
-            if (at.getType() == Material.OAK_FENCE && onLine && at.getRelative(0, 1, 0).getType() != Material.TORCH
+            if (at.getType() == Material.OAK_FENCE && onLine && !isLamp(at.getRelative(0, 1, 0).getType())
                     && below != Material.OAK_PLANKS && below != Material.STONE_BRICKS) {
                 // R5.12: the whole stack of posts in the cell, down to the ground (or the bed of a pond), not just the top one
                 Block post = at;
@@ -1736,6 +1736,20 @@ final class ConstructionService {
         block.setType(Material.OAK_FENCE, true); // (with physics, so a row of posts joins up into a rail)
         Block top = block.getRelative(0, 1, 0);
         if (lit && growthOnly(top)) {
+            top.setType(Material.TORCH, false);
+        }
+    }
+
+    /** R4.54: the top of a street-light post: a torch, or (with {@code lights.lamps}) a copper bulb the lamp service lights at dusk. */
+    static boolean isLamp(Material m) {
+        return m == Material.TORCH || m == Material.WAXED_COPPER_BULB;
+    }
+
+    /** Puts a lamp on the post below {@code top}: an unlit bulb (StreetLampService lights it at dusk) or a torch if lamps are off. */
+    private void setLamp(Block top) {
+        if (plugin.getConfig().getBoolean("lights.lamps", true)) {
+            top.setType(Material.WAXED_COPPER_BULB, false); // (waxed, so it never weathers)
+        } else {
             top.setType(Material.TORCH, false);
         }
     }

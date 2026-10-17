@@ -95,6 +95,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
         startConsoleFeed(); // R1.34
         noticeBoards = new NoticeBoardService(this, service);
         noticeBoards.start(); // R4.53
+        new StreetLampService(this, service).start(); // R4.54
         startDashboard(); // R1.35
 
         long autosaveTicks = Math.max(1, getConfig().getLong("autosave-minutes", 5)) * 60 * 20;
