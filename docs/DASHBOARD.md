@@ -27,6 +27,13 @@ Restart the server and open `http://127.0.0.1:8123/` in a browser on the same ma
 
 The page refreshes itself every few seconds.
 
+## Worlds (R1.44)
+
+The side tray lists every loaded world with a light (green, amber, red, or grey for a world with no villages or one that is not simulated), its villages
+by colour and the players online. Click a world for its page: its facts (environment, day, time of day, weather, difficulty), why it has the light it has,
+the players and which village each stands inside, its villages and its feed. It is read-only. `GET /api/worlds` serves the same data. The design is in
+[WORLD_DASHBOARD.md](WORLD_DASHBOARD.md).
+
 ## As it happens (R1.39)
 
 - **The feed** ("As it happens", on the overview and on each village's page): every new line of every village's history as it is

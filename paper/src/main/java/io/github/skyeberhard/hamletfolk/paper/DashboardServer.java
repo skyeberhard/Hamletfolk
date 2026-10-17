@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -42,6 +43,8 @@ final class DashboardServer {
     private final Gson gson = new Gson();
 
     private volatile String overview = "[]";
+    /** R1.44: the worlds, with their lights and players. */
+    private volatile String worldsJson = "[]";
     private volatile Map<String, String> pages = Map.of();
     private volatile byte[] index = new byte[0];
     /** R1.39: the live feed and trends, fed on the main thread whether or not anyone is looking (it is cheap). */
@@ -181,12 +184,32 @@ final class DashboardServer {
             rows.sort(Comparator.comparingInt((Map<String, Object> r) -> -((Number) r.get("health")).intValue())
                     .thenComparing(r -> String.valueOf(r.get("name"))));
             overview = gson.toJson(rows);
+            worldsJson = gson.toJson(worldRows(rows)); // R1.44
             if (detail != null) {
                 pages = detail;
             }
         } catch (RuntimeException e) {
             plugin.getLogger().log(Level.WARNING, "Could not refresh the dashboard", e);
         }
+    }
+
+    /** R1.44: every loaded world with its light (from its villages' summaries), facts and the players in it. Main thread. */
+    private List<Map<String, Object>> worldRows(List<Map<String, Object>> villageRows) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (org.bukkit.World world : plugin.getServer().getWorlds()) {
+            List<io.github.skyeberhard.hamletfolk.core.WorldHealth.PlayerAt> players = new ArrayList<>();
+            for (org.bukkit.entity.Player player : world.getPlayers()) {
+                Optional<Settlement> inside = service.settlementAt(player.getLocation());
+                players.add(new io.github.skyeberhard.hamletfolk.core.WorldHealth.PlayerAt(player.getName(),
+                        inside.map(s -> s.id().toString()).orElse(""), inside.map(Settlement::name).orElse("")));
+            }
+            var facts = new io.github.skyeberhard.hamletfolk.core.WorldHealth.Facts(world.getName(), world.getEnvironment().name().toLowerCase(Locale.ROOT),
+                    SettlementService.day(world), world.getTime(), world.isThundering() ? "thunder" : world.hasStorm() ? "rain" : "clear",
+                    world.getDifficulty().name().toLowerCase(Locale.ROOT), service.inScope(world), players);
+            List<Map<String, Object>> mine = villageRows.stream().filter(r -> world.getName().equals(r.get("world"))).toList();
+            out.add(io.github.skyeberhard.hamletfolk.core.WorldHealth.row(facts, mine));
+        }
+        return out;
     }
 
     private void handle(HttpExchange exchange) throws IOException {
@@ -237,6 +260,8 @@ final class DashboardServer {
                 send(exchange, 200, "application/json; charset=utf-8", gson.toJson(catalogue).getBytes(StandardCharsets.UTF_8));
             } else if (path.equals("/") || path.equals("/index.html")) {
                 send(exchange, 200, "text/html; charset=utf-8", index);
+            } else if (path.equals("/api/worlds")) {
+                send(exchange, 200, "application/json; charset=utf-8", worldsJson.getBytes(StandardCharsets.UTF_8));
             } else if (path.equals("/api/villages")) {
                 send(exchange, 200, "application/json; charset=utf-8", overview.getBytes(StandardCharsets.UTF_8));
             } else if (path.startsWith("/api/village/")) {

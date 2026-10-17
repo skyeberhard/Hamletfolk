@@ -55,7 +55,7 @@ input[type=number] { width: 68px; }
 .nav .s svg { width: 100%; height: 18px; display: block; }
 .main { min-width: 0; overflow: auto; padding: 18px 22px 40px; }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: var(--ok); flex: none; }
-.dot.h1 { background: var(--watch); } .dot.h2 { background: var(--bad); }
+.dot.h1 { background: var(--watch); } .dot.h2 { background: var(--bad); } .dot.h3 { background: var(--faint); }
 .chip { display: inline-flex; align-items: center; gap: 5px; background: var(--chip); border-radius: 999px; padding: 2px 9px; font-size: 12px; margin: 2px 4px 2px 0; }
 .chip.bad { color: var(--bad); } .chip.watch { color: var(--watch); }
 .k.watch, td.watch { color: var(--watch); }
@@ -161,7 +161,7 @@ const ACTIONS = __HAMLETFOLK_ACTIONS__;
 
 // ----- state -----
 const state = {
-  villages: [], villagesText: "", detail: null, detailText: "", trends: {}, events: [], latest: 0, catalogue: null,
+  worlds: [], worldsText: "", villages: [], villagesText: "", detail: null, detailText: "", trends: {}, events: [], latest: 0, catalogue: null,
   current: null, tab: "overview", filter: "", feedFilter: "all", seenFeed: 0, map: null, busy: false, sel: null,
 };
 const $ = (id) => document.getElementById(id);
@@ -261,14 +261,16 @@ async function poll(force) {
     const villagesText = await get("/api/villages");
     let changed = villagesText !== state.villagesText;
     if (changed) { state.villagesText = villagesText; state.villages = JSON.parse(villagesText); }
-    if (state.current) {
+    const worldsText = await get("/api/worlds");
+    if (worldsText !== state.worldsText) { state.worldsText = worldsText; state.worlds = JSON.parse(worldsText); changed = true; }
+    if (state.current && !isWorld(state.current)) {
       const t = await get("/api/village/" + encodeURIComponent(state.current)).catch(() => null);
       if (t && t !== state.detailText) { state.detailText = t; state.detail = JSON.parse(t); changed = true; }
     }
     setLive(true);
     renderTop();
     if (changed || force) renderSide();
-    const feedShown = !state.current || state.tab === "overview";
+    const feedShown = !state.current || state.tab === "overview" || state.tab === "feed";
     if (changed || force || (feed.events.length && feedShown) || !main.firstChild) renderMain();
   } catch (e) {
     setLive(false, e.message);
@@ -279,6 +281,11 @@ function setLive(up, why) {
   $("live").className = "live" + (up ? "" : " down");
   $("live").lastChild.textContent = up ? "live" : "cannot reach the server" + (why ? " (" + why + ")" : "");
 }
+
+// a world's page is addressed as ~name (a village's by its id)
+const isWorld = (id) => !!id && id.charAt(0) === "~";
+const worldName = (id) => id.slice(1);
+const lightName = ["going well", "held back", "in trouble", "not judged"];
 
 // ----- top bar and village list -----
 function renderTop() {
@@ -299,6 +306,9 @@ function renderSide() {
   }
   fill($("nav"), [
     el("div", { class: "nav" + (state.current ? "" : " sel"), onclick: () => go(null) }, el("span", null, "⌂"), el("span", { class: "n" }, "All villages"), el("span", { class: "p" })),
+    el("h3", null, "Worlds"),
+    state.worlds.map((w) => el("div", { class: "nav" + (state.current === "~" + w.name ? " sel" : ""), onclick: () => go("~" + w.name), title: w.why },
+      el("span", { class: "dot h" + w.light }), el("span", { class: "n" }, w.name), el("span", { class: "p" }, w.simulated ? w.villages + " v · " + w.players.length + " 👤" : "off"))),
     el("h3", null, "Villages"),
     list.map((v) => el("div", { class: "nav" + (state.current === v.id ? " sel" : ""), onclick: () => go(v.id), title: v.blockers.join("; ") },
       el("span", { class: "dot h" + v.health }), el("span", { class: "n" }, v.name), el("span", { class: "p" }, v.population),
@@ -311,10 +321,11 @@ function renderSide() {
 function renderMain() {
   const a = document.activeElement;
   if (a && main.contains(a) && /SELECT|INPUT/.test(a.tagName)) return; // never redraw under a control in use
-  if (state.current && state.tab === "plan" && state.map && state.map.dragging) return;
+  if (state.current && !isWorld(state.current) && state.tab === "plan" && state.map && state.map.dragging) return;
   const scroll = main.scrollTop;
   afterRender.length = 0;
   if (!state.current) fill(main, overview());
+  else if (isWorld(state.current)) fill(main, worldPage(state.worlds.find((w) => w.name === worldName(state.current))));
   else if (state.detail && state.detail.id === state.current) fill(main, village(state.detail));
   else if (state.villages.length && !state.villages.some((v) => v.id === state.current))
     fill(main, [el("h1", null, "No such village"), el("div", { class: "sub" }, "It may have been removed. "), el("button", { onclick: () => go(null) }, "All villages")]);
@@ -331,9 +342,8 @@ function storeBars(v) {
   }));
 }
 
-function overview() {
-  const v = state.villages;
-  const cards = el("div", { class: "vcards" }, v.map((x) => el("div", { class: "vcard", onclick: () => go(x.id) },
+function villageCards(v) {
+  return el("div", { class: "vcards" }, v.map((x) => el("div", { class: "vcard", onclick: () => go(x.id) },
     el("div", { class: "t" }, el("span", { class: "dot h" + x.health }), x.name, el("span", { class: "pop" }, x.population + " people")),
     el("div", { class: "sub" }, (x.character ? x.character + " · " : "") + x.world),
     x.inside && x.inside.length ? el("div", null, el("span", { class: "chip" }, "👤 " + x.inside.join(", "))) : null,
@@ -342,6 +352,11 @@ function overview() {
       x.idle ? el("span", { class: "chip watch" }, x.idle + " idle") : null),
     el("div", null, outlookChips(x)),
     el("div", null, x.blockers.slice(0, 2).map((b) => el("span", { class: "chip bad" }, b)), x.blockers.length > 2 ? el("span", { class: "sub" }, " +" + (x.blockers.length - 2) + " more") : null))));
+}
+
+function overview() {
+  const v = state.villages;
+  const cards = villageCards(v);
   const everyone = !ACTIONS ? null : (() => {
     const days = el("input", { type: "number", value: "5", min: "1", max: "30", "aria-label": "days to run every village" });
     const speed = el("input", { type: "number", value: "10", min: "1", max: "100", "aria-label": "speed for every village" });
@@ -376,11 +391,12 @@ function outlookChips(x) {
     soonest ? el("span", { class: "chip " + (soonest.daysLeft <= 14 ? "bad" : "watch") }, soonest.resource + " lasts ~" + soonest.daysLeft + "d") : null];
 }
 
-function feedPanel(villageId) {
+function feedPanel(villageId, world) {
+  const inWorld = world ? new Set(state.villages.filter((x) => x.world === world).map((x) => x.id)) : null;
   const filter = el("select", { "aria-label": "which lines" }, el("option", { value: "all" }, "Everything"), el("option", { value: "important" }, "Births, deaths, trouble"));
   filter.value = state.feedFilter;
   filter.onchange = () => { state.feedFilter = filter.value; filter.blur(); renderMain(); };
-  const lines = state.events.filter((e) => (!villageId || e.village === villageId) && (state.feedFilter === "all" || IMPORTANT.has(e.kind))).slice().reverse();
+  const lines = state.events.filter((e) => (!villageId || e.village === villageId) && (!inWorld || inWorld.has(e.village)) && (state.feedFilter === "all" || IMPORTANT.has(e.kind))).slice().reverse();
   const fresh = state.seenFeed;
   state.seenFeed = state.latest;
   return el("div", { class: "panel" }, el("h2", null, "As it happens", el("span", { class: "grow" }), filter),
@@ -389,6 +405,38 @@ function feedPanel(villageId) {
       el("div", null, el("div", null, e.text), el("div", { class: "m" },
         villageId ? null : [el("a", { onclick: () => go(e.village) }, e.name), " · "], "day " + e.day + " · " + (e.earlier ? "earlier" : ago(e.at)))))))
       : el("div", { class: "empty" }, "Nothing yet. Lines appear here as the villages live."));
+}
+
+// ----- one world (R1.44): read-only; tabs are a list like a village's -----
+const WORLD_TABS = [
+  { id: "overview", label: "Overview", render: worldOverview },
+  { id: "players", label: "Players", render: worldPlayers },
+  { id: "villages", label: "Villages", render: (w) => villageCards(state.villages.filter((x) => x.world === w.name)) },
+  { id: "feed", label: "Feed", render: (w) => feedPanel(null, w.name) },
+];
+function worldPage(w) {
+  if (!w) return [el("h1", null, "No such world"), el("div", { class: "sub" }, "It may not be loaded. "), el("button", { onclick: () => go(null) }, "All villages")];
+  if (!WORLD_TABS.some((t) => t.id === state.tab)) state.tab = "overview";
+  return [
+    el("h1", null, el("span", { class: "dot h" + w.light }), w.name),
+    el("div", { class: "sub" }, w.environment + " · day " + w.day + " · " + w.clock + " (" + w.period + ") · " + w.weather + " · " + w.difficulty),
+    el("div", null, el("span", { class: "chip" + (w.light === 2 ? " bad" : w.light === 1 ? " watch" : "") }, lightName[w.light] + ": " + w.why)),
+    el("div", { class: "tabs", role: "tablist" }, WORLD_TABS.map((t) => el("div", { class: "tab" + (state.tab === t.id ? " sel" : ""), role: "tab", onclick: () => { state.tab = t.id; location.hash = "~" + w.name + "/" + t.id; renderMain(); } }, t.label))),
+    WORLD_TABS.find((t) => t.id === state.tab).render(w)];
+}
+function worldOverview(w) {
+  const stat = (k, n) => el("div", { class: "card" }, el("div", { class: "v" }, n), el("div", { class: "k" }, k));
+  if (!w.villages) return [el("div", { class: "cards" }, stat("villages", 0), stat("players online", w.players.length)), el("div", { class: "empty", style: "margin-top:14px" }, w.simulated ? "No villages here." : "This world is not simulated.")];
+  return [el("div", { class: "cards" }, stat("villages", w.villages), stat("people", w.people), stat("players online", w.players.length),
+      stat("going well", w.green), stat("held back", w.amber), stat("in trouble", w.red)),
+    el("div", { class: "two", style: "margin-top:14px" }, villageCards(state.villages.filter((x) => x.world === w.name)), feedPanel(null, w.name))];
+}
+function worldPlayers(w) {
+  if (!w.players.length) return el("div", { class: "empty" }, "Nobody is online in this world.");
+  return el("div", { class: "panel" }, el("table", null,
+    el("thead", null, el("tr", null, ["Player", "Inside the boundary of"].map((h) => el("th", null, h)))),
+    el("tbody", null, w.players.map((p) => el("tr", null, el("td", null, p.name),
+      el("td", null, p.village ? el("a", { onclick: () => go(p.village) }, p.villageName) : el("span", { class: "sub" }, "no village")))))));
 }
 
 // ----- one village: tabs are a list, so a new one is one line -----
@@ -693,7 +741,12 @@ function go(id) {
   poll(true);
 }
 // the address holds the village and tab (#id/plan), so a view can be bookmarked or shared with another admin
-function fromHash() { const [id, tab] = location.hash.slice(1).split("/"); return [id || null, tab || null]; }
+function fromHash() {
+  const [id, tab] = location.hash.slice(1).split("/");
+  let name = id || null;
+  try { if (name) name = decodeURIComponent(name); } catch (e) { /* leave it */ }
+  return [name, tab || null];
+}
 window.addEventListener("hashchange", () => {
   const [id, tab] = fromHash();
   if (id !== state.current) { go(id); if (tab) state.tab = tab; } else if ((tab || "overview") !== state.tab) { state.tab = tab || "overview"; renderMain(); }

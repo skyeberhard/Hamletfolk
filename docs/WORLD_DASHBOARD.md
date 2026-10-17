@@ -12,11 +12,12 @@ side tray (worlds, with lights)  ->  a world's page  ->  a village's page (the t
 
 One entry per world, each with a light, in the same three colours as a village (green going well, amber watch, red going badly), plus grey.
 
-- **The light.** A world is as healthy as its villages, weighted by population, and never worse than its own checks:
-  - green: under a fifth of its people live in amber or red villages, and none is in famine, danger or abandoned;
-  - amber: a fifth or more do, or any village is in danger;
-  - red: half or more do, or most of the world's villages are abandoned or starving. One bad village in a big world is amber at worst. The light is
-    meant to mean something, so it never goes red because of a single village.
+- **The light** (built as R1.44, `WorldHealth` in core). A world is as healthy as its villages, weighted by the people who live in them. A village's own light
+  is amber for something that holds it back, which is nearly always true of some village, so amber villages only count when they are half the world:
+  - green: no village is in trouble (red), and under half of its people live in villages that are held back;
+  - amber: some village is in trouble, or half or more of its people live in villages that are held back;
+  - red: half or more of its people live in villages in trouble, or every village is abandoned, or nobody lives there. One bad village in a big world is
+    amber at worst. The light is meant to mean something, so it never goes red because of a single village.
   - grey: the world is not simulated (excluded by `worlds.deny`, or not loaded). It still appears, so the list is complete.
 - Beside the light: the count ("14 villages: 9 green, 4 amber, 1 red"), the players online, and the world's time speed if it is not 1.
 - The tray also holds "All worlds" (today's overview) and, later, the entries other plugins add (R1.38).
