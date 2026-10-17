@@ -379,7 +379,10 @@ final class SettlementCommand implements TabExecutor {
                 player.sendMessage(Component.text("...and " + (all.size() - 20) + " more.", NamedTextColor.GRAY));
                 break;
             }
-            player.sendMessage(Component.text(" " + household.describe(), NamedTextColor.WHITE));
+            var homes = service.plugin().homeSigns() == null ? java.util.List.<io.github.skyeberhard.hamletfolk.core.Homes.Home>of() : service.plugin().homeSigns().homesOf(s);
+            String where = homes.stream().filter(h -> h.household().head().id().equals(household.head().id())).findFirst()
+                    .map(h -> ", house at " + h.house().x() + ", " + h.house().z()).orElse("");
+            player.sendMessage(Component.text(" " + household.describe() + where, NamedTextColor.WHITE));
         }
     }
 

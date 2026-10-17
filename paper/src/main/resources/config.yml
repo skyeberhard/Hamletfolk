@@ -189,6 +189,11 @@ noticeboard:
 stores:
   visible: true
 
+# House signs (R6.1). A house's sign shows the household that lives there (lines 3 and 4), while a player is near. Only empty lines, or ones the plugin wrote, are
+# ever changed. The household is remembered on the sign.
+homes:
+  signs: true
+
 # Street lamps (R4.54). With lamps on, new street lights are a fence post topped with a copper bulb that comes on at dusk and goes out at
 # dawn (all day in a storm), while a player is within 96 blocks. Off, they are torches that always burn. Posts already topped with torches stay as they are.
 lights:
