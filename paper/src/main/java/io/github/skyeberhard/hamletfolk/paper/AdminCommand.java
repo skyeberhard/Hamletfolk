@@ -16,8 +16,8 @@ import org.bukkit.entity.Player;
  */
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
-    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "noticeboard", "regrade", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | noticeboard [name] | regrade [name] | regrade streets [name] | replan [name] | warp [name|all] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
+    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "noticeboard", "stores", "regrade", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | noticeboard [name] | stores [name] | regrade [name] | regrade streets [name] | replan [name] | warp [name|all] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
 
     private final SettlementService service;
     private final TemplateCommand templates;
@@ -56,6 +56,10 @@ final class AdminCommand {
             case "regrade" -> regrade(sender, args);
             case "replan" -> replan(sender, args);
             case "warp" -> warp(sender, args);
+            case "stores" -> {
+                Optional<Settlement> village = args.length >= 3 ? lookup(sender, words(args, 2, args.length)) : here(sender);
+                village.ifPresent(v -> service.plugin().stores().drawNow(v).forEach(sender::sendMessage));
+            }
             case "noticeboard" -> {
                 Optional<Settlement> village = args.length >= 3 ? lookup(sender, words(args, 2, args.length)) : here(sender);
                 village.ifPresent(v -> sender.sendMessage(service.plugin().noticeBoards().placeNow(v)));

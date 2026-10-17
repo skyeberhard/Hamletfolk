@@ -17,6 +17,7 @@ import io.github.skyeberhard.hamletfolk.core.SiteResource;
 import io.github.skyeberhard.hamletfolk.core.SiteSurvey;
 import io.github.skyeberhard.hamletfolk.core.VillagePlan;
 import io.github.skyeberhard.hamletfolk.core.SettlementSimulator;
+import io.github.skyeberhard.hamletfolk.core.StoreDisplay;
 import io.github.skyeberhard.hamletfolk.core.Wealth;
 import java.util.ArrayList;
 import java.util.List;
@@ -767,6 +768,14 @@ final class SettlementCommand implements TabExecutor {
         ItemStack item = player.getInventory().getItemInMainHand();
         if (item.getType().isAir()) {
             player.sendMessage(Component.text("Hold the items you want to donate.", NamedTextColor.GRAY));
+            return;
+        }
+        if (service.plugin().stores() != null && service.plugin().stores().isTaken(item)) {
+            player.sendMessage(Component.text("That was taken from the stores. Put it back in the barrel it came from.", NamedTextColor.GRAY));
+            return;
+        }
+        if (StoreDisplay.recentThief(s, player.getUniqueId(), s.effectiveDay(SettlementService.day(player.getWorld())))) {
+            player.sendMessage(Component.text(s.name() + " will not take gifts from you yet; you took from their stores.", NamedTextColor.GRAY));
             return;
         }
         String material = item.getType().getKey().getKey();

@@ -184,6 +184,11 @@ brain:
 noticeboard:
   enabled: true
 
+# Visible stores (R4.55). A barrel beside the village's granary, sawmill, smithy and so on shows what the stores hold. Taking from it is
+# a theft (the same is taken from the stores, the village remembers who, standing falls); putting in is a donation. See docs/VISIBLE_STORES.md.
+stores:
+  visible: true
+
 # Street lamps (R4.54). With lamps on, new street lights are a fence post topped with a copper bulb that comes on at dusk and goes out at
 # dawn (all day in a storm), while a player is within 96 blocks. Off, they are torches that always burn. Posts already topped with torches stay as they are.
 lights:

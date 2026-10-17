@@ -19,6 +19,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
     private SettlementStore store;
     private SettlementService service;
     private NoticeBoardService noticeBoards;
+    private StoreService stores;
     private BrainService brain;
     private DashboardServer dashboard;
     private TemplateLibrary templates;
@@ -96,6 +97,8 @@ public final class HamletfolkPlugin extends JavaPlugin {
         noticeBoards = new NoticeBoardService(this, service);
         noticeBoards.start(); // R4.53
         new StreetLampService(this, service).start(); // R4.54
+        stores = new StoreService(this, service);
+        stores.start(); // R4.55
         startDashboard(); // R1.35
 
         long autosaveTicks = Math.max(1, getConfig().getLong("autosave-minutes", 5)) * 60 * 20;
@@ -148,6 +151,11 @@ public final class HamletfolkPlugin extends JavaPlugin {
 
     TemplateLibrary templates() {
         return templates;
+    }
+
+    /** The visible stores (R4.55). */
+    StoreService stores() {
+        return stores;
     }
 
     /** The notice boards (R4.53). */

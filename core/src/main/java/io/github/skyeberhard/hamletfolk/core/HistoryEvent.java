@@ -24,7 +24,9 @@ public record HistoryEvent(long day, Kind kind, String text, int count, String a
         MILESTONE(false),
         DONATION(false),
         BUILDING(false),
-        ABANDONED(true);
+        ABANDONED(true),
+        /** R4.55: someone took from the village's stores or broke a store's barrel. */
+        THEFT(false);
 
         private final boolean major;
 
