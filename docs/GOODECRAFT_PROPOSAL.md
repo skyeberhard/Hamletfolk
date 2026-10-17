@@ -35,6 +35,8 @@ pin and NAS backup.
 3. **The order.** Hamletfolk finishes its own dashboard and tests it locally first. The remote access (1) and the extension point (2)
    come after, and only if Owen agrees. We would send the interface for review before building anything against it.
 
+The interface itself, drafted in detail, is in [PANEL_INTERFACE_PROPOSAL.md](PANEL_INTERFACE_PROPOSAL.md).
+
 ## Questions for Owen
 
 - Is an admin web page acceptable on a youth server at all, and if so, behind Cloudflare Access with which admins?
