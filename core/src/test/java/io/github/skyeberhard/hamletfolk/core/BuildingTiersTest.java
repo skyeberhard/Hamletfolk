@@ -113,4 +113,17 @@ class BuildingTiersTest {
         assertTrue(order.message().contains("cannot pay"), order.message());
         assertTrue(s.openProject().isEmpty());
     }
+
+    @Test
+    void theNextTierShowsItsCostAndWhatTheStoresLack() {
+        Settlement s = withFarm();
+        BuildingTiers.Info rich = BuildingTiers.of(s, catalog, this::blueprints).get(farmKey(s));
+        assertFalse(rich.cost().isEmpty(), "a farm's next tier costs something");
+        assertTrue(rich.lacking().isEmpty(), "the stores can pay: " + rich.lacking());
+        s.ledger().take(ResourceType.STONE, 1000);
+        s.ledger().take(ResourceType.WOOD, 1000);
+        BuildingTiers.Info poor = BuildingTiers.of(s, catalog, this::blueprints).get(farmKey(s));
+        assertFalse(poor.lacking().isEmpty());
+        poor.lacking().forEach((type, short_) -> assertEquals(poor.cost().get(type), short_, "nothing is held, so all of it is short"));
+    }
 }

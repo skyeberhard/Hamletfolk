@@ -52,6 +52,8 @@ Rough time: 90 to 120 minutes in all. Each part stands alone, so you can stop af
 
 - [ ] **T135 claimed beds.** Plan tab, Beds layer: filled dots for claimed beds and rings for free ones; hover a house for its beds and claims; the Buildings tab and the beds card agree; they change after a night's sleep.
 
+- [ ] **T136 admin tools.** Needs attention: read the list, press a fix; Copy /tp on a village and a building, paste it in game; Download snapshot; click a building: its cost line, then Upgrade on one the stores can pay for.
+
 ## 4. Trade (10 to 15 minutes)
 
 - [ ] **T131.** Two villages within 800 blocks. Let one build a surplus and the other run short (give one a lot of bread, the other none). `/settlement admin trade <village>`; read both histories. Without a merchant a fifth is lost on the road; starve one: the other sends food unpaid; only the difference in emeralds moves. Try `trade.enabled: false` and restart: no caravans by themselves.

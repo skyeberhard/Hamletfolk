@@ -23,8 +23,11 @@ public final class BuildingTiers {
      * @param nextBeds  the beds at the next tier, or 0
      * @param upgradable true if an admin may ask for the next tier now
      * @param why       when it cannot be upgraded, why, in words
+     * @param cost      what the next tier costs the stores (empty if there is no next tier or its design is not known here)
+     * @param lacking   how much of each the stores are short of now (empty if they can pay)
      */
-    public record Info(int tier, int maxTier, int beds, int nextBeds, boolean upgradable, String why) {
+    public record Info(int tier, int maxTier, int beds, int nextBeds, boolean upgradable, String why, Map<ResourceType, Integer> cost,
+            Map<ResourceType, Integer> lacking) {
     }
 
     /** What an order did. */
@@ -52,6 +55,12 @@ public final class BuildingTiers {
             row.put("nextBeds", i.nextBeds());
             row.put("upgradable", i.upgradable());
             row.put("why", i.why());
+            Map<String, Integer> cost = new LinkedHashMap<>();
+            i.cost().forEach((t, n) -> cost.put(t.name().toLowerCase(java.util.Locale.ROOT), n));
+            Map<String, Integer> lacking = new LinkedHashMap<>();
+            i.lacking().forEach((t, n) -> lacking.put(t.name().toLowerCase(java.util.Locale.ROOT), n));
+            row.put("cost", cost);
+            row.put("lacking", lacking);
             out.put(key, row);
         });
         return out;
@@ -68,7 +77,22 @@ public final class BuildingTiers {
             next = tier < max ? bedsAt(ladder, tier + 1, blueprints) : 0;
         }
         String why = refusal(s, b, tier, max);
-        return new Info(tier, Math.max(tier, max), beds, next, why == null, why == null ? "" : why);
+        Map<ResourceType, Integer> cost = new java.util.EnumMap<>(ResourceType.class);
+        Map<ResourceType, Integer> lacking = new java.util.EnumMap<>(ResourceType.class);
+        if (tier < max) { // what the next tier would cost, and what the stores lack of it
+            ladder.stream().filter(t -> t.tier() == tier + 1).findFirst().flatMap(blueprints).ifPresent(bp -> {
+                Construction.priceFor(s, b.type(), true, bp).forEach((type, amount) -> {
+                    if (amount > 0) {
+                        cost.put(type, amount);
+                        int have = s.ledger().get(type);
+                        if (have < amount) {
+                            lacking.put(type, amount - have);
+                        }
+                    }
+                });
+            });
+        }
+        return new Info(tier, Math.max(tier, max), beds, next, why == null, why == null ? "" : why, cost, lacking);
     }
 
     private static int bedsAt(java.util.List<TemplateCatalog.Template> ladder, int tier, Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints) {

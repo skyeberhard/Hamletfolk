@@ -45,6 +45,8 @@ final class DashboardServer {
     private volatile String overview = "[]";
     /** R1.44: the worlds, with their lights and players. */
     private volatile String worldsJson = "[]";
+    /** R1.48: what needs a human, across every village. */
+    private volatile String attentionJson = "[]";
     private volatile Map<String, String> pages = Map.of();
     private volatile byte[] index = new byte[0];
     /** R1.39: the live feed and trends, fed on the main thread whether or not anyone is looking (it is cheap). */
@@ -235,6 +237,8 @@ final class DashboardServer {
                     .thenComparing(r -> String.valueOf(r.get("name"))));
             overview = gson.toJson(rows);
             worldsJson = gson.toJson(worldRows(rows)); // R1.44
+            attentionJson = gson.toJson(io.github.skyeberhard.hamletfolk.core.Attention.asData(
+                    io.github.skyeberhard.hamletfolk.core.Attention.of(service.registry().settlements(), service::treasuryLimit))); // R1.48
             if (detail != null) {
                 pages = detail;
                 saveGround();
@@ -473,6 +477,52 @@ final class DashboardServer {
         return out;
     }
 
+    /** R1.49: a village's whole saved state, what the dashboard shows of it and the server's versions, as one downloadable JSON file. */
+    private void snapshot(HttpExchange exchange, String id) throws IOException {
+        String text;
+        try {
+            text = plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                Settlement s = service.registry().get(java.util.UUID.fromString(id)).orElse(null);
+                if (s == null) {
+                    return null;
+                }
+                Map<String, Object> out = new java.util.LinkedHashMap<>();
+                Map<String, Object> meta = new java.util.LinkedHashMap<>();
+                meta.put("what", "Hamletfolk village snapshot");
+                meta.put("taken", java.time.Instant.now().toString());
+                meta.put("plugin", plugin.getPluginMeta().getVersion());
+                meta.put("server", plugin.getServer().getVersion());
+                meta.put("saveFormat", io.github.skyeberhard.hamletfolk.core.SettlementCodec.FORMAT_VERSION);
+                meta.put("worldDay", SettlementService.day(plugin.getServer().getWorld(s.world()) == null ? plugin.getServer().getWorlds().get(0) : plugin.getServer().getWorld(s.world())));
+                Map<String, Object> config = new java.util.LinkedHashMap<>();
+                for (String key : List.of("settlement-radius", "construction.enabled", "construction.speed", "construction.unattended", "trade.enabled", "trade.range",
+                        "lights.lamps", "stores.visible", "homes.signs", "noticeboard.enabled", "brain.enabled")) {
+                    config.put(key, plugin.getConfig().get(key));
+                }
+                meta.put("config", config);
+                out.put("meta", meta);
+                out.put("village", io.github.skyeberhard.hamletfolk.core.SettlementCodec.encode(s));
+                Map<String, Object> page = Dashboard.detail(s, service.treasuryLimit(s));
+                layers(s, page);
+                out.put("dashboard", page);
+                out.put("defence", defenceOf(s));
+                return new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(out);
+            }).get(15, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (java.util.concurrent.TimeoutException | java.util.concurrent.ExecutionException | RuntimeException e) {
+            send(exchange, 500, "text/plain; charset=utf-8", "Could not make the snapshot".getBytes(StandardCharsets.UTF_8));
+            return;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return;
+        }
+        if (text == null) {
+            send(exchange, 404, "text/plain; charset=utf-8", "No such village".getBytes(StandardCharsets.UTF_8));
+            return;
+        }
+        exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"hamletfolk-snapshot-" + id.substring(0, 8) + ".json\"");
+        send(exchange, 200, "application/json; charset=utf-8", text.getBytes(StandardCharsets.UTF_8));
+    }
+
     private void handle(HttpExchange exchange) throws IOException {
         try {
             exchange.setAttribute("hamletfolk.nonce", nonce);
@@ -526,6 +576,10 @@ final class DashboardServer {
                 defenceWanted.put(id, System.currentTimeMillis());
                 String page = defencePages.get(id);
                 send(exchange, 200, "application/json; charset=utf-8", (page == null ? "{\"pending\":true}" : page).getBytes(StandardCharsets.UTF_8));
+            } else if (path.equals("/api/attention")) { // R1.48
+                send(exchange, 200, "application/json; charset=utf-8", attentionJson.getBytes(StandardCharsets.UTF_8));
+            } else if (path.startsWith("/api/snapshot/")) { // R1.49: everything about one village, as a file to attach to a bug report
+                snapshot(exchange, path.substring("/api/snapshot/".length()));
             } else if (path.equals("/api/worlds")) {
                 send(exchange, 200, "application/json; charset=utf-8", worldsJson.getBytes(StandardCharsets.UTF_8));
             } else if (path.equals("/api/villages")) {

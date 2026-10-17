@@ -55,6 +55,8 @@ input[type=number] { width: 68px; }
 .nav .s { grid-column: 2 / 4; height: 18px; }
 .nav .s svg { width: 100%; height: 18px; display: block; }
 .main { min-width: 0; overflow: auto; padding: 18px 22px 40px; }
+a.button { display: inline-block; padding: 5px 11px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); text-decoration: none; background: var(--panel2); cursor: pointer; }
+a.button:hover { border-color: var(--accent); }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: var(--ok); flex: none; }
 .dot.h1 { background: var(--watch); } .dot.h2 { background: var(--bad); } .dot.h3 { background: var(--faint); }
 .chip { display: inline-flex; align-items: center; gap: 5px; background: var(--chip); border-radius: 999px; padding: 2px 9px; font-size: 12px; margin: 2px 4px 2px 0; }
@@ -161,6 +163,31 @@ const TOKEN = "__HAMLETFOLK_TOKEN__";
 const ACTIONS = __HAMLETFOLK_ACTIONS__;
 
 // ----- state -----
+/** R1.50: copy a command to the clipboard (the page is on the loopback address, which counts as secure). */
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast("Copied: " + text, true); }
+  catch (e) {
+    const box = document.createElement("textarea"); box.value = text; document.body.append(box); box.select();
+    try { document.execCommand("copy"); toast("Copied: " + text, true); } catch (e2) { toast("Could not copy: " + text, false); }
+    box.remove();
+  }
+}
+/** The /tp for a place in a village: the height of the nearest building (a villager's door is at ground level), else 100. */
+function tpCommand(v, x, z, y) {
+  if (y === undefined || y === null) {
+    let best = null, bd = Infinity;
+    for (const b of v.buildings || []) { const d = Math.hypot(b.x - x, b.z - z); if (d < bd) { bd = d; best = b; } }
+    y = best ? best.y + 1 : 100;
+  }
+  return "/tp @s " + Math.round(x) + " " + y + " " + Math.round(z);
+}
+const tpButton = (v, x, z, y, label) => el("button", { title: "copy a /tp to this place (in " + v.world + ")", onclick: () => copyText(tpCommand(v, x, z, y)) }, label || "Copy /tp");
+/** R1.51: what an upgrade costs and what the stores lack of it, in words. */
+function costText(bi) {
+  if (!bi || !bi.cost || !Object.keys(bi.cost).length) return "";
+  const list = (o) => Object.entries(o).map(([k, n]) => n + " " + k).join(", ");
+  return "Costs " + list(bi.cost) + (Object.keys(bi.lacking || {}).length ? " · the stores are short of " + list(bi.lacking) : " · the stores can pay");
+}
 /** R8.30: a house's beds in words: the beds the game knows of there and how many a villager has claimed (the design's count if none is known yet). */
 function bedsText(bi) {
   if (!bi) return "";
@@ -181,7 +208,7 @@ const SLOPE = { "0": "#6fae62", "1": "#cdbf53", "2": "#dd8a3f", "3": "#cf4d3f", 
 const familyColour = (name) => { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360; return "hsl(" + h + ",65%,55%)"; };
 const state = {
   worlds: [], worldsText: "", villages: [], villagesText: "", detail: null, detailText: "", trends: {}, events: [], latest: 0, catalogue: null,
-  layers: loadLayers(), defence: null, defenceText: "", current: null, tab: "overview", filter: "", feedFilter: "all", seenFeed: 0, map: null, busy: false, sel: null,
+  attention: [], attentionText: "", layers: loadLayers(), defence: null, defenceText: "", current: null, tab: "overview", filter: "", feedFilter: "all", seenFeed: 0, map: null, busy: false, sel: null,
 };
 const $ = (id) => document.getElementById(id);
 const main = $("main");
@@ -280,13 +307,15 @@ async function poll(force) {
     const villagesText = await get("/api/villages");
     let changed = villagesText !== state.villagesText;
     if (changed) { state.villagesText = villagesText; state.villages = JSON.parse(villagesText); }
+    const attentionText = await get("/api/attention");
+    if (attentionText !== state.attentionText) { state.attentionText = attentionText; state.attention = JSON.parse(attentionText); changed = true; }
     const worldsText = await get("/api/worlds");
     if (worldsText !== state.worldsText) { state.worldsText = worldsText; state.worlds = JSON.parse(worldsText); changed = true; }
-    if (state.current && !isWorld(state.current)) {
+    if (state.current && !isWorld(state.current) && !isPage(state.current)) {
       const t = await get("/api/village/" + encodeURIComponent(state.current)).catch(() => null);
       if (t && t !== state.detailText) { state.detailText = t; state.detail = JSON.parse(t); changed = true; }
     }
-    if (state.current && !isWorld(state.current) && state.tab === "plan" && state.layers.defence) { // R8.28: asked for only while it is looked at
+    if (state.current && !isWorld(state.current) && !isPage(state.current) && state.tab === "plan" && state.layers.defence) { // R8.28: asked for only while it is looked at
       const d = await get("/api/defence/" + encodeURIComponent(state.current)).catch(() => null);
       if (d && d !== state.defenceText) { state.defenceText = d; state.defence = JSON.parse(d); changed = true; }
     }
@@ -307,6 +336,7 @@ function setLive(up, why) {
 
 // a world's page is addressed as ~name (a village's by its id)
 const isWorld = (id) => !!id && id.charAt(0) === "~";
+const isPage = (id) => !!id && id.charAt(0) === "!"; // a page that is not a world or a village: !attention
 const worldName = (id) => id.slice(1);
 const lightName = ["going well", "held back", "in trouble", "not judged"];
 
@@ -316,6 +346,7 @@ function renderTop() {
   const trouble = v.filter((x) => x.health === 2).length, watch = v.filter((x) => x.health === 1).length;
   fill($("totals"), [
     el("span", { class: "chip" }, v.length + " villages"), el("span", { class: "chip" }, people + " people"), el("span", { class: "chip" }, kids + " children"),
+    state.attention.length ? el("span", { class: "chip " + (state.attention.some((a) => a.severity === 2) ? "bad" : "watch"), style: "cursor:pointer", onclick: () => go("!attention") }, state.attention.length + " need attention") : null,
     trouble ? el("span", { class: "chip bad" }, trouble + " in trouble") : null, watch ? el("span", { class: "chip watch" }, watch + " held back") : null]);
 }
 function renderSide() {
@@ -331,6 +362,8 @@ function renderSide() {
   }
   fill($("nav"), [
     el("div", { class: "nav" + (state.current ? "" : " sel"), onclick: () => go(null) }, el("span", null, "⌂"), el("span", { class: "n" }, "All villages"), el("span", { class: "p" })),
+    el("div", { class: "nav" + (state.current === "!attention" ? " sel" : ""), onclick: () => go("!attention") }, el("span", { class: "dot h" + (state.attention.some((a) => a.severity === 2) ? 2 : state.attention.length ? 1 : 0) }),
+      el("span", { class: "n" }, "Needs attention"), el("span", { class: "p" }, state.attention.length || "")),
     el("h3", null, "Worlds"),
     state.worlds.map((w) => [
       el("div", { class: "nav" + (state.current === "~" + w.name ? " sel" : ""), onclick: () => go("~" + w.name), title: w.why },
@@ -347,10 +380,11 @@ function renderSide() {
 function renderMain() {
   const a = document.activeElement;
   if (a && main.contains(a) && /SELECT|INPUT/.test(a.tagName)) return; // never redraw under a control in use
-  if (state.current && !isWorld(state.current) && state.tab === "plan" && state.map && state.map.dragging) return;
+  if (state.current && !isWorld(state.current) && !isPage(state.current) && state.tab === "plan" && state.map && state.map.dragging) return;
   const scroll = main.scrollTop;
   afterRender.length = 0;
   if (!state.current) fill(main, overview());
+  else if (state.current === "!attention") fill(main, attentionPage());
   else if (isWorld(state.current)) fill(main, worldPage(state.worlds.find((w) => w.name === worldName(state.current))));
   else if (state.detail && state.detail.id === state.current) fill(main, village(state.detail));
   else if (state.villages.length && !state.villages.some((v) => v.id === state.current))
@@ -431,6 +465,24 @@ function feedPanel(villageId, world) {
       el("div", null, el("div", null, e.text), el("div", { class: "m" },
         villageId ? null : [el("a", { onclick: () => go(e.village) }, e.name), " · "], "day " + e.day + " · " + (e.earlier ? "earlier" : ago(e.at)))))))
       : el("div", { class: "empty" }, "Nothing yet. Lines appear here as the villages live."));
+}
+
+// ----- R1.48: what needs a human, across every village -----
+const FIX = { resettle: "Send travellers", "cancel-project": "Give up the project", replan: "Plan it again", "build-next": "Build a house next" };
+function attentionPage() {
+  const items = state.attention;
+  if (!items.length) return [el("h1", null, "Needs attention"), el("div", { class: "empty" }, "Nothing needs a human right now.")];
+  const byVillage = new Map();
+  for (const i of items) { if (!byVillage.has(i.village)) byVillage.set(i.village, []); byVillage.get(i.village).push(i); }
+  return [el("h1", null, "Needs attention"), el("div", { class: "sub" }, items.length + " things in " + byVillage.size + " villages, the most serious first. A button runs the same checked, confirmed and logged action as the village's own page."),
+    el("div", { class: "panel", style: "margin-top:12px" }, el("table", null, el("thead", null, el("tr", null, ["", "Village", "What", ""].map((h) => el("th", null, h)))),
+      el("tbody", null, items.map((i) => {
+        const v = state.villages.find((x) => x.id === i.village);
+        return el("tr", null, el("td", null, el("span", { class: "dot h" + (i.severity === 2 ? 2 : 1) })),
+          el("td", null, el("a", { onclick: () => go(i.village) }, i.name), el("div", { class: "sub" }, i.world)), el("td", null, i.text),
+          el("td", { style: "white-space:nowrap" }, ACTIONS && i.action ? el("button", { onclick: () => act(Object.assign({ action: i.action, village: i.village }, i.params || {})) }, FIX[i.action] || i.action) : null,
+            v ? el("button", { title: "copy a /tp to the village", onclick: () => copyText(tpCommand(v, v.x, v.z)) }, "Copy /tp") : null));
+      }))))];
 }
 
 // ----- one world (R1.44): read-only; tabs are a list like a village's -----
@@ -519,6 +571,8 @@ function village(v) {
   return [
     el("h1", null, el("span", { class: "dot h" + v.health }), v.name),
     el("div", { class: "sub" }, (v.character ? v.character + " · " : "") + v.world + " at " + v.x + ", " + v.z + " · day " + v.day + (v.building ? " · building " + v.building : "")),
+    el("div", { style: "display:flex; gap:8px; flex-wrap:wrap; margin:6px 0" }, tpButton(v, v.x, v.z, undefined, "Copy /tp to the village"),
+      el("a", { href: "/api/snapshot/" + encodeURIComponent(v.id), download: "", class: "button", title: "everything about this village as one file, to attach to a bug report" }, "Download snapshot")),
     el("div", null, v.biome ? el("span", { class: "chip" }, "biome: " + v.biome.replace(/_/g, " ")) : null,
       el("span", { class: "chip" }, ((v.gender || {}).female || 0) + " women, " + ((v.gender || {}).male || 0) + " men"),
       Object.entries(v.land || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).filter(([, n]) => n > 0).map(([k, n]) => el("span", { class: "chip", title: "what stands out in the land round it" }, k + " " + n))),
@@ -617,7 +671,7 @@ function tabBuildings(v) {
       el("thead", null, el("tr", null, el("th", null, "Kind"), el("th", null, "Name"), el("th", null, "Tier"), el("th", null, "Beds"), el("th", null, "Where"), el("th", null, "Made by"), ACTIONS ? el("th", null, "") : null)),
       el("tbody", null, rows.map((b) => { const bi = (v.buildingInfo || {})[b.x + "," + b.y + "," + b.z];
         return el("tr", null, el("td", null, b.type), el("td", null, b.name || ""), el("td", null, b.tier + (bi ? " / " + bi.maxTier : "")), el("td", { title: bi && bi.beds ? "design: " + bi.beds + " at this tier" : "" }, bi && bedsText(bi) ? (bi.liveBeds !== undefined && (bi.liveBeds > 0 || !bi.beds) ? bi.liveBeds + " (" + bi.claimedBeds + " claimed)" : bi.beds) : ""), el("td", null, b.x + ", " + b.z), el("td", { class: "sub" }, b.by),
-          ACTIONS ? el("td", null, bi && bi.upgradable ? el("button", { title: "have the builders improve it", onclick: () => act({ action: "upgrade-building", village: v.id, building: b.x + "," + b.y + "," + b.z }, "Have the builders improve this " + b.type.toLowerCase() + " to tier " + (b.tier + 1) + " (the stores pay for it)") }, "Upgrade") : el("span", { class: "sub", title: bi ? bi.why : "" }, bi ? "no" : "")) : null); }))))),
+          ACTIONS ? el("td", null, el("button", { title: "copy a /tp to this building", onclick: () => copyText(tpCommand(v, b.x, b.z, b.y + 1)) }, "⌖"), " ", bi && bi.upgradable ? el("button", { title: "have the builders improve it", onclick: () => act({ action: "upgrade-building", village: v.id, building: b.x + "," + b.y + "," + b.z }, "Have the builders improve this " + b.type.toLowerCase() + " to tier " + (b.tier + 1) + " (the stores pay for it). " + costText(bi)) }, "Upgrade") : el("span", { class: "sub", title: bi ? bi.why : "" }, bi ? "no" : "")) : null); }))))),
     el("div", { class: "panel" }, el("h2", null, "Building projects"),
       v.projects.length ? el("ul", { class: "plain" }, v.projects.map((p) => el("li", null, cap(p.type) + " tier " + p.tier + " ", el("span", { class: "chip" + (p.status === "cancelled" ? " bad" : "") }, p.status),
         el("span", { class: "sub" }, p.finished > 0 ? " day " + p.finished : " queued day " + p.queued)))) : el("div", { class: "empty" }, "Nothing built yet.")));
@@ -729,11 +783,12 @@ function selectedBuilding(v) {
   const head = el("div", null, el("b", null, (b.name ? b.name + " · " : "") + b.type), " ", el("span", { class: "chip" }, "tier " + b.tier + (bi ? " of " + bi.maxTier : "")),
     bi && bedsText(bi) ? el("span", { class: "chip" }, bedsText(bi)) : null,
     el("div", { class: "sub" }, "at " + b.x + ", " + b.y + ", " + b.z + " · " + (b.by === "found" ? "found standing" : "registered by " + b.by)));
-  const next = bi && bi.nextBeds ? el("div", { class: "sub" }, "The next tier has " + bi.nextBeds + " beds.") : null;
+  const next = [bi && bi.nextBeds ? el("div", { class: "sub" }, "The next tier has " + bi.nextBeds + " beds.") : null, costText(bi) ? el("div", { class: "sub" }, costText(bi)) : null,
+    el("div", { style: "margin-top:6px" }, tpButton(v, b.x, b.z, b.y + 1, "Copy /tp here"))];
   if (!bi) return el("div", { class: "panel" }, el("h2", null, "Selected building"), head);
   if (!ACTIONS || !state.catalogue) return el("div", { class: "panel" }, el("h2", null, "Selected building"), head, next, bi.upgradable ? null : el("div", { class: "sub" }, "Cannot be upgraded: " + bi.why + "."));
   return el("div", { class: "panel" }, el("h2", null, "Selected building"), head, next,
-    bi.upgradable ? el("div", { style: "margin-top:10px" }, el("button", { onclick: () => act({ action: "upgrade-building", village: v.id, building: key }, "Have the builders improve this " + b.type.toLowerCase() + " to tier " + (b.tier + 1) + " (the stores pay for it)") }, "Upgrade to tier " + (b.tier + 1)),
+    bi.upgradable ? el("div", { style: "margin-top:10px" }, el("button", { onclick: () => act({ action: "upgrade-building", village: v.id, building: key }, "Have the builders improve this " + b.type.toLowerCase() + " to tier " + (b.tier + 1) + " (the stores pay for it). " + costText(bi)) }, "Upgrade to tier " + (b.tier + 1)),
       el("div", { class: "sub", style: "margin-top:6px" }, "It is queued like any other project, paid from the village's stores and built by its builder. If the stores cannot pay yet, nothing is queued."))
       : el("div", { class: "sub", style: "margin-top:8px" }, "Cannot be upgraded: " + bi.why + "."));
 }
@@ -751,7 +806,7 @@ function selectedLot(v) {
   }
   const kinds = state.catalogue.buildings.filter((b) => b.lot);
   const pick = el("select", { "aria-label": "kind of building for this lot" }, kinds.map((b) => el("option", { value: b.type, selected: b.label === lot.type }, b.label)));
-  return el("div", { class: "panel" }, el("h2", null, "Selected lot"), head,
+  return el("div", { class: "panel" }, el("h2", null, "Selected lot"), head, el("div", { style: "margin-top:6px" }, tpButton(v, lot.rect[0] + lot.rect[2] / 2, lot.rect[1] + lot.rect[3] / 2, undefined, "Copy /tp here")),
     el("div", { class: "row", style: "margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center" },
       lot.locked ? el("button", { onclick: () => act({ action: "unlock-lot", village: v.id, lot: lot.id }) }, "Open it to building")
         : el("button", { onclick: () => act({ action: "lock-lot", village: v.id, lot: lot.id }) }, "Keep it empty"),
