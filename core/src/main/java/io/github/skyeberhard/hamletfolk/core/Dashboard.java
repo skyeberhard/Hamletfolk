@@ -61,6 +61,7 @@ public final class Dashboard {
             stores.put(type.name().toLowerCase(Locale.ROOT), s.ledger().get(type));
         }
         out.put("stores", stores);
+        out.put("outlook", Outlook.asData(s, day)); // R1.42: what the numbers mean over the days to come
         out.put("treasury", s.ledger().treasury());
         out.put("treasuryLimit", treasuryLimit);
         out.put("beds", s.housingCapacity());

@@ -47,10 +47,10 @@ public final class SettlementInspector {
             troubles.add("famine");
         }
         if (s.hasCondition("shortage:tools")) {
-            troubles.add("no tools");
+            troubles.add("no tools" + ToolsWhy.tools(s).map(why -> " (" + why + ")").orElse("")); // R4.52: and why
         }
         if (s.hasCondition("shortage:metal")) {
-            troubles.add("no metal");
+            troubles.add("no metal" + ToolsWhy.metal(s).map(why -> " (" + why + ")").orElse(""));
         }
         if (s.threat() >= 35) {
             troubles.add("under threat");

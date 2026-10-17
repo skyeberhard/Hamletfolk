@@ -58,6 +58,7 @@ input[type=number] { width: 68px; }
 .dot.h1 { background: var(--watch); } .dot.h2 { background: var(--bad); }
 .chip { display: inline-flex; align-items: center; gap: 5px; background: var(--chip); border-radius: 999px; padding: 2px 9px; font-size: 12px; margin: 2px 4px 2px 0; }
 .chip.bad { color: var(--bad); } .chip.watch { color: var(--watch); }
+.k.watch, td.watch { color: var(--watch); }
 h1 { font-size: 22px; margin: 0; display: flex; align-items: center; gap: 10px; }
 .sub { color: var(--muted); font-size: 13px; }
 .grid { display: grid; gap: 14px; }
@@ -338,6 +339,7 @@ function overview() {
     storeBars(x),
     el("div", null, el("span", { class: "chip" }, x.beds + " beds, " + x.freeBeds + " free"), x.building ? el("span", { class: "chip" }, "⚒ " + x.building) : null,
       x.idle ? el("span", { class: "chip watch" }, x.idle + " idle") : null),
+    el("div", null, outlookChips(x)),
     el("div", null, x.blockers.slice(0, 2).map((b) => el("span", { class: "chip bad" }, b)), x.blockers.length > 2 ? el("span", { class: "sub" }, " +" + (x.blockers.length - 2) + " more") : null))));
   const everyone = !ACTIONS ? null : (() => {
     const days = el("input", { type: "number", value: "5", min: "1", max: "30", "aria-label": "days to run every village" });
@@ -349,6 +351,16 @@ function overview() {
   })();
   return [el("h1", null, "All villages"), el("div", { class: "sub" }, "Worst off first. Bars are half full at what a village wants; red is short."), everyone,
     el("div", { class: "two", style: "margin-top:14px" }, cards, feedPanel(null))];
+}
+
+/** R1.42: on a village's card: what its people can expect, and the store that runs out soonest. */
+function outlookChips(x) {
+  const o = x.outlook;
+  if (!o) return null;
+  const soonest = o.lines.filter((l) => l.daysLeft >= 0 && l.daysLeft <= 30).sort((a, b) => a.daysLeft - b.daysLeft)[0];
+  const bad = ["heading for famine", "in famine", "empty"].includes(o.people.verdict);
+  return [o.people.verdict === "can grow" ? null : el("span", { class: "chip " + (bad ? "bad" : "watch"), title: o.people.reasons.join("; ") }, o.people.verdict),
+    soonest ? el("span", { class: "chip " + (soonest.daysLeft <= 14 ? "bad" : "watch") }, soonest.resource + " lasts ~" + soonest.daysLeft + "d") : null];
 }
 
 function feedPanel(villageId) {
@@ -369,6 +381,7 @@ function feedPanel(villageId) {
 // ----- one village: tabs are a list, so a new one is one line -----
 const TABS = [
   { id: "overview", label: "Overview", render: tabOverview },
+  { id: "outlook", label: "Outlook", render: tabOutlook },
   { id: "plan", label: "Plan", render: tabPlan },
   { id: "residents", label: "Residents", render: tabResidents },
   { id: "buildings", label: "Buildings", render: tabBuildings },
@@ -379,7 +392,15 @@ const TABS = [
 function village(v) {
   const tabs = TABS.filter((t) => !t.when || t.when());
   if (!tabs.some((t) => t.id === state.tab)) state.tab = "overview";
-  const stat = (k, n, col, colour) => el("div", { class: "card" }, el("div", { class: "v" }, n), el("div", { class: "k" }, k), col != null ? spark(v.id, col, colour) : null);
+  const note = (resource) => {
+    const line = ((v.outlook || {}).lines || []).find((l) => l.resource === resource);
+    if (!line) return null;
+    const rate = (line.perDay > 0 ? "+" : "") + line.perDay + "/day";
+    const left = line.daysLeft >= 0 && line.daysLeft <= 30 ? " \u00b7 " + line.daysLeft + "d left" : "";
+    return el("div", { class: "k " + runwayClass(line), title: line.verdict }, rate + left);
+  };
+  const stat = (k, n, col, colour, resource) => el("div", { class: "card" }, el("div", { class: "v" }, n), el("div", { class: "k" }, k), resource ? note(resource) : null,
+    col != null ? spark(v.id, col, colour) : null);
   return [
     el("h1", null, el("span", { class: "dot h" + v.health }), v.name),
     el("div", { class: "sub" }, (v.character ? v.character + " · " : "") + v.world + " at " + v.x + ", " + v.z + " · day " + v.day + (v.building ? " · building " + v.building : "")),
@@ -387,8 +408,8 @@ function village(v) {
       el("span", { class: "chip" }, ((v.gender || {}).female || 0) + " women, " + ((v.gender || {}).male || 0) + " men"),
       Object.entries(v.land || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).filter(([, n]) => n > 0).map(([k, n]) => el("span", { class: "chip", title: "what stands out in the land round it" }, k + " " + n))),
     el("div", { class: "cards" },
-      stat(v.children ? "people (" + v.children + " children)" : "people", v.population, 0), stat("food", fmt(v.stores.food), 1, "var(--accent2)"),
-      stat("wood", fmt(v.stores.wood), 2), stat("stone", fmt(v.stores.stone), 3), stat("tools", fmt(v.stores.tools), 4),
+      stat(v.children ? "people (" + v.children + " children)" : "people", v.population, 0), stat("food", fmt(v.stores.food), 1, "var(--accent2)", "food"),
+      stat("wood", fmt(v.stores.wood), 2, null, "wood"), stat("stone", fmt(v.stores.stone), 3, null, "stone"), stat("tools", fmt(v.stores.tools), 4, null, "tools"),
       stat("treasury of " + v.treasuryLimit, v.treasury, 5), stat("beds, " + v.freeBeds + " free", v.beds, 6)),
     el("div", { class: "tabs", role: "tablist" }, tabs.map((t) => el("div", { class: "tab" + (state.tab === t.id ? " sel" : ""), role: "tab", onclick: () => { state.tab = t.id; location.hash = v.id + "/" + t.id; renderMain(); } }, t.label))),
     tabs.find((t) => t.id === state.tab).render(v)];
@@ -407,6 +428,33 @@ function tabOverview(v) {
     el("div", { class: "panel" }, el("h2", null, "Recent decisions"),
       v.decisions.length ? el("ul", { class: "plain" }, v.decisions.slice().reverse().map((d) => el("li", null, el("span", { class: "sub" }, "day " + d.day + " "), d.text))) : el("div", { class: "empty" }, "None yet.")));
   return el("div", { class: "two" }, left, feedPanel(v.id));
+}
+
+/** R1.42: how a line of the outlook reads: red when it runs out soon or is gone, amber when short or falling, plain when fine. */
+function runwayClass(line) {
+  if (line.verdict.startsWith("none") || (line.daysLeft >= 0 && line.daysLeft <= 14)) return "low";
+  if (line.daysLeft >= 0 || line.verdict.startsWith("short") || line.verdict.startsWith("recovering")) return "watch";
+  return "";
+}
+
+function tabOutlook(v) {
+  const o = v.outlook;
+  if (!o) return el("div", { class: "panel" }, el("div", { class: "empty" }, "No outlook yet."));
+  const folk = o.people;
+  const verdictClass = { "can grow": "", "held back": "watch", "stalled": "watch", "heading for famine": "bad", "in famine": "bad", "empty": "bad" }[folk.verdict] || "";
+  return el("div", { class: "grid" },
+    el("div", { class: "panel" }, el("h2", null, "The people"),
+      el("div", null, el("span", { class: "chip " + verdictClass }, folk.verdict), " ", folk.reasons.join("; ")),
+      el("div", { class: "sub", style: "margin-top:6px" }, "From its beds, its food and how fast the food is changing.")),
+    el("div", { class: "panel" }, el("h2", null, "What each store is doing"),
+      el("div", { class: "scroll" }, el("table", null,
+        el("thead", null, el("tr", null, ["", "Holds", "Aim", "Made a day", "Used a day", "Net a day", "What it means"].map((h) => el("th", null, h)))),
+        el("tbody", null, o.lines.map((l) => el("tr", null, el("td", null, el("b", null, l.resource)), el("td", { class: "num" }, l.stock), el("td", { class: "num" }, l.wanted || ""),
+          el("td", { class: "num" }, l.produced), el("td", { class: "num" }, l.consumed),
+          el("td", { class: "num " + (l.perDay < 0 ? "low" : "") }, (l.perDay > 0 ? "+" : "") + l.perDay),
+          el("td", { class: runwayClass(l) }, l.verdict)))))),
+      el("div", { class: "sub", style: "margin-top:6px" }, "An estimate from the last " + o.windowDays + (o.windowDays === 1 ? " day" : " days") +
+        " of the village's own accounts, not a promise: a building to pay for, a donation or a trade changes it.")));
 }
 
 function tabHistory(v) {

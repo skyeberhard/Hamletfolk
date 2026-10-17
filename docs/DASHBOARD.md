@@ -41,6 +41,15 @@ The page refreshes itself every few seconds.
 - Endpoints: `GET /api/events?since=<n>` (the lines after sequence number n, the latest number and the id of this start of the server, so an open page starts over after a restart) and `GET /api/trends` (each
   village's samples, oldest first: people, food, wood, stone, tools, treasury, beds; built only while someone is looking).
 
+## The outlook (R1.42)
+
+A village's **Outlook** tab says what each store (food, wood, stone, metal, tools, fuel) holds against what the village aims for, what it
+made and used a day over the last seven days of its own accounts (fewer days in a young village), and what that means: the days until it runs
+out, or until it is back to its aim, or that it is steady or growing. For the people it says whether the village can grow, is held back (food
+below what a newcomer needs), is stalled (every bed taken) or is heading for a famine (food gone within two weeks). The stat cards on the
+village's page show the net a day and the days left, and the overview cards show what the people can expect and the store that runs out first.
+It is an estimate from the recent past: a building to pay for, a donation or a trade changes it.
+
 ## Who and where (R1.41)
 
 A village's page names its biome, how many women and men live in it, and the three resources that stand out in its land. On the Plan tab
