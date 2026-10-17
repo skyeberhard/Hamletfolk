@@ -1514,6 +1514,17 @@ final class ConstructionService {
         } else if (signBlock != null && signBlock.getState() instanceof Sign sign) {
             sign.getSide(Side.FRONT).line(1, Component.text(type.signText()));
             sign.getSide(Side.BACK).line(1, Component.text(type.signText())); // (a hanging sign is read from both sides)
+            // R2.10: and under it the business's name, the same one the dashboard shows (worked out from the village and the sign's place)
+            Location signAt = signBlock.getLocation();
+            io.github.skyeberhard.hamletfolk.core.BusinessNames.of(settlement,
+                    new io.github.skyeberhard.hamletfolk.core.Building(type, signAt.getBlockX(), signAt.getBlockY(), signAt.getBlockZ(), 0, "the builders"))
+                    .ifPresent(name -> {
+                        List<String> lines = io.github.skyeberhard.hamletfolk.core.BusinessNames.lines(name, 14, 2);
+                        for (int i = 0; i < lines.size(); i++) {
+                            sign.getSide(Side.FRONT).line(2 + i, Component.text(lines.get(i)));
+                            sign.getSide(Side.BACK).line(2 + i, Component.text(lines.get(i)));
+                        }
+                    });
             sign.update(true, false);
             replacePreviousBuilding(settlement, world, project);
             Location at = signBlock.getLocation();

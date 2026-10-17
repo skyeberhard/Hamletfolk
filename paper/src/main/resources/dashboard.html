@@ -466,8 +466,8 @@ function tabBuildings(v) {
   const rows = v.buildings.slice().sort((a, b) => a.type.localeCompare(b.type));
   return el("div", { class: "two" },
     el("div", { class: "panel" }, el("h2", null, "Buildings (" + v.buildings.length + ")"), el("div", { class: "scroll" }, el("table", null,
-      el("thead", null, el("tr", null, el("th", null, "Kind"), el("th", null, "Tier"), el("th", null, "Where"), el("th", null, "Made by"))),
-      el("tbody", null, rows.map((b) => el("tr", null, el("td", null, b.type), el("td", null, b.tier), el("td", null, b.x + ", " + b.z), el("td", { class: "sub" }, b.by))))))),
+      el("thead", null, el("tr", null, el("th", null, "Kind"), el("th", null, "Name"), el("th", null, "Tier"), el("th", null, "Where"), el("th", null, "Made by"))),
+      el("tbody", null, rows.map((b) => el("tr", null, el("td", null, b.type), el("td", null, b.name || ""), el("td", null, b.tier), el("td", null, b.x + ", " + b.z), el("td", { class: "sub" }, b.by))))))),
     el("div", { class: "panel" }, el("h2", null, "Building projects"),
       v.projects.length ? el("ul", { class: "plain" }, v.projects.map((p) => el("li", null, cap(p.type) + " tier " + p.tier + " ", el("span", { class: "chip" + (p.status === "cancelled" ? " bad" : "") }, p.status),
         el("span", { class: "sub" }, p.finished > 0 ? " day " + p.finished : " queued day " + p.queued)))) : el("div", { class: "empty" }, "Nothing built yet.")));
@@ -646,7 +646,7 @@ function drawMap(canvas, tip, v) {
     fill(tip, (hit.rect
       ? [el("b", null, hit.type + " lot " + hit.id), el("div", null, (hit.locked ? "Kept empty by an admin. " : "") + (hit.status === "reserved" ? "Ready to build on" : hit.status === "rough" ? "Rough ground (levelled when built on)" : "Built on")),
          el("div", { class: "sub" }, hit.rect[2] + " by " + hit.rect[3] + " at " + hit.rect[0] + ", " + hit.rect[1])]
-      : [el("b", null, hit.type + (hit.tier > 1 ? " tier " + hit.tier : "")), el("div", { class: "sub" }, "at " + hit.x + ", " + hit.y + ", " + hit.z), el("div", { class: "sub" }, hit.by === "found" ? "found standing (a vanilla building)" : "registered by " + hit.by),
+      : [el("b", null, (hit.name ? hit.name + " \u00b7 " : "") + hit.type + (hit.tier > 1 ? " tier " + hit.tier : "")), el("div", { class: "sub" }, "at " + hit.x + ", " + hit.y + ", " + hit.z), el("div", { class: "sub" }, hit.by === "found" ? "found standing (a vanilla building)" : "registered by " + hit.by),
          hit.noLot ? el("div", { class: "sub" }, "No lot in the plan here: built before the plan was redrawn, signed by a player, or found.") : null]));
     tip.style.display = "block";
     tip.style.left = Math.min(ex + 14, W - 240) + "px"; tip.style.top = Math.min(ey + 14, H - 70) + "px";

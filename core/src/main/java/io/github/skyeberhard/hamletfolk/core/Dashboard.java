@@ -123,6 +123,7 @@ public final class Dashboard {
             row.put("y", b.y());
             row.put("z", b.z());
             row.put("by", b.registeredBy());
+            row.put("name", BusinessNames.of(s, b).orElse("")); // R2.10
             row.put("tier", s.tierOf(b));
             buildings.add(row);
         }
