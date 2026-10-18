@@ -11,6 +11,8 @@ public final class TradeLevel {
     /** Days of work to reach each level, from level 1. */
     static final int[] DAYS_AT = {0, 10, 30, 60, 100};
     public static final int MASTER = DAYS_AT.length;
+    /** The level (4) at which a smith can forge diamond tools. */
+    public static final int EXPERT = 4;
     private static final String[] NAMES = {"novice", "apprentice", "journeyman", "expert", "master"};
 
     private TradeLevel() {
@@ -35,6 +37,12 @@ public final class TradeLevel {
     /** What a gatherer or craftsman makes, as a multiple of a novice's: a tenth more for each level above the first. */
     public static double outputFactor(int level) {
         return 1.0 + 0.1 * (Math.max(1, level) - 1);
+    }
+
+    /** Grain a farmer of this level bakes into bread a day: the base, one more from journeyman and another from master (R4.57). */
+    public static int bakes(int level) {
+        int l = Math.max(1, level);
+        return SettlementSimulator.BAKE_PER_FARMER + (l >= 3 ? 1 : 0) + (l >= MASTER ? 1 : 0);
     }
 
     /** Raw ore a smith of this level smelts a day. */

@@ -118,6 +118,10 @@ world-marks:
 
 construction:
   enabled: true
+  # R4.56: with the guild on, a building is only improved to a tier someone in the village has the skill for: tier 2 needs an apprentice (10 days at the
+  # trade), tier 3 a journeyman (30), tier 4 an expert (60), tier 5 a master (100), of the building's own trade (builders, by buildings finished, for a
+  # house). A first tier is never held back. Off, a village improves as soon as it can pay.
+  guild: true
   # R4.22: build with nobody near. Off (the default), a village only builds while a player is within 128 blocks.
   # On, the chunks a village needs are loaded just while it decides what to build (once a game day) and while a
   # project is open, then let go, and the builder works with no player in range. The server must keep running with

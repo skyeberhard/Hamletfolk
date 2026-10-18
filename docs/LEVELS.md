@@ -18,6 +18,15 @@ For each level above the first:
 That is all. A villager's output is a quantity added to the village's stores, so there is no item quality and no recipe to learn; the only way a
 player sees a higher level is the game's own higher trade tiers (and standing-based prices, R3.4) and the badge.
 
+## Built: ideas 1 and 2 (R4.56, R4.57)
+
+- **Guild (R4.56).** With `construction.guild: true` (the default) a building is only improved to a tier someone in the village has the skill for: tier 2 needs an
+  apprentice (level 2), tier 3 a journeyman, tier 4 an expert, tier 5 a master, of the building's own trade (`Guild`): a smithy's smiths, a shop's merchants, a farm's farmers,
+  a guard post's guards, and for a house the builders (their rank by buildings finished: 3, 6 and 10 buildings for the ranks, and a veteran of 20 for a tier 5). A village that has lost its builders, or was adopted and has none with a record, can only raise first-tier houses until its builders have finished some buildings. A first tier is never held back. The dashboard's Selected building panel, Buildings tab and
+  Upgrade refusal say what is missing. The Buildings tab's tooltip on the "no" is the reason.
+- **Better goods (R4.57).** An expert smith forges diamond tools from three diamonds a batch (keeping three in reserve) once the village has the tools it wants; four diamond tools in store make gatherers work
+  a tenth better (they wear out last); journeyman and master farmers bake one more grain into bread a day each.
+
 ## Ideas, in the order I would do them
 
 1. **Levels gate buildings and tiers (a guild).** A higher-tier building asks for someone of the right skill in the village: a tier 2 smithy needs

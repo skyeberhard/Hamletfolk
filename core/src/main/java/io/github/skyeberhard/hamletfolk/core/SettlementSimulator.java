@@ -56,6 +56,14 @@ public final class SettlementSimulator {
     static final int ABANDONMENT_DAYS = 10;
     /** R3.6: chance per working day that a gatherer wears out one tool. */
     static final double TOOL_WEAR_CHANCE = 0.15;
+    /** R4.57: diamonds an expert smith spends on a day's diamond tools, how many diamond tools make the gatherers work better, and how much. */
+    static final int DIAMONDS_PER_BATCH = 3;
+    /** Diamonds an expert smith leaves in store (for what else a village may want them for). */
+    static final int DIAMOND_RESERVE = 3;
+    static final int DIAMOND_TOOLS_FOR_BONUS = 4;
+    static final double DIAMOND_TOOL_BONUS = 1.1;
+    /** The condition that remembers the day the first diamond tools were forged. */
+    static final String FIRST_DIAMOND_TOOLS = "firstDiamondTools";
     /** R3.6: output multiplier for gatherers while the village has no tools. */
     static final double TOOLLESS_OUTPUT = 0.75;
     /** R4.3: occupations an unemployed resident can take up, in tie-break order. */
@@ -788,8 +796,19 @@ public final class SettlementSimulator {
         ResourceType input = occupation.consumes();
         Commodity product = occupation.product();
         if (occupation.isSmith()) {
-            // R3.17: iron makes iron tools; with no iron, cobblestone makes stone tools; with neither, the smith waits.
-            if (ledger.take(Commodity.IRON, 1) == 1) {
+            // R4.57: an expert smith, once the village has the tools it wants (and a reserve of diamonds is kept), forges diamond tools out of its diamonds
+            boolean diamonds = resident.level() >= TradeLevel.EXPERT && ledger.get(ResourceType.TOOLS) >= wantedLevel(settlement, ResourceType.TOOLS)
+                    && ledger.get(Commodity.DIAMOND) >= DIAMONDS_PER_BATCH + DIAMOND_RESERVE;
+            if (diamonds && ledger.take(Commodity.DIAMOND, DIAMONDS_PER_BATCH) == DIAMONDS_PER_BATCH) {
+                flow.recordConsumed(ResourceType.METAL, day, DIAMONDS_PER_BATCH);
+                product = Commodity.DIAMOND_TOOLS;
+                if (!settlement.hasCondition(FIRST_DIAMOND_TOOLS)) {
+                    settlement.conditions().put(FIRST_DIAMOND_TOOLS, day);
+                    settlement.record(day, HistoryEvent.Kind.MILESTONE, resident.fullName() + ", an " + TradeLevel.name(resident.level()) + " "
+                            + occupation.title().toLowerCase(java.util.Locale.ROOT) + ", forged the first diamond tools " + settlement.name() + " has had.");
+                }
+            } else if (ledger.take(Commodity.IRON, 1) == 1) {
+                // R3.17: iron makes iron tools; with no iron, cobblestone makes stone tools; with neither, the smith waits.
                 flow.recordConsumed(ResourceType.METAL, day, 1);
             } else if (ledger.take(Commodity.COBBLESTONE, 1) == 1) {
                 flow.recordConsumed(ResourceType.STONE, day, 1);
@@ -812,6 +831,9 @@ public final class SettlementSimulator {
             flow.recordConsumed(input, day, 1);
         }
         double toolFactor = 1.0;
+        if (occupation.usesTools() && ledger.get(Commodity.DIAMOND_TOOLS) >= DIAMOND_TOOLS_FOR_BONUS) {
+            toolFactor *= DIAMOND_TOOL_BONUS; // R4.57: a village with diamond tools in store works a tenth better
+        }
         if (occupation.usesTools()) {
             if (ledger.get(ResourceType.TOOLS) == 0) {
                 if (toollessPenalty) {
@@ -885,7 +907,13 @@ public final class SettlementSimulator {
             }
         }
 
-        int baked = ledger.take(Commodity.GRAIN, (int) Math.min(Integer.MAX_VALUE, BAKE_PER_FARMER * farmers));
+        long bakes = 0; // R4.57: a more skilled farmer bakes more
+        for (Resident r : settlement.residents()) {
+            if (r.adult() && r.occupation() == Occupation.FARMER) {
+                bakes += TradeLevel.bakes(r.level());
+            }
+        }
+        int baked = ledger.take(Commodity.GRAIN, (int) Math.min(Integer.MAX_VALUE, bakes));
         ledger.add(Commodity.BREAD, baked);
 
         boolean oreToSmelt = ledger.get(Commodity.RAW_IRON) + ledger.get(Commodity.RAW_COPPER) + ledger.get(Commodity.RAW_GOLD) > 0;

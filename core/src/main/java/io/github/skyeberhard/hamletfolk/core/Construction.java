@@ -999,7 +999,14 @@ public final class Construction {
             int currentTier, VillagePlan.Lot lot, int margin, TemplateCatalog catalog,
             Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints, HeightSource terrain, String reason,
             ConstructionProject replacing, boolean explain) {
-        List<TemplateCatalog.Template> ladder = catalog.ladder(type, biome);
+        List<TemplateCatalog.Template> fullLadder = catalog.ladder(type, biome);
+        // R4.56: an upgrade only reaches a tier someone in the village has the skill for (a first tier is never held back)
+        final int skillCap = replacing == null ? Integer.MAX_VALUE : Guild.tierCap(settlement, type);
+        final List<TemplateCatalog.Template> ladder = replacing == null ? fullLadder
+                : fullLadder.stream().filter(t -> t.tier() <= Math.max(skillCap, currentTier)).toList();
+        if (replacing != null && ladder.stream().noneMatch(t -> t.tier() > currentTier)) {
+            return Optional.empty(); // nobody has the skill for a better tier yet (or there is none): nothing to price
+        }
         Map<ResourceType, Integer> stock = new EnumMap<>(ResourceType.class);
         for (ResourceType resource : ResourceType.values()) {
             // A want keeps twice its cost in store, or, where the storage limit is too low for that, enough that the

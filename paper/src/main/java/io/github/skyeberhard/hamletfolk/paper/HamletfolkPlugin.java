@@ -44,6 +44,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
         saveDefaultConfig();
         // Before any save is loaded: ages only mean something against the lifespan in force (R4.15).
         Resident.setLifespanScale(getConfig().getDouble("aging.lifespan-scale", HamletfolkConfig.DEFAULT_LIFESPAN_SCALE));
+        io.github.skyeberhard.hamletfolk.core.Guild.setEnforced(getConfig().getBoolean("construction.guild", true)); // R4.56
         saveFile = getDataFolder().toPath().resolve("settlements.json");
         backupDirectory = getDataFolder().toPath().resolve("backups");
         backupsKept = Math.max(1, getConfig().getInt("backups.keep", 5));

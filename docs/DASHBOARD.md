@@ -35,6 +35,10 @@ Above a village's plan map: **Slope** (the ground read every 4 blocks where the 
 
 A fourth layer, **Defence and lights**, shows the street lights (gold where one stands), the wall (planned dimly, then in its colour; red where a post is missing), the guards' patrol, and a line with the counts, the threat and recent attacks. It is read from the world only where it is loaded, and only while the layer is open. Point at a building for its tier and (for a house) its beds now and next; click it for a Selected building panel, where with `dashboard.allow-actions` an **Upgrade** button has the builders improve it to the next tier (queued like any project, paid from the stores; refused with the reason for a player's or a found building, the best tier, busy builders, or empty stores). The Buildings tab has the same in its Tier, Beds and last columns.
 
+## Skill and improvement (R4.56)
+
+A building is improved only to a tier someone in the village has the skill for (`construction.guild`): tier 2 needs an apprentice of its trade, tier 3 a journeyman, tier 4 an expert, tier 5 a master. When a building cannot be improved the Selected building panel and the Buildings tab say why, for example "tier 3 needs a journeyman farmer (the best here is apprentice)", and the Upgrade button is not offered.
+
 ## Tiers of vanilla buildings (R8.29)
 
 A vanilla building the village did not raise has no tier of its own and is never upgraded (the builders only improve what they built, and nothing a player or the game made). The dashboard shows a guess, marked "≈": a house by the beds the game counts there, any other building by the area of its outline against the area of each design in the ladder. With nothing known yet it shows tier 1 without the mark.

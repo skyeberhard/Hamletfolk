@@ -168,6 +168,10 @@ public final class BuildingTiers {
         if (PlanOverrides.isForbidden(s, b.type())) {
             return "an admin has forbidden this kind of building";
         }
+        Optional<String> skill = Guild.refusal(s, b.type(), tier + 1); // R4.56
+        if (skill.isPresent()) {
+            return skill.get();
+        }
         if (s.openProject().isPresent()) {
             return "the builders are busy with another project";
         }
