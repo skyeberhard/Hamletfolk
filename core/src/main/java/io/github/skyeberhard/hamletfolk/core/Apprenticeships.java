@@ -45,16 +45,21 @@ public final class Apprenticeships {
 
     /** Each learner's experience before the day's work, so the bonus goes only to those who worked; empty if the village has no master. */
     static java.util.Map<UUID, Integer> snapshot(Settlement s) {
-        java.util.Map<UUID, Integer> before = new java.util.HashMap<>();
         boolean master = false;
         for (Resident r : s.residents()) {
-            master |= teaches(r);
-            if (learning(r)) {
-                before.put(r.id(), r.xp());
+            if (teaches(r)) {
+                master = true;
+                break;
             }
         }
         if (!master) {
-            before.clear();
+            return java.util.Map.of(); // (called for every village every day: nothing is built unless there is a master)
+        }
+        java.util.Map<UUID, Integer> before = new java.util.HashMap<>();
+        for (Resident r : s.residents()) {
+            if (learning(r)) {
+                before.put(r.id(), r.xp());
+            }
         }
         return before;
     }
@@ -68,6 +73,9 @@ public final class Apprenticeships {
      * history. With {@code before} (see {@link #snapshot}), only a pupil whose experience rose today, that is one who worked, is taught.
      */
     static void run(Settlement s, long day, java.util.Map<UUID, Integer> before) {
+        if (before != null && before.isEmpty()) {
+            return; // no master, or nobody learning
+        }
         List<Resident> masters = null;
         for (Resident r : s.residents()) {
             if (teaches(r)) {
