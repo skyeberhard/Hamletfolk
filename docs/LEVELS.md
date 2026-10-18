@@ -43,9 +43,9 @@ player sees a higher level is the game's own higher trade tiers (and standing-ba
 3. **Apprentices (built, R4.58).** A master (level 4+) takes an apprentice: a jobless adult or a child of their household (R6.1), who then levels 50% faster for as
    long as the master lives and works. Children of a master start with a head start in the same trade. It uses the household and marriage data we
    have and makes families matter. Medium, and needs the births and household code to name the child's trade.
-4. **Prices and standing (the merchant half built, R4.59).** A master merchant raises what the village earns from a passing trader or a caravan (R6.5), and a master of a trade
+4. **Prices and standing (built, R4.59: merchants get more, and the village pays less for what its masters make).** A master merchant raises what the village earns from a passing trader or a caravan (R6.5), and a master of a trade
    lowers what the village pays for that trade's goods. Small, and it pays for merchants and shops in trade.
-5. **Masterpieces and legacy.** The first time a resident reaches master, the village puts a "masterpiece" in its record (a named line on the notice
+5. **Masterpieces and legacy (built, R4.60).** The first time a resident reaches master, the village puts a "masterpiece" in its record (a named line on the notice
    board, an item in the shop's chest); when a master dies, their trade's output dips and the history says who they trained. Mostly flavour; cheap once
    1 and 3 exist.
 6. **Players buy village-made goods from a master.** A master's trades sell the village's own surplus (iron tools, books) at fair prices, through

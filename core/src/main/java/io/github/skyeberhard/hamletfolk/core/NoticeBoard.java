@@ -76,6 +76,16 @@ public final class NoticeBoard {
         }
         pages.add(page(work.toString()));
 
+        // people of note (R4.60)
+        List<String> masters = Masterpieces.living(s);
+        if (!masters.isEmpty()) {
+            StringBuilder note = new StringBuilder("PEOPLE OF NOTE\n");
+            for (String m : masters.stream().limit(3).toList()) {
+                note.append('\n').append(shorten(m, 70)).append('\n');
+            }
+            pages.add(page(note.toString()));
+        }
+
         // the news
         StringBuilder news = new StringBuilder("NEWS\n");
         List<HistoryEvent> events = s.history();

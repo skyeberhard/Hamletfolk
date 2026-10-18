@@ -523,10 +523,14 @@ public final class SettlementSimulator {
             }
         }
         for (Resident resident : old) {
+            String legacy = Masterpieces.legacy(settlement, resident, day); // R4.60 (before they are gone, so their pupils are found)
             settlement.removeResident(resident.id());
             settlement.markDeparted(resident.id(), day);
             settlement.record(day, HistoryEvent.Kind.DEATH, resident.fullName() + " died of old age, at "
                     + resident.age(day) + " days.");
+            if (legacy != null) {
+                settlement.record(day, HistoryEvent.Kind.MILESTONE, legacy);
+            }
         }
     }
 
@@ -1016,7 +1020,7 @@ public final class SettlementSimulator {
                         + (request.unpaid() > 0 ? ", and " + request.unpaid() + " emeralds went back to the treasury." : "."), REQUEST_QUIET_DAYS);
             } else if (request.thanksOnly() && request.filled() == 0) {
                 // R4.40: nobody has helped yet and the treasury can pay now: the request pays after all
-                int reward = (int) Math.ceil((double) request.wanted() * REQUEST_PREMIUM / unitsPerEmerald(request.type()));
+                int reward = TradeLevel.paid(settlement, request.type(), (double) request.wanted() * REQUEST_PREMIUM / unitsPerEmerald(request.type())); // R4.59
                 if (settlement.ledger().spendTreasury(reward)) {
                     settlement.requestMap().put(request.type(), new Request(request.type(), request.wanted(), 0, reward, 0, request.postedDay()));
                 }
@@ -1037,7 +1041,7 @@ public final class SettlementSimulator {
                 continue;
             }
             int units = Math.max(REQUEST_MIN_UNITS, stock >= wanted ? wanted : 2 * wanted - stock);
-            int reward = (int) Math.ceil((double) units * REQUEST_PREMIUM / unitsPerEmerald(type));
+            int reward = TradeLevel.paid(settlement, type, (double) units * REQUEST_PREMIUM / unitsPerEmerald(type)); // R4.59
             if (!settlement.ledger().spendTreasury(reward)) {
                 reward = 0; // R4.40: the village can't pay for it, so it asks for help for its thanks
             }

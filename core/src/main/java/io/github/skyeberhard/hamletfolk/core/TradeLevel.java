@@ -87,7 +87,7 @@ public final class TradeLevel {
         int before = of(resident.xp());
         resident.addXp(1);
         if (before < MASTER && of(resident.xp()) == MASTER) {
-            settlement.record(day, HistoryEvent.Kind.MILESTONE, resident.fullName() + " is now a " + title(resident) + ".");
+            settlement.record(day, HistoryEvent.Kind.MILESTONE, Masterpieces.promotion(resident)); // R4.60
         }
     }
 
@@ -105,5 +105,22 @@ public final class TradeLevel {
             }
         }
         return best;
+    }
+
+    /** R4.59: the best level among the village's adults whose trade makes this kind of goods (1 if none does). */
+    static int bestMakerOf(Settlement settlement, ResourceType type) {
+        int best = 1;
+        for (Resident r : settlement.residents()) {
+            if (r.adult() && r.occupation().produces() == type) {
+                best = Math.max(best, r.level());
+            }
+        }
+        return best;
+    }
+
+    /** R4.59: what a village pays for goods its own masters make: 4% less for each level of its best maker above the first. */
+    static int paid(Settlement settlement, ResourceType type, double emeralds) {
+        double share = (100 - 4 * (bestMakerOf(settlement, type) - 1)) / 100.0;
+        return (int) Math.ceil(emeralds * share);
     }
 }
