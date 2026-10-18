@@ -109,6 +109,16 @@ final class VillagerListener implements Listener {
         if (event.getInventory() instanceof MerchantInventory trade && trade.getMerchant() instanceof Villager villager
                 && service.inScope(villager.getWorld())) {
             service.applyTradePrices(villager, event.getPlayer().getUniqueId());
+            service.applyStall(villager, event.getPlayer().getUniqueId()); // R4.64
+        }
+    }
+
+    /** R4.64: a stall's offers are only true while the window is open: take them off when it closes. */
+    @EventHandler
+    public void onCloseTrade(org.bukkit.event.inventory.InventoryCloseEvent event) {
+        if (event.getInventory() instanceof MerchantInventory trade && trade.getMerchant() instanceof Villager villager
+                && service.inScope(villager.getWorld())) {
+            service.removeStall(villager);
         }
     }
 
@@ -119,6 +129,13 @@ final class VillagerListener implements Listener {
             return;
         }
         MerchantRecipe recipe = event.getTrade();
+        if (service.isStall(recipe.getResult())) { // R4.64: a stall sells only what the stores can spare
+            if (!service.stallCovers(villager, recipe)) {
+                event.setCancelled(true);
+                event.getPlayer().sendMessage(Component.text("The village has no more of that to spare right now.", NamedTextColor.GRAY));
+            }
+            return;
+        }
         ItemStack given = recipe.getAdjustedIngredient1();
         if (given != null && !service.storesCover(villager, given.getType().getKey().getKey(),
                 recipe.getResult().getType().getKey().getKey(), recipe.getResult().getAmount())) {
@@ -136,6 +153,10 @@ final class VillagerListener implements Listener {
         }
         // The game fires this just before it takes payment; in the rare case it then refuses, the stores have moved anyway.
         MerchantRecipe recipe = event.getTrade();
+        if (service.isStall(recipe.getResult())) { // R4.64
+            service.stallSold(villager, recipe);
+            return;
+        }
         ItemStack given = recipe.getAdjustedIngredient1(); // what the player actually hands over, price changes included
         if (given == null) {
             return;

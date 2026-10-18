@@ -48,7 +48,7 @@ player sees a higher level is the game's own higher trade tiers (and standing-ba
 5. **Masterpieces and legacy (built, R4.60).** The first time a resident reaches master, the village puts a "masterpiece" in its record (a named line on the notice
    board, an item in the shop's chest); when a master dies, their trade's output dips and the history says who they trained. Mostly flavour; cheap once
    1 and 3 exist.
-6. **Players buy village-made goods from a master.** A master's trades sell the village's own surplus (iron tools, books) at fair prices, through
+6. **Players buy village-made goods from a master (built, R4.64, unplayed).** A master's trades sell the village's own surplus (iron tools, books) at fair prices, through
    custom merchant recipes. High reward and high risk: it touches the game's trade UI, balance, and duplication safety (the ledger must follow), so only
    after the stores and donation paths have been played.
 

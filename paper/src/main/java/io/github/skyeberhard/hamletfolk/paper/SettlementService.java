@@ -148,6 +148,101 @@ final class SettlementService {
         }
     }
 
+    // ----- R4.64: a master craftsman's stall -----
+
+    private org.bukkit.NamespacedKey stallKey() {
+        return new org.bukkit.NamespacedKey(plugin, "stall");
+    }
+
+    /** Whether a trade result is a stall's own offer (marked when it was made). */
+    boolean isStall(ItemStack result) {
+        return result != null && result.hasItemMeta()
+                && result.getItemMeta().getPersistentDataContainer().has(stallKey(), org.bukkit.persistence.PersistentDataType.BYTE);
+    }
+
+    /** Takes a stall's offers off a villager (they are made again each time the window opens, and only then are they true). */
+    void removeStall(Villager villager) {
+        List<MerchantRecipe> kept = new ArrayList<>();
+        boolean any = false;
+        for (MerchantRecipe recipe : villager.getRecipes()) {
+            if (isStall(recipe.getResult())) {
+                any = true;
+            } else {
+                kept.add(recipe);
+            }
+        }
+        if (any) {
+            villager.setRecipes(kept);
+        }
+    }
+
+    /** R4.64: the villager is a master craftsman: add the offer of the village's finished goods to the window that is opening. */
+    void applyStall(Villager villager, java.util.UUID player) {
+        removeStall(villager); // first of all: an offer left by a crash or a window that never closed is not kept
+        if (!plugin.getConfig().getBoolean("stall.enabled", true) || isIgnored(villager)) {
+            return;
+        }
+        Resident resident = track(villager);
+        Settlement settlement = resident == null ? null : registry.settlementOf(resident.id()).orElse(null);
+        if (settlement == null) {
+            return;
+        }
+        simulate(settlement);
+        if (settlement.resident(resident.id()).isEmpty()) {
+            return;
+        }
+        io.github.skyeberhard.hamletfolk.core.Stall.offer(settlement, resident, settlement.reputationOf(player),
+                settlement.effectiveDay(day(villager.getWorld())), simulator.treasuryRoom(settlement)).ifPresent(offer -> {
+            org.bukkit.Material material = org.bukkit.Material.matchMaterial(offer.material());
+            if (material == null) {
+                return;
+            }
+            ItemStack result = new ItemStack(material, offer.count());
+            org.bukkit.inventory.meta.ItemMeta meta = result.getItemMeta();
+            meta.itemName(net.kyori.adventure.text.Component.text(offer.name(), net.kyori.adventure.text.format.NamedTextColor.GOLD));
+            meta.lore(List.of(net.kyori.adventure.text.Component.text(offer.lore(), net.kyori.adventure.text.format.NamedTextColor.GRAY)
+                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
+            meta.getPersistentDataContainer().set(stallKey(), org.bukkit.persistence.PersistentDataType.BYTE, (byte) 1);
+            // marked as from the village's stores like a gift or anything taken, so handing it back earns nothing
+            meta.getPersistentDataContainer().set(new org.bukkit.NamespacedKey(plugin, "taken"), org.bukkit.persistence.PersistentDataType.STRING,
+                    settlement.id().toString());
+            result.setItemMeta(meta);
+            MerchantRecipe recipe = new MerchantRecipe(result, offer.maxUses());
+            recipe.addIngredient(new ItemStack(org.bukkit.Material.EMERALD, Math.max(1, Math.min(64, offer.emeralds()))));
+            recipe.setExperienceReward(false);
+            recipe.setVillagerExperience(0);
+            List<MerchantRecipe> recipes = new ArrayList<>(villager.getRecipes());
+            recipes.add(recipe);
+            villager.setRecipes(recipes);
+        });
+    }
+
+    /** Whether the stores still cover this stall sale (checked each time the player buys). */
+    boolean stallCovers(Villager villager, MerchantRecipe recipe) {
+        Resident resident = registry.resident(villager.getUniqueId()).orElse(null);
+        Settlement settlement = resident == null ? null : registry.settlementOf(resident.id()).orElse(null);
+        return plugin.getConfig().getBoolean("stall.enabled", true) && settlement != null && io.github.skyeberhard.hamletfolk.core.Stall.covers(settlement, resident,
+                recipe.getResult().getType().getKey().getKey(), recipe.getResult().getAmount());
+    }
+
+    /** A stall sale made: the goods leave the stores and the payment goes to the treasury. */
+    void stallSold(Villager villager, MerchantRecipe recipe) {
+        Resident resident = registry.resident(villager.getUniqueId()).orElse(null);
+        Settlement settlement = resident == null ? null : registry.settlementOf(resident.id()).orElse(null);
+        ItemStack paid = recipe.getAdjustedIngredient1();
+        if (settlement == null || paid == null) {
+            return;
+        }
+        int banked = io.github.skyeberhard.hamletfolk.core.Stall.sold(settlement, resident, recipe.getResult().getType().getKey().getKey(),
+                recipe.getResult().getAmount(), paid.getAmount(), simulator.treasuryRoom(settlement), settlement.effectiveDay(day(villager.getWorld())));
+        if (banked >= 0) {
+            long day = settlement.effectiveDay(day(villager.getWorld()));
+            settlement.recordQuiet(day, io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.MILESTONE,
+                    resident.fullName() + " sold " + recipe.getResult().getAmount() + " " + recipe.getResult().getType().getKey().getKey().replace('_', ' ') + " for " + paid.getAmount() + " emeralds.", 5);
+            plugin.requestSave();
+        }
+    }
+
     /** The ground of a world as the plan sees it: surface height and water, only where chunks are loaded. */
     private static HeightSource terrainOf(World world) {
         return new HeightSource() {

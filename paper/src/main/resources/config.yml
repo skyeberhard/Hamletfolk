@@ -205,6 +205,12 @@ trade:
 homes:
   signs: true
 
+# Master craftsmen's stalls (R4.64). When you open the trade window of a villager who makes tools or goods and is an expert or master, it also
+# offers the village's best finished goods for emeralds (dearer the better the hand, cheaper the better your standing). The goods come out of the
+# village's surplus and the emeralds go to its treasury. Off with enabled: false.
+stall:
+  enabled: true
+
 # Gifts (R4.63). A villager who thinks well of you (standing 15 or more, not a recent thief) may give you a few of the things their
 # trade makes when you talk to them (sneak + right-click): at most once in 8 days per player (4 if honoured), at most 3 a day per
 # village, out of the village's own surplus. A master's gift is named for its quality. Off with enabled: false.
