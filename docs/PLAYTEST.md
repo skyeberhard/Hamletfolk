@@ -1,4 +1,4 @@
-# Playtest checklist (T112 to T131)
+# Playtest checklist (T112 to T146)
 
 About twenty features are coded and unit tested but have never been seen by a player. This is the route through them, grouped by where you stand, with
 what to look for. The full scenarios are in [TESTING.md](TESTING.md) under the T numbers. Tick as you go; for each failure write down the village, what you
@@ -61,6 +61,23 @@ Rough time: 90 to 120 minutes in all. Each part stands alone, so you can stop af
 ## 4. Trade (10 to 15 minutes)
 
 - [ ] **T131.** Two villages within 800 blocks. Let one build a surplus and the other run short (give one a lot of bread, the other none). `/settlement admin trade <village>`; read both histories. Without a merchant a fifth is lost on the road; starve one: the other sends food unpaid; only the difference in emeralds moves. Try `trade.enabled: false` and restart: no caravans by themselves.
+
+## 5. Levels, goods and stalls (T139 to T146, 20 minutes)
+
+A console smoke test on a copy of the live world (120 village days) has already seen: apprentices named in the history, masterpieces named and kept as `heirloom:`
+conditions, the goods and tools barrels drawn with quality names, glint and the maker in the lore, and heirlooms in the last slots of the goods barrel. It has
+not seen a player. These need you:
+
+- [ ] **T146 stall.** Right-click (not sneaking) a toolsmith or librarian of 60+ days in a village with spare iron tools or goods. An extra gold-named offer for emeralds,
+      the maker in its lore. Buy one: the stores go down, the treasury up, the history gets a line. Close and reopen: not doubled. Buy until it stops
+      (four a village day, or when the stores cannot spare more). Check the villager's own vanilla offers (an enchanted-book librarian's especially) are still right.
+- [ ] **T144 gifts.** With standing 15+ (donate to a request), sneak + right-click different villagers over several `fastforward`ed days: now and then a green message and items.
+      A master's gift is gold-named. Hand one back at a barrel: it earns nothing.
+- [ ] **T142 and T143 barrels.** Open the goods barrel in the shop: the gold-named heirlooms sit in the last slots and cannot be taken (try shift-click); tools and goods above
+      level 2 are named Good, Fine or Masterwork. Taking and donating still behave as in T124.
+- [ ] **T141 board.** The notice board has a People of note page with the living masters.
+- [ ] **T145 tiers.** `/settlement admin build shop 3` and `shop 4` (and mine, guard_post, treasury): a 9 by 9 stone hall; the fourth has a loft and a ladder.
+- [ ] **T139, T140.** Apprentices in the history; a master merchant's village banks a little more per sale.
 
 ## What to send back
 
