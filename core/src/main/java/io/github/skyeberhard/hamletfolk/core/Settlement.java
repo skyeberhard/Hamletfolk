@@ -209,6 +209,7 @@ public final class Settlement {
 
     Resident removeResident(UUID id) {
         conditions.remove(PINNED + id); // R1.31
+        conditions.remove(Apprenticeships.MARKER + id); // R4.58
         conditions.remove(Births.AWAITING + id); // R4.28
         conditions.remove(Migration.MOVING + id); // R4.2: nobody left to bring over
         conditions.keySet().removeIf(key -> key.startsWith(Membership.STRAYING + id + ":")); // R1.8
@@ -678,6 +679,11 @@ public final class Settlement {
     /** Forgets a condition, e.g. once a pending move has been carried out. */
     public void removeCondition(String key) {
         conditions.remove(key);
+    }
+
+    /** R4.58: marks that the history has said this resident became a master's pupil. */
+    void noteApprentice(UUID resident, long day) {
+        conditions.put(Apprenticeships.MARKER + resident, day);
     }
 
     public boolean hasCondition(String key) {

@@ -334,6 +334,7 @@ public final class SettlementSimulator {
         Random wearRandom = new Random(settlement.id().getLeastSignificantBits() ^ (day * 0x9E3779B97F4A7C15L) ^ 0x700157L);
         process(settlement, day); // R3.17: bake, burn charcoal and smelt before the day's work
         Golems.forge(settlement, day); // R5.9: a village that has been attacked keeps iron golems
+        java.util.Map<UUID, Integer> xpBefore = Apprenticeships.snapshot(settlement); // R4.58
         java.util.Set<Occupation> resting = updateResting(settlement);
         Map<ResourceType, Integer> idleForLack = new EnumMap<>(ResourceType.class);
         // R3.6: tools are only a real shortage where there is a way to get more: a registered mine for metal.
@@ -359,6 +360,7 @@ public final class SettlementSimulator {
             }
             work(settlement, resident, settlement.flow(), ledger, day, random, wearRandom, idleForLack, penalty);
         }
+        Apprenticeships.run(settlement, day, xpBefore); // R4.58: pupils who worked today learn faster
 
         int demand = 0;
         for (Resident resident : settlement.residents()) {
@@ -641,6 +643,12 @@ public final class SettlementSimulator {
         }
         if (best != null) {
             jobless.setOccupation(best);
+            if (apprentice) {
+                int head = Apprenticeships.headStart(settlement, jobless, best); // R4.58: a master's child starts ahead
+                if (head > 0) {
+                    jobless.restoreXp(best, head);
+                }
+            }
             if (!idleFill) {
                 noteMoved(settlement, jobless, day); // R4.35: just placed, so not moved again for a few days
             }

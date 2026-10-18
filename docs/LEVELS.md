@@ -27,6 +27,8 @@ player sees a higher level is the game's own higher trade tiers (and standing-ba
 - **Better goods (R4.57).** An expert smith forges diamond tools from three diamonds a batch (keeping three in reserve) once the village has the tools it wants; four diamond tools in store make gatherers work
   a tenth better (they wear out last); journeyman and master farmers bake one more grain into bread a day each.
 
+- **Apprentices (R4.58).** A master (level 4+) trains their own child in the trade, else the least experienced adult of the trade; the pupil earns half as much experience again until an expert. A master's child who takes up the parent's trade starts at level 2. Derived each day, nothing saved (`Apprenticeships`).
+
 ## Ideas, in the order I would do them
 
 1. **Levels gate buildings and tiers (a guild).** A higher-tier building asks for someone of the right skill in the village: a tier 2 smithy needs
@@ -38,7 +40,7 @@ player sees a higher level is the game's own higher trade tiers (and standing-ba
    smith with diamonds makes diamond tools; a journeyman makes iron where a novice made stone; a master glassblower's glass sells for more. It
    gives a village's stores quality without per-item data, because each quality is already its own commodity. Medium: a rule per trade in `SettlementSimulator.work`
    and tests.
-3. **Apprentices.** A master (level 4+) takes an apprentice: a jobless adult or a child of their household (R6.1), who then levels 50% faster for as
+3. **Apprentices (built, R4.58).** A master (level 4+) takes an apprentice: a jobless adult or a child of their household (R6.1), who then levels 50% faster for as
    long as the master lives and works. Children of a master start with a head start in the same trade. It uses the household and marriage data we
    have and makes families matter. Medium, and needs the births and household code to name the child's trade.
 4. **Prices and standing.** A master merchant raises what the village earns from a passing trader or a caravan (R6.5), and a master of a trade
