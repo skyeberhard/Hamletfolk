@@ -361,6 +361,20 @@ final class StoreService implements Listener {
         return item.hasItemMeta() ? item.getItemMeta().getPersistentDataContainer().get(gradeKey, PersistentDataType.STRING) : null;
     }
 
+    /** R4.63: an item the village gave a player: marked as from its stores (so it cannot be handed back for a reward), named and lored if a master made it. */
+    ItemStack gift(Settlement settlement, io.github.skyeberhard.hamletfolk.core.Gifts.Gift gift) {
+        Material material = Material.matchMaterial(gift.material());
+        ItemStack item = new ItemStack(material == null ? Material.BREAD : material, gift.count());
+        ItemMeta meta = item.getItemMeta();
+        if (gift.name() != null) {
+            meta.itemName(Component.text(gift.name(), NamedTextColor.GOLD));
+            meta.lore(List.of(Component.text(gift.lore(), NamedTextColor.GRAY).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
+        }
+        meta.getPersistentDataContainer().set(takenKey, PersistentDataType.STRING, settlement.id().toString());
+        item.setItemMeta(meta);
+        return item;
+    }
+
     private boolean isHeirloom(ItemStack item) {
         return item != null && item.hasItemMeta() && item.getItemMeta().getPersistentDataContainer().has(heirloomKey, PersistentDataType.BYTE);
     }

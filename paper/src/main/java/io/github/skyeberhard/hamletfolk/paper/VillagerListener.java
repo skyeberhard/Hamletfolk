@@ -176,7 +176,23 @@ final class VillagerListener implements Listener {
                 + Dialogue.speak(resident, settlement, day, chatter, ambientAt(villager)); // R4.31
         player.sendMessage(Component.text("\"" + line + "\"", NamedTextColor.WHITE, TextDecoration.ITALIC));
         resident.recordConversation(player.getUniqueId());
+        giveGift(player, resident, settlement, day); // R4.63
         sayGoodbyeWhenTheyWalkAway(player, villager, resident, settlement);
+    }
+
+    /** R4.63: a friend of the village may be given something the villager's trade makes. */
+    private void giveGift(Player player, Resident resident, Settlement settlement, long day) {
+        if (!plugin.getConfig().getBoolean("gifts.enabled", true)) {
+            return;
+        }
+        io.github.skyeberhard.hamletfolk.core.Gifts.offer(settlement, resident, player.getUniqueId(), day).ifPresent(gift -> {
+            org.bukkit.inventory.ItemStack item = plugin.stores().gift(settlement, gift);
+            player.getInventory().addItem(item).values().forEach(over -> player.getWorld().dropItem(player.getLocation(), over));
+            player.sendMessage(Component.text(gift.message(), NamedTextColor.GREEN));
+            settlement.recordQuiet(day, io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.MILESTONE,
+                    resident.fullName() + " gave " + player.getName() + " a gift of " + gift.category().name().toLowerCase(java.util.Locale.ROOT) + ".", 5);
+            plugin.requestSave();
+        });
     }
 
     // ----- R4.31: the weather, and goodbyes -----

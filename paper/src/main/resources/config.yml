@@ -205,6 +205,12 @@ trade:
 homes:
   signs: true
 
+# Gifts (R4.63). A villager who thinks well of you (standing 15 or more, not a recent thief) may give you a few of the things their
+# trade makes when you talk to them (sneak + right-click): at most once in 8 days per player (4 if honoured), at most 3 a day per
+# village, out of the village's own surplus. A master's gift is named for its quality. Off with enabled: false.
+gifts:
+  enabled: true
+
 # Street lamps (R4.54). With lamps on, new street lights are a fence post topped with a copper bulb that comes on at dusk and goes out at
 # dawn (all day in a storm), while a player is within 96 blocks. Off, they are torches that always burn. Posts already topped with torches stay as they are.
 lights:
