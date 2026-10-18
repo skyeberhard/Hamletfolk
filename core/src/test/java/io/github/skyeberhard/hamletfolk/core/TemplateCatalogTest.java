@@ -99,7 +99,7 @@ class TemplateCatalogTest {
         assertEquals("minecraft:village/plains/houses/plains_small_house_1",
                 catalog.ladder(BuildingType.HOUSE, "plains").get(0).key());
         assertEquals(TemplateCatalog.Source.GENERATED, catalog.ladder(BuildingType.SHOP, "savanna").get(0).source());
-        assertEquals(2, catalog.ladder(BuildingType.TREASURY, null).size());
+        assertEquals(BuildingGenerator.TIERS, catalog.ladder(BuildingType.TREASURY, null).size());
     }
 
     @Test

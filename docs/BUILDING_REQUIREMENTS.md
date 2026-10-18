@@ -41,8 +41,8 @@ Lot sizes (`PlanGenerator.size`), width by depth in blocks:
 | Town square | 15 by 15 | |
 | Street lights, palisade, rampart | no lot | laid on the plan |
 
-**Generated buildings** (mine, guard post, shop, treasury, sawmill, forge, granary and all the trade buildings): two tiers, a
-5 by 5 hut of wood (tier 1) and a 7 by 7 one of stone (tier 2), each with a doorway and a sign strip. They hold no beds.
+**Generated buildings** (mine, guard post, shop, treasury, sawmill, forge, granary and all the trade buildings): four tiers (R8.32): a
+5 by 5 hut of wood (tier 1), a 7 by 7 one of stone (tier 2), a 9 by 8 timber-framed stone hall with a carpet and hanging lanterns (tier 3: the biggest a spare 9 by 9 lot holds, sign strip included) and the same hall with a loft, a ladder and a taller roof (tier 4), each with a doorway and a sign strip. They hold no beds.
 
 **Vanilla pieces** the catalog uses (size is x by z, height in brackets; from the jar):
 

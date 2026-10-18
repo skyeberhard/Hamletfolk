@@ -13,8 +13,8 @@ This is the how-to for authoring buildings: build one in the game, capture it, t
 - A rung is one design. Where it comes from:
   - **vanilla**: a piece from the game's own villages (the plains house ladder is small, medium, big: tiers 1 to 3; every other style's house
     ladder has 2, farms have 2 except snowy which has 1);
-  - **generated**: a plain 5 by 5 hut (tier 1) and 7 by 7 stone building (tier 2) the plugin makes for kinds the game has no piece for (mine,
-    guard post, shop, treasury, and the trade buildings: `BuildingGenerator.TIERS` is 2);
+  - **generated**: plain buildings in four tiers (a 5 by 5 hut, a 7 by 7 stone building, a 9 by 8 hall and the hall with a loft; R8.32) the plugin makes for kinds the game has no piece for (mine,
+    guard post, shop, treasury, and the trade buildings: `BuildingGenerator.TIERS` is 4);
   - **captured**: yours. A captured design **replaces** the rung at its tier, and a capture one tier past the end of the ladder **adds a rung**.
 - So "more tiers" is exactly: capture the next tier. Nothing else needs changing. Each village's builders, its upgrade rules, the dashboard's
   "tier N of M" and the Upgrade button all read the ladder as it is.
