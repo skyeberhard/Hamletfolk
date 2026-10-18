@@ -90,4 +90,20 @@ public final class TradeLevel {
             settlement.record(day, HistoryEvent.Kind.MILESTONE, resident.fullName() + " is now a " + title(resident) + ".");
         }
     }
+
+    /** R4.59: a merchant's haggling. Units of goods a merchant of this level gives for an emerald, from {@code base}: 4% fewer for each level above the first. */
+    public static int haggled(int base, int level) {
+        return Math.max(1, base * (100 - 4 * (Math.max(1, level) - 1)) / 100);
+    }
+
+    /** R4.59: the best merchant's level among the village's working merchants (1 if there are none). */
+    static int bestMerchant(Settlement settlement) {
+        int best = 1;
+        for (Resident r : settlement.residents()) {
+            if (r.adult() && r.occupation() == Occupation.MERCHANT) {
+                best = Math.max(best, r.level());
+            }
+        }
+        return best;
+    }
 }

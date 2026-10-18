@@ -491,7 +491,8 @@ public final class SettlementSimulator {
                 continue;
             }
             int units = (int) Math.min(kept, Integer.MAX_VALUE);
-            int emeralds = market ? units * 2 / (3 * unitsPerEmerald(type)) : units / (2 * unitsPerEmerald(type));
+            int each = TradeLevel.haggled(unitsPerEmerald(type), TradeLevel.bestMerchant(settlement)); // R4.59
+            int emeralds = market ? units * 2 / (3 * each) : units / (2 * each);
             if (emeralds > 0 && earned < room) {
                 earned += Math.min(emeralds, room - earned);
                 sold.add(type.name().toLowerCase(Locale.ROOT));
@@ -1581,7 +1582,7 @@ public final class SettlementSimulator {
             ResourceType best = null;
             double bestWorth = 0;
             for (ResourceType type : ResourceType.values()) {
-                int each = unitsPerEmerald(type);
+                int each = TradeLevel.haggled(unitsPerEmerald(type), merchant.level()); // R4.59: a better merchant gets more for the goods
                 int available = surplus(settlement, type);
                 if (available >= each && (double) available / each > bestWorth) {
                     best = type;
@@ -1591,7 +1592,7 @@ public final class SettlementSimulator {
             if (best == null || sold >= room) {
                 break;
             }
-            int units = unitsPerEmerald(best);
+            int units = TradeLevel.haggled(unitsPerEmerald(best), merchant.level());
             settlement.flow().recordConsumed(best, day, ledger.take(best, units));
             ledger.addTreasury(1);
             merchant.addWealth(MERCHANT_COMMISSION); // R3.5: a fifth of each emerald
