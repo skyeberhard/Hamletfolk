@@ -752,7 +752,7 @@ function tabPlan(v) {
       el("span", null, v.bedsLive && v.bedsLive.total > 0 ? v.bedsLive.total + " beds known: " + v.bedsLive.claimed + " claimed, " + v.bedsLive.free + " free · read from the game while the village is loaded" : "beds not read yet: they are read from the game while the village is loaded, so go near it once")) : null,
     state.layers.homes ? el("div", { class: "legend" }, el("span", null, "each house is ringed in its family's colour; grey ring = nobody lives there; point at a house to see who")) : null,
     el("div", { class: "legend" }, Object.entries(LOT).map(([k, c]) => el("span", null, el("i", { style: "background:" + c }), k)),
-      el("span", null, el("i", { style: "background:#7aa0be" }), "trade and other"), el("span", null, "solid = built on · outline = ready · dashed = rough · crossed = kept empty · dot = building by kind (grey rim: found) · dashed ring = no lot of the plan here")),
+      el("span", null, el("i", { style: "background:#7aa0be" }), "trade and other"), el("span", null, "solid = built on · outline = ready · dashed = rough · crossed = kept empty · dot = building by kind (grey rim: found; its outline is read from the world where it is loaded) · dashed ring = no lot of the plan here")),
     el("div", { class: "sub", style: "margin-top:6px" }, "Scroll to zoom, drag to move, point at a lot or building for details" + (ACTIONS ? ", click a lot to change it." : "."))),
     selectedBuilding(v), selectedLot(v), rules(v));
 }
@@ -875,6 +875,14 @@ function drawMap(canvas, tip, v) {
         g.moveTo(X(x), Z(z)); g.lineTo(X(x + w), Z(z + d)); g.moveTo(X(x + w), Z(z)); g.lineTo(X(x), Z(z + d)); g.stroke();
       }
     }
+    const drawn = new Set();
+    for (const b of v.buildings) { // R8.31: a vanilla building found standing, as the shape it was read to have
+      if (!b.footprint || drawn.has(b.footprint.join())) continue; // (job sites in one building share its outline)
+      drawn.add(b.footprint.join());
+      const [fx, fz, fw, fd] = b.footprint, c = lotColour(b.type);
+      g.globalAlpha = .3; g.fillStyle = c; g.fillRect(X(fx), Z(fz), fw * m.s, fd * m.s); g.globalAlpha = 1;
+      g.setLineDash([4, 3]); g.lineWidth = 1.5; g.strokeStyle = c; g.strokeRect(X(fx) + .5, Z(fz) + .5, fw * m.s - 1, fd * m.s - 1); g.setLineDash([]);
+    }
     if (state.layers.districts) { // R8.27: the old town, the new quarter...
       g.font = "600 12px system-ui, sans-serif"; g.textBaseline = "top";
       (p.districts || []).forEach((d, i) => {
@@ -947,6 +955,7 @@ function drawMap(canvas, tip, v) {
          el("div", { class: "sub" }, hit.rect[2] + " by " + hit.rect[3] + " at " + hit.rect[0] + ", " + hit.rect[1])]
       : [el("b", null, (hit.name ? hit.name + " \u00b7 " : "") + hit.type + (hit.tier > 1 ? " tier " + hit.tier : "")), el("div", { class: "sub" }, "at " + hit.x + ", " + hit.y + ", " + hit.z), el("div", { class: "sub" }, hit.by === "found" ? "found standing (a vanilla building)" : "registered by " + hit.by),
          hit.noLot ? el("div", { class: "sub" }, "No lot in the plan here: built before the plan was redrawn, signed by a player, or found.") : null,
+         hit.footprint ? el("div", { class: "sub" }, "Footprint " + hit.footprint[2] + " by " + hit.footprint[3] + " (read from the world)") : null,
          (() => { const bi = (v.buildingInfo || {})[hit.x + "," + hit.y + "," + hit.z]; return bi ? el("div", null, "Tier " + bi.tier + " of " + bi.maxTier + (bedsText(bi) ? " · " + bedsText(bi) + (bi.nextBeds ? " (" + bi.nextBeds + " at tier " + (bi.tier + 1) + ")" : "") : "")) : null; })(),
          (() => { const home = (v.homes || []).find((h) => h.x === hit.x && h.z === hit.z); return home ? el("div", null, home.empty ? "Nobody lives here." : "The " + home.family + " household: " + home.people.join(", ")) : null; })()]));
     tip.style.display = "block";

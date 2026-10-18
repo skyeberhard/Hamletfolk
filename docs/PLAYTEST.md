@@ -54,6 +54,8 @@ Rough time: 90 to 120 minutes in all. Each part stands alone, so you can stop af
 
 - [ ] **T136 admin tools.** Needs attention: read the list, press a fix; Copy /tp on a village and a building, paste it in game; Download snapshot; click a building: its cost line, then Upgrade on one the stores can pay for.
 
+- [ ] **T137 outlines.** In a village with vanilla buildings, stand near them; the Plan tab draws each found house and workshop with a dashed outline (point at it for its size).
+
 ## 4. Trade (10 to 15 minutes)
 
 - [ ] **T131.** Two villages within 800 blocks. Let one build a surplus and the other run short (give one a lot of bread, the other none). `/settlement admin trade <village>`; read both histories. Without a merchant a fifth is lost on the road; starve one: the other sends food unpaid; only the difference in emeralds moves. Try `trade.enabled: false` and restart: no caravans by themselves.

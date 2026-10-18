@@ -12,6 +12,7 @@ import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import io.github.skyeberhard.hamletfolk.core.Footprints;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -84,6 +85,7 @@ final class DashboardServer {
         this.plugin = plugin;
         this.service = service;
         loadGround();
+        loadFootprints();
     }
 
     /** R8.27: where the ground of each village was last measured is kept in a small file of its own, so the slope layer survives a restart. */
@@ -368,6 +370,117 @@ final class DashboardServer {
         return bedsSeen.getOrDefault(s.id(), List.of());
     }
 
+    /** R8.31: the footprints of the vanilla buildings found standing, read from the world once (per village, by building key; an empty array is "looked, nothing built there"). */
+    private final Map<java.util.UUID, Map<String, int[]>> footprints = new HashMap<>();
+    private boolean footprintsChanged;
+    private long footprintsSaved;
+    private static final int FOOTPRINTS_PER_PASS = 8;
+
+    private java.nio.file.Path footprintFile() {
+        return plugin.getDataFolder().toPath().resolve("footprints-cache.json");
+    }
+
+    private void loadFootprints() {
+        try {
+            if (!java.nio.file.Files.exists(footprintFile())) {
+                return;
+            }
+            Map<?, ?> all = gson.fromJson(java.nio.file.Files.readString(footprintFile(), StandardCharsets.UTF_8), Map.class);
+            if (all == null) {
+                return;
+            }
+            for (Map.Entry<?, ?> village : all.entrySet()) {
+                if (village.getValue() instanceof Map<?, ?> rows) {
+                    Map<String, int[]> mine = new HashMap<>();
+                    for (Map.Entry<?, ?> row : rows.entrySet()) {
+                        if (row.getValue() instanceof List<?> numbers && (numbers.isEmpty() || numbers.size() == 4)) {
+                            int[] rect = new int[numbers.size()];
+                            for (int i = 0; i < rect.length; i++) {
+                                rect[i] = ((Number) numbers.get(i)).intValue();
+                            }
+                            mine.put(row.getKey().toString(), rect);
+                        }
+                    }
+                    footprints.put(java.util.UUID.fromString(village.getKey().toString()), mine);
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            plugin.getLogger().log(Level.WARNING, "Could not read the footprint cache (footprints are read again as the ground is seen)", e);
+        }
+    }
+
+    private void saveFootprints() {
+        long now = System.currentTimeMillis();
+        if (!footprintsChanged || now - footprintsSaved < 60_000) {
+            return;
+        }
+        footprintsChanged = false;
+        footprintsSaved = now;
+        try {
+            java.nio.file.Files.createDirectories(footprintFile().getParent());
+            java.nio.file.Path temp = footprintFile().resolveSibling("footprints-cache.json.tmp");
+            Map<String, Object> out = new java.util.LinkedHashMap<>();
+            footprints.forEach((id, rows) -> out.put(id.toString(), rows));
+            java.nio.file.Files.writeString(temp, gson.toJson(out), StandardCharsets.UTF_8);
+            java.nio.file.Files.move(temp, footprintFile(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException | RuntimeException e) {
+            plugin.getLogger().log(Level.WARNING, "Could not save the footprint cache", e);
+        }
+    }
+
+    /** True for a top block that people built: planks, stone brick, stairs, slabs, doors, terracotta, glass and the like (not terrain, plants, water or logs, which are also trees). */
+    private static boolean builtMaterial(org.bukkit.Material m) {
+        String n = m.name();
+        return n.endsWith("_PLANKS") || n.endsWith("_STAIRS") || n.endsWith("_SLAB") || n.endsWith("_DOOR") || n.endsWith("_TRAPDOOR") || n.endsWith("_FENCE")
+                || n.endsWith("_FENCE_GATE") || n.endsWith("_WALL") || n.endsWith("_BRICKS") || n.endsWith("TERRACOTTA") || n.endsWith("_WOOL") || n.endsWith("GLASS")
+                || n.endsWith("GLASS_PANE") || n.startsWith("SMOOTH_") || n.startsWith("CUT_") || n.startsWith("CHISELED_") || n.endsWith("COBBLESTONE") || n.equals("BRICKS")
+                || n.equals("HAY_BLOCK") || n.equals("BOOKSHELF") || n.equals("CRAFTING_TABLE") || n.equals("BARREL") || n.endsWith("_BED") || n.equals("LECTERN")
+                || n.equals("COMPOSTER") || n.equals("SMOKER") || n.equals("BLAST_FURNACE") || n.equals("FURNACE") || n.equals("ANVIL") || n.equals("GRINDSTONE");
+    }
+
+    /** R8.31: adds each found building's footprint (looked for at most a few a pass, only where its ground is loaded) to the buildings of a page. */
+    @SuppressWarnings("unchecked")
+    private void footprintsFor(Settlement s, org.bukkit.World world, Map<String, Object> page) {
+        Map<String, int[]> mine = footprints.computeIfAbsent(s.id(), k -> new HashMap<>());
+        int budget = FOOTPRINTS_PER_PASS;
+        if (!(page.get("buildings") instanceof List<?> rows)) {
+            return;
+        }
+        for (Object o : rows) {
+            Map<String, Object> row = (Map<String, Object>) o;
+            if (!"found".equals(row.get("by")) || "Farm".equals(row.get("type")) || "Town Square".equals(row.get("type"))) {
+                continue;
+            }
+            String key = row.get("x") + "," + row.get("y") + "," + row.get("z");
+            int[] known = mine.get(key);
+            int baseY = ((Number) row.get("y")).intValue();
+            // a column is part of the building if its top block is something built AND stands at least two blocks above the marker's floor: roofs and walls, not streets, farmland or a fence
+            Footprints.Columns columns = new Footprints.Columns() {
+                @Override
+                public boolean loaded(int x, int z) {
+                    return world.isChunkLoaded(x >> 4, z >> 4);
+                }
+
+                @Override
+                public boolean built(int x, int z) {
+                    org.bukkit.block.Block top = world.getHighestBlockAt(x, z, org.bukkit.HeightMap.MOTION_BLOCKING_NO_LEAVES);
+                    return top.getY() >= baseY + 2 && builtMaterial(top.getType());
+                }
+            };
+            if (known == null && budget > 0 && columns.loaded(((Number) row.get("x")).intValue(), ((Number) row.get("z")).intValue())) {
+                budget--;
+                io.github.skyeberhard.hamletfolk.core.Rect rect = Footprints.of(columns, ((Number) row.get("x")).intValue(), ((Number) row.get("z")).intValue());
+                known = rect == null ? new int[0] : new int[] {rect.x(), rect.z(), rect.width(), rect.depth()};
+                mine.put(key, known);
+                footprintsChanged = true;
+            }
+            if (known != null && known.length == 4) {
+                row.put("footprint", known);
+            }
+        }
+        saveFootprints();
+    }
+
     /** R8.27: adds the slope grid and the homes to a village's page. Loaded ground only; an unmeasured cell stays unknown. Main thread. */
     private void layers(Settlement s, Map<String, Object> page) {
         try {
@@ -402,6 +515,9 @@ final class DashboardServer {
                         }
                     });
                 }
+            }
+            if (world != null) {
+                footprintsFor(s, world, page); // R8.31
             }
             var signs = plugin.homeSigns();
             if (signs != null) {
