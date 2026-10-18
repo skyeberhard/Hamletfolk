@@ -193,7 +193,7 @@ final class VillagerListener implements Listener {
         player.sendMessage(Component.text(resident.fullName(), NamedTextColor.GOLD)
                 .append(Component.text(" · " + title + " of " + settlement.name() + " · " + mood(resident),
                         NamedTextColor.GRAY)));
-        String line = Dialogue.greeting(resident, settlement, player.getUniqueId(), player.getName()) + " "
+        String line = Dialogue.greeting(resident, settlement, player.getUniqueId(), PlayerNames.shown(player.getName())) + " "
                 + Dialogue.speak(resident, settlement, day, chatter, ambientAt(villager)); // R4.31
         player.sendMessage(Component.text("\"" + line + "\"", NamedTextColor.WHITE, TextDecoration.ITALIC));
         resident.recordConversation(player.getUniqueId());
@@ -211,7 +211,7 @@ final class VillagerListener implements Listener {
             player.getInventory().addItem(item).values().forEach(over -> player.getWorld().dropItem(player.getLocation(), over));
             player.sendMessage(Component.text(gift.message(), NamedTextColor.GREEN));
             settlement.recordQuiet(day, io.github.skyeberhard.hamletfolk.core.HistoryEvent.Kind.MILESTONE,
-                    resident.fullName() + " gave " + player.getName() + " a gift of " + gift.category().name().toLowerCase(java.util.Locale.ROOT) + ".", 5);
+                    resident.fullName() + " gave " + PlayerNames.shown(player.getName()) + " a gift of " + gift.category().name().toLowerCase(java.util.Locale.ROOT) + ".", 5);
             plugin.requestSave();
         });
     }
@@ -257,7 +257,7 @@ final class VillagerListener implements Listener {
                 if (gone && player.isOnline() && villager.isValid() && player.getWorld().equals(villager.getWorld())
                         && settlement.resident(resident.id()).isPresent()) {
                     player.sendMessage(Component.text(resident.givenName() + ": ", NamedTextColor.GOLD).append(Component.text(
-                            "\"" + Dialogue.farewell(resident, settlement, player.getName(), chatter) + "\"", NamedTextColor.WHITE,
+                            "\"" + Dialogue.farewell(resident, settlement, PlayerNames.shown(player.getName()), chatter) + "\"", NamedTextColor.WHITE,
                             TextDecoration.ITALIC)));
                 }
             }
@@ -357,7 +357,7 @@ final class VillagerListener implements Listener {
             return; // A zombie villager we never knew as a villager; it arrives as a newcomer.
         }
         OfflinePlayer healer = zombie.getConversionPlayer();
-        String by = healer != null && healer.getName() != null ? " by " + healer.getName() : "";
+        String by = healer != null && healer.getName() != null ? " by " + PlayerNames.shown(healer.getName()) : "";
         settlement.record(SettlementService.day(zombie.getWorld()), HistoryEvent.Kind.CURE,
                 resident.fullName() + " was cured" + by + " and came home to " + settlement.name() + ".");
     }
@@ -395,7 +395,7 @@ final class VillagerListener implements Listener {
 
     private static String causeOfDeath(LivingEntity victim, Entity killer) {
         if (killer instanceof Player player) {
-            return "was killed by " + player.getName();
+            return "was killed by " + PlayerNames.forMisdeed(player.getName());
         }
         if (killer != null) {
             String type = killer.getType().getKey().getKey().replace('_', ' ');

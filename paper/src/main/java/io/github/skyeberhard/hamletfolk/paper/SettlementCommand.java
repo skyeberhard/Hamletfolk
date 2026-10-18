@@ -897,7 +897,7 @@ final class SettlementCommand implements TabExecutor {
             player.getInventory().setItemInMainHand(rest);
         }
         long today = s.effectiveDay(SettlementService.day(player.getWorld())); // a warped village's own clock may be ahead
-        s.recordDonation(today, player.getName(), amount, itemName);
+        s.recordDonation(today, PlayerNames.shown(player.getName()), amount, itemName);
         s.adjustReputation(player.getUniqueId(), Reputation.donationGain(
                 emeralds > 0 ? ResourceType.GOODS : value.get().type(), credited, emeralds > 0)); // R3.4
         // R3.3: a donation of something the village asked for is paid for out of the request.
@@ -907,7 +907,7 @@ final class SettlementCommand implements TabExecutor {
             toolCap = (int) Math.min(Integer.MAX_VALUE, (long) toolCap * amount); // the cap is per tool; a stack is several
         }
         int thanks = emeralds > 0 ? 0 : SettlementSimulator.thanksFor(s, value.get().type(), credited, toolCap); // R4.40, R3.13
-        int paid = emeralds > 0 ? 0 : service.fulfilRequest(s, value.get().type(), credited, today, player.getName(),
+        int paid = emeralds > 0 ? 0 : service.fulfilRequest(s, value.get().type(), credited, today, PlayerNames.shown(player.getName()),
                 toolCap);
         s.adjustReputation(player.getUniqueId(), Reputation.requestGain(paid + thanks)); // R3.4
         // In stacks of at most 64: a big request can pay more than a stack, and an oversized item is not safe to drop.

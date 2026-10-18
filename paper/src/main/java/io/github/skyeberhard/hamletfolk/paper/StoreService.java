@@ -245,10 +245,10 @@ final class StoreService implements Listener {
                         boolean free = (cell.getType().isAir() || (org.bukkit.Tag.REPLACEABLE.isTagged(cell.getType()) && !cell.isLiquid()))
                                 && cell.getRelative(0, 1, 0).getType().isAir() && cell.getRelative(0, -1, 0).getType().isSolid()
                                 && !nextToDoor(cell) && world.getNearbyEntities(cell.getLocation().add(0.5, 0.5, 0.5), 0.6, 0.6, 0.6).isEmpty();
-                        if (!free) {
+                        if (!free || Protection.denies(cell.getLocation())) {
                             continue;
                         }
-                        cell.setType(Material.BARREL, false);
+                        Protection.setType(cell, Material.BARREL, false);
                         if (cell.getState(false) instanceof Barrel) {
                             Barrel state = (Barrel) cell.getState();
                             state.getPersistentDataContainer().set(markKey, PersistentDataType.STRING, key);
@@ -491,7 +491,7 @@ final class StoreService implements Listener {
         }
         villageOf(mark).ifPresent(settlement -> {
             long day = settlement.effectiveDay(SettlementService.day(event.getBlock().getWorld()));
-            settlement.recordQuiet(day, HistoryEvent.Kind.THEFT, event.getPlayer().getName() + " broke the " + categoryOf(mark).name().toLowerCase(Locale.ROOT)
+            settlement.recordQuiet(day, HistoryEvent.Kind.THEFT, PlayerNames.forMisdeed(event.getPlayer().getName()) + " broke the " + categoryOf(mark).name().toLowerCase(Locale.ROOT)
                     + " store's barrel.", 3);
             settlement.adjustReputation(event.getPlayer().getUniqueId(), -StoreDisplay.VANDALISM_LOSS);
             plugin.requestSave();
@@ -554,7 +554,7 @@ final class StoreService implements Listener {
         top.setItem(slot, null);
         player.getInventory().addItem(taken).values().forEach(over -> player.getWorld().dropItem(player.getLocation(), over));
         long day = settlement.effectiveDay(SettlementService.day(player.getWorld()));
-        settlement.recordQuiet(day, HistoryEvent.Kind.THEFT, player.getName() + " took from the " + category.name().toLowerCase(Locale.ROOT) + " stores.", 3);
+        settlement.recordQuiet(day, HistoryEvent.Kind.THEFT, PlayerNames.forMisdeed(player.getName()) + " took from the " + category.name().toLowerCase(Locale.ROOT) + " stores.", 3);
         StoreDisplay.noteTheft(settlement, player.getUniqueId(), day);
         int loss = StoreDisplay.theftLoss(category, units);
         settlement.adjustReputation(player.getUniqueId(), -loss);
@@ -619,14 +619,14 @@ final class StoreService implements Listener {
             plugin.requestSave();
             return;
         }
-        settlement.recordDonation(day, player.getName(), amount, itemName);
+        settlement.recordDonation(day, PlayerNames.shown(player.getName()), amount, itemName);
         settlement.adjustReputation(player.getUniqueId(), Reputation.donationGain(value.get().type(), credited, false));
         int toolCap = SettlementSimulator.maxPayout(material, wear);
         if (toolCap != Integer.MAX_VALUE) {
             toolCap = (int) Math.min(Integer.MAX_VALUE, (long) toolCap * amount);
         }
         int thanks = SettlementSimulator.thanksFor(settlement, value.get().type(), credited, toolCap);
-        int paid = service.fulfilRequest(settlement, value.get().type(), credited, day, player.getName(), toolCap);
+        int paid = service.fulfilRequest(settlement, value.get().type(), credited, day, PlayerNames.shown(player.getName()), toolCap);
         settlement.adjustReputation(player.getUniqueId(), Reputation.requestGain(paid + thanks));
         for (int left = paid; left > 0; left -= 64) {
             player.getInventory().addItem(new ItemStack(Material.EMERALD, Math.min(64, left)))

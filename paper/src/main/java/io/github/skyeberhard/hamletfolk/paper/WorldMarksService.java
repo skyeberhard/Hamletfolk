@@ -129,7 +129,7 @@ final class WorldMarksService {
                     continue; // nothing there, not ours to take, or it would let water or lava in
                 }
                 WorldMarks.drop(block.getType().getKey().getKey()).ifPresent(d -> WorldMarks.keep(settlement, d, settlement.lastSimulatedDay()));
-                block.setType(Material.AIR, false);
+                Protection.setType(block, Material.AIR, false);
                 WorldMarks.pay(settlement, ResourceType.STONE, 1);
                 dug++;
                 layerDone = false;
@@ -198,7 +198,7 @@ final class WorldMarksService {
                 int y = world.getHighestBlockYAt(x0 + dx, z0 + dz, HeightMap.MOTION_BLOCKING_NO_LEAVES);
                 Block post = world.getBlockAt(x0 + dx, y + 1, z0 + dz);
                 if (post.getType().isAir() || Tag.REPLACEABLE.isTagged(post.getType())) {
-                    post.setType(Material.OAK_FENCE, true);
+                    Protection.setType(post, Material.OAK_FENCE, true);
                 }
             }
         }
@@ -212,6 +212,9 @@ final class WorldMarksService {
                 if (zones.covers(x + at[0], y + dy, z + at[1])) {
                     return true;
                 }
+            }
+            if (Protection.denies(world, x + at[0], y, z + at[1])) {
+                return true; // R1.52: no felling or digging where WorldGuard protects the ground
             }
         }
         return false;
@@ -301,12 +304,12 @@ final class WorldMarksService {
             return false;
         }
         for (int i = logs.size() - 1; i >= 0; i--) {
-            logs.get(i).setType(Material.AIR, true); // with physics: the leaves decay on their own, as when a player fells a tree
+            Protection.setType(logs.get(i), Material.AIR, true); // with physics: the leaves decay on their own, as when a player fells a tree
         }
         Material sapling = Material.matchMaterial(wood.name().replace("STRIPPED_", "").replace("_LOG", "_SAPLING")
                 .replace("_WOOD", "_SAPLING").replace("MANGROVE_SAPLING", "MANGROVE_PROPAGULE"));
         if (sapling != null && base.getType().isAir()) {
-            base.setType(sapling, true);
+            Protection.setType(base, sapling, true);
         }
         WorldMarks.pay(settlement, ResourceType.WOOD, logs.size() * WorldMarks.UNITS_PER_LOG);
         plugin.requestSave();

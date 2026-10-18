@@ -205,6 +205,22 @@ trade:
 homes:
   signs: true
 
+# How players are named (R1.53). Bedrock players arrive through Floodgate with a leading "." on their names; it is dropped when a villager
+# says the name or the history writes it. With misdeeds-name-players off, the history says "a visitor" for taking from the stores, breaking a
+# barrel or killing a resident (gifts and donations are always named). Anyone can read a village's history.
+names:
+  strip-bedrock-prefix: true
+history:
+  misdeeds-name-players: true
+
+# Protection plugins (R1.52), both optional and found by name. With CoreProtect, every block the village places or removes (buildings, works,
+# street lights, felled trees, quarries) is logged under the user below, so it can be looked up and rolled back. With WorldGuard, the village does
+# not start a building, fell a tree or dig a quarry where WorldGuard would stop a stranger building (a region with owners or members, or build: deny).
+protection:
+  coreprotect: true
+  worldguard: true
+  user: "#Hamletfolk"
+
 # Master craftsmen's stalls (R4.64). When you open the trade window of a villager who makes tools or goods and is an expert or master, it also
 # offers the village's best finished goods for emeralds (dearer the better the hand, cheaper the better your standing). The goods come out of the
 # village's surplus and the emeralds go to its treasury. Off with enabled: false.

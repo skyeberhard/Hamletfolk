@@ -64,7 +64,7 @@ final class StreetLampService {
                 Block block = world.getBlockAt(spot.x(), y, spot.z());
                 if (block.getType() == Material.WAXED_COPPER_BULB && block.getBlockData() instanceof Lightable data && data.isLit() != lit) {
                     data.setLit(lit);
-                    block.setBlockData(data, false);
+                    Protection.setBlockData(block, data, false);
                     break;
                 }
             }

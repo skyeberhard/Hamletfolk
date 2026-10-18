@@ -214,13 +214,13 @@ final class NoticeBoardService {
                         Block above = cell.getRelative(0, 1, 0);
                         Block below = cell.getRelative(0, -1, 0);
                         boolean free = (cell.getType().isAir() || org.bukkit.Tag.REPLACEABLE.isTagged(cell.getType())) && above.getType().isAir();
-                        if (!free || !below.getType().isSolid()) {
+                        if (!free || !below.getType().isSolid() || Protection.denies(cell.getLocation())) {
                             continue;
                         }
-                        cell.setType(Material.LECTERN, false);
+                        Protection.setType(cell, Material.LECTERN, false);
                         if (cell.getBlockData() instanceof org.bukkit.block.data.type.Lectern data) {
                             data.setFacing(towards(cell, bell));
-                            cell.setBlockData(data, false);
+                            Protection.setBlockData(cell, data, false);
                         }
                         placedAt.put(settlement.id(), now);
                         boards.put(settlement.id(), cell.getLocation());
@@ -299,7 +299,7 @@ final class NoticeBoardService {
         lectern.update(true, false);
         if (board.getBlockData() instanceof org.bukkit.block.data.type.Lectern data && !data.hasBook()) {
             data.setHasBook(true);
-            board.setBlockData(data, false);
+            Protection.setBlockData(board, data, false);
         }
         said.put(settlement.id(), hash);
     }

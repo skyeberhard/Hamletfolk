@@ -599,7 +599,11 @@ final class ConstructionService {
             return;
         }
         Location centre = new Location(world, ox + bp.width() / 2.0, oy, oz + bp.depth() / 2.0);
-        if ((!unattended && !playerNear(centre)) || exemptNear(centre)) {
+        if ((!unattended && !playerNear(centre)) || exemptVillagerNear(centre)) {
+            return;
+        }
+        if (!project.siteChecked() && protectedSite(world, ox, oy, oz, bp.width(), bp.depth())) {
+            giveUp(settlement, project, "WorldGuard protects the ground there", true); // R1.52
             return;
         }
         if (!project.siteChecked()) {
@@ -683,9 +687,9 @@ final class ConstructionService {
                     break; // the stores ran dry: wait for more, however long it takes
                 }
                 tries.merge(k, 1, Integer::sum);
-                at.setBlockData(data, false);
+                Protection.setBlockData(at, data, false);
             } else {
-                at.setType(Material.AIR, false);
+                Protection.setType(at, Material.AIR, false);
             }
             placed++;
         }
@@ -777,12 +781,12 @@ final class ConstructionService {
                 if (WATER_PLANTS.contains(next.getType())) {
                     // a plant of the pond bed is replaced by the water it grew in, and not left to pop (and drop) when the post goes in
                     Block above = next.getRelative(0, 1, 0);
-                    next.setType(Material.WATER, false);
+                    Protection.setType(next, Material.WATER, false);
                     if (WATER_PLANTS.contains(above.getType())) {
-                        above.setType(Material.WATER, false);
+                        Protection.setType(above, Material.WATER, false);
                     }
                 }
-                next.setType(Material.OAK_FENCE, true); // with physics, so it joins the posts beside it
+                Protection.setType(next, Material.OAK_FENCE, true); // with physics, so it joins the posts beside it
                 placed++;
                 if (have + 1 >= want) {
                     standing.add(key);
@@ -818,7 +822,7 @@ final class ConstructionService {
                 left++;
                 continue;
             }
-            post.setType(Material.OAK_FENCE, true); // with physics, so it joins the posts beside it
+            Protection.setType(post, Material.OAK_FENCE, true); // with physics, so it joins the posts beside it
             if (lights) {
                 setLamp(top);
             }
@@ -1119,7 +1123,7 @@ final class ConstructionService {
                 }
                 Block at = world.getBlockAt(piece.x() + block.dx(), ground + block.dy(), piece.z() + block.dz());
                 boolean joins = Tag.FENCES.isTagged(data.getMaterial()) || Tag.WALLS.isTagged(data.getMaterial());
-                at.setBlockData(data, joins); // fences and walls with physics, so they join their neighbours
+                Protection.setBlockData(at, data, joins); // fences and walls with physics, so they join their neighbours
                 placed++;
             }
             if (!finished) {
@@ -1180,7 +1184,7 @@ final class ConstructionService {
                     finished = false;
                     continue;
                 }
-                at.setBlockData(data, false);
+                Protection.setBlockData(at, data, false);
                 placed++;
                 if (b.y() == 0) { // a footing where the ground falls away (free, like the generated towers')
                     for (int below = 1; below <= 6; below++) {
@@ -1188,7 +1192,7 @@ final class ConstructionService {
                         if (!under.getType().isAir() && !growthOnly(under)) {
                             break;
                         }
-                        under.setType(Material.COBBLESTONE, false);
+                        Protection.setType(under, Material.COBBLESTONE, false);
                     }
                 }
             }
@@ -1265,7 +1269,7 @@ final class ConstructionService {
                 Block post = at;
                 for (int guard = 0; guard < 2 * (Works.MAX_EXTRA + Works.MAX_WATER_DEPTH) && post.getType() == Material.OAK_FENCE
                         && post.getY() > world.getMinHeight(); guard++) {
-                    post.setType(Material.AIR, true);
+                    Protection.setType(post, Material.AIR, true);
                     taken++;
                     post = post.getRelative(0, -1, 0);
                 }
@@ -1318,7 +1322,27 @@ final class ConstructionService {
         return false;
     }
 
+    /** R1.52: whether WorldGuard protects any corner, edge middle or the centre of a footprint. */
+    private static boolean protectedSite(World world, int ox, int oy, int oz, int width, int depth) {
+        for (int ix = 0; ix <= 2; ix++) {
+            for (int iz = 0; iz <= 2; iz++) {
+                if (Protection.denies(world, ox + (width * ix) / 2, oy, oz + (depth * iz) / 2)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** A place the village leaves alone: WorldGuard protects it (R1.52), or an exempt villager is near. */
     private boolean exemptNear(Location at) {
+        if (Protection.denies(at)) {
+            return true; // a gap in the works there, like where an exempt villager watches
+        }
+        return exemptVillagerNear(at);
+    }
+
+    private boolean exemptVillagerNear(Location at) {
         for (org.bukkit.entity.Entity entity : at.getWorld().getNearbyEntities(at, EXEMPT_RANGE, EXEMPT_RANGE, EXEMPT_RANGE)) {
             if (entity instanceof Villager villager && service.isIgnored(villager)) {
                 return true;
@@ -1449,7 +1473,7 @@ final class ConstructionService {
                     gained[1]++;
                 }
             }
-            block.setType(want, false);
+            Protection.setType(block, want, false);
             done++;
         }
         Set<Long> cells = new HashSet<>();
@@ -1465,7 +1489,7 @@ final class ConstructionService {
                         if (Tag.LOGS.isTagged(block.getType())) {
                             gained[1]++; // R8.20: a tree felled to clear the site is wood
                         }
-                        block.setType(Material.AIR, false);
+                        Protection.setType(block, Material.AIR, false);
                         done++;
                     }
                 }
@@ -1518,7 +1542,7 @@ final class ConstructionService {
             if (marker == null && signBlock == null) {
                 signBlock = standingSignSpot(world, project, bp);
                 if (signBlock != null) {
-                    signBlock.setType(Material.OAK_SIGN, false);
+                    Protection.setType(signBlock, Material.OAK_SIGN, false);
                 }
             }
         }
@@ -1679,6 +1703,9 @@ final class ConstructionService {
         boolean desert = BiomeSet.DESERT.equals(style);
         Set<Long> blocked = new HashSet<>(); // columns with something in the way of the walking surface
         for (StreetGrade.Change change : changes) {
+            if (Protection.denies(world, change.x(), change.y(), change.z())) {
+                continue; // R1.52: the street stops at ground WorldGuard protects
+            }
             Block block = world.getBlockAt(change.x(), change.y(), change.z());
             long column = ((long) change.x() << 32) ^ (change.z() & 0xffffffffL);
             switch (change.role()) {
@@ -1687,18 +1714,18 @@ final class ConstructionService {
                         continue;
                     }
                     if (clearable(block, true)) {
-                        block.setType(soil[1], false);
+                        Protection.setType(block, soil[1], false);
                     } else {
                         blocked.add(column);
                     }
                 }
                 case AIR -> {
                     if (!block.getType().isAir() && clearable(block, true)) {
-                        block.setType(Material.AIR, false);
+                        Protection.setType(block, Material.AIR, false);
                     }
                     Block above = block.getRelative(0, 1, 0); // nothing is left hanging over what was cut
                     if (!above.getType().isAir() && growthOnly(above)) {
-                        above.setType(Material.AIR, false);
+                        Protection.setType(above, Material.AIR, false);
                     }
                 }
                 case SURFACE -> {
@@ -1707,10 +1734,10 @@ final class ConstructionService {
                     }
                     Material here = block.getType();
                     if (here.isAir() || Tag.REPLACEABLE.isTagged(here)) {
-                        block.setType(desert ? DESERT_STREET : Material.DIRT_PATH, false);
+                        Protection.setType(block, desert ? DESERT_STREET : Material.DIRT_PATH, false);
                     } else if (desert ? DESERT_GROUND.contains(here) : PATHABLE.contains(here)) {
                         // R4.51: a desert street is sandstone laid on the sand (it was sand on sand, which no one could see)
-                        block.setType(desert ? DESERT_STREET : Material.DIRT_PATH, false);
+                        Protection.setType(block, desert ? DESERT_STREET : Material.DIRT_PATH, false);
                     }
                 }
                 case STAIR -> {
@@ -1723,7 +1750,7 @@ final class ConstructionService {
                     boolean ours = here.isAir() || Tag.REPLACEABLE.isTagged(here) || isStreetStair(here) || here == Material.DIRT_PATH
                             || (desert ? DESERT_GROUND.contains(here) || here == DESERT_STREET : PATHABLE.contains(here));
                     if (ours) {
-                        block.setBlockData(Material.valueOf(desert ? "SANDSTONE_STAIRS" : "COBBLESTONE_STAIRS").createBlockData(d -> {
+                        Protection.setBlockData(block, Material.valueOf(desert ? "SANDSTONE_STAIRS" : "COBBLESTONE_STAIRS").createBlockData(d -> {
                             if (d instanceof org.bukkit.block.data.type.Stairs stair) {
                                 stair.setFacing(COMPASS[change.facing()]);
                                 stair.setHalf(org.bukkit.block.data.Bisected.Half.BOTTOM);
@@ -1734,7 +1761,7 @@ final class ConstructionService {
                 case BRIDGE -> {
                     // water, or (R8.22) the air over a gorge: a plank deck
                     if ((block.isLiquid() || block.getType().isAir() || Tag.REPLACEABLE.isTagged(block.getType())) && clearHeadroom(block)) {
-                        block.setType(Material.OAK_PLANKS, false);
+                        Protection.setType(block, Material.OAK_PLANKS, false);
                     }
                 }
                 case RAIL -> placePost(block, false);
@@ -1752,10 +1779,10 @@ final class ConstructionService {
         if (below.isAir() || block.getRelative(0, -1, 0).isLiquid() || !growthOnly(block)) {
             return;
         }
-        block.setType(Material.OAK_FENCE, true); // (with physics, so a row of posts joins up into a rail)
+        Protection.setType(block, Material.OAK_FENCE, true); // (with physics, so a row of posts joins up into a rail)
         Block top = block.getRelative(0, 1, 0);
         if (lit && growthOnly(top)) {
-            top.setType(Material.TORCH, false);
+            Protection.setType(top, Material.TORCH, false);
         }
     }
 
@@ -1767,9 +1794,9 @@ final class ConstructionService {
     /** Puts a lamp on the post below {@code top}: an unlit bulb (StreetLampService lights it at dusk) or a torch if lamps are off. */
     private void setLamp(Block top) {
         if (plugin.getConfig().getBoolean("lights.lamps", true)) {
-            top.setType(Material.WAXED_COPPER_BULB, false); // (waxed, so it never weathers)
+            Protection.setType(top, Material.WAXED_COPPER_BULB, false); // (waxed, so it never weathers)
         } else {
-            top.setType(Material.TORCH, false);
+            Protection.setType(top, Material.TORCH, false);
         }
     }
 
@@ -1796,7 +1823,7 @@ final class ConstructionService {
             if (!growthOnly(above)) {
                 return false;
             }
-            above.setType(Material.AIR, false);
+            Protection.setType(above, Material.AIR, false);
         }
         return true;
     }
@@ -1817,9 +1844,9 @@ final class ConstructionService {
                     || above.isLiquid()) {
                 return; // something stands there
             }
-            above.setType(Material.AIR, false);
+            Protection.setType(above, Material.AIR, false);
         }
-        ground.setType(Material.DIRT_PATH, false);
+        Protection.setType(ground, Material.DIRT_PATH, false);
     }
 
     /** An upgrade replaces the building it was built over: its sign goes and its registration with it. */
@@ -1843,9 +1870,9 @@ final class ConstructionService {
     private static void takeDown(Block sign, BuildingType type) {
         boolean post = sign.getType() == Material.OAK_SIGN && SignPlacement.formOf(type) == SignPlacement.Form.POST
                 && sign.getRelative(0, -1, 0).getType() == Material.OAK_FENCE;
-        sign.setType(Material.AIR, false);
+        Protection.setType(sign, Material.AIR, false);
         if (post) {
-            sign.getRelative(0, -1, 0).setType(Material.AIR, false);
+            Protection.setType(sign.getRelative(0, -1, 0), Material.AIR, false);
         }
     }
 
@@ -1870,7 +1897,7 @@ final class ConstructionService {
                 continue;
             }
             BlockFace facing = COMPASS[spot.facing()];
-            cell.setBlockData(Material.OAK_WALL_HANGING_SIGN.createBlockData(d -> {
+            Protection.setBlockData(cell, Material.OAK_WALL_HANGING_SIGN.createBlockData(d -> {
                 if (d instanceof org.bukkit.block.data.type.WallHangingSign hanging) {
                     hanging.setFacing(facing);
                 }
@@ -1878,7 +1905,7 @@ final class ConstructionService {
             if (cell.getState() instanceof Sign) {
                 return cell;
             }
-            cell.setType(Material.AIR, false); // not what was asked for: leave nothing behind
+            Protection.setType(cell, Material.AIR, false); // not what was asked for: leave nothing behind
         }
         return null;
     }
@@ -1893,8 +1920,8 @@ final class ConstructionService {
         if (!(top.getType().isAir() || Tag.REPLACEABLE.isTagged(top.getType()))) {
             return null;
         }
-        spot.setType(Material.OAK_FENCE, false);
-        top.setType(Material.OAK_SIGN, false);
+        Protection.setType(spot, Material.OAK_FENCE, false);
+        Protection.setType(top, Material.OAK_SIGN, false);
         return top;
     }
 

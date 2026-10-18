@@ -1,5 +1,7 @@
 # Deploying
 
+Putting this on the GoodeCraft server specifically: see [GOODECRAFT_DEPLOY.md](GOODECRAFT_DEPLOY.md) (risks, a first-start config, the checklist).
+
 ## Pin-and-verify
 
 Every deploy to a real server picks a specific commit — never "whatever's on the branch

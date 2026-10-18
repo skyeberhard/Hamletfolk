@@ -205,8 +205,8 @@ final class TemplateLibrary {
         int placed = 0;
         for (Blueprint.Block block : blueprint.blocks()) {
             try {
-                world.getBlockAt(origin.getBlockX() + block.x(), origin.getBlockY() + block.y(),
-                        origin.getBlockZ() + block.z()).setBlockData(dataOf(block.material()), false);
+                Protection.setBlockData(world.getBlockAt(origin.getBlockX() + block.x(), origin.getBlockY() + block.y(),
+                        origin.getBlockZ() + block.z()), dataOf(block.material()), false);
                 placed++;
             } catch (IllegalArgumentException e) {
                 // A material this server does not know: leave a gap rather than stop half way.

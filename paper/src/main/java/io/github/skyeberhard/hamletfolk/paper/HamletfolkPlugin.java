@@ -69,6 +69,8 @@ public final class HamletfolkPlugin extends JavaPlugin {
         }
 
         io.github.skyeberhard.hamletfolk.core.Construction.setCostPercent(getConfig().getInt("construction.cost-percent", 35));
+        PlayerNames.configure(getConfig()); // R1.53
+        new Protection(this).install(); // R1.52: CoreProtect logging and WorldGuard regions, both optional
         templates = new TemplateLibrary(this);
         templates.load();
         loadDialogue(); // R4.30
@@ -180,6 +182,7 @@ public final class HamletfolkPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        Protection.uninstall();
         if (dashboard != null) {
             dashboard.stop();
         }
