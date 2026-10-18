@@ -448,13 +448,15 @@ final class DashboardServer {
         }
         for (Object o : rows) {
             Map<String, Object> row = (Map<String, Object>) o;
-            if (!"found".equals(row.get("by")) || "Farm".equals(row.get("type")) || "Town Square".equals(row.get("type"))) {
+            if (!"found".equals(row.get("by")) || "Town Square".equals(row.get("type"))) {
                 continue;
             }
             String key = row.get("x") + "," + row.get("y") + "," + row.get("z");
             int[] known = mine.get(key);
             int baseY = ((Number) row.get("y")).intValue();
+            boolean farm = "Farm".equals(row.get("type"));
             // a column is part of the building if its top block is something built AND stands at least two blocks above the marker's floor: roofs and walls, not streets, farmland or a fence
+            // (a farm is the other way round: its columns are farmland, which lies flat)
             Footprints.Columns columns = new Footprints.Columns() {
                 @Override
                 public boolean loaded(int x, int z) {
@@ -464,12 +466,15 @@ final class DashboardServer {
                 @Override
                 public boolean built(int x, int z) {
                     org.bukkit.block.Block top = world.getHighestBlockAt(x, z, org.bukkit.HeightMap.MOTION_BLOCKING_NO_LEAVES);
+                    if (farm) {
+                        return top.getType() == org.bukkit.Material.FARMLAND && Math.abs(top.getY() - baseY) <= 2;
+                    }
                     return top.getY() >= baseY + 2 && builtMaterial(top.getType());
                 }
             };
             if (known == null && budget > 0 && columns.loaded(((Number) row.get("x")).intValue(), ((Number) row.get("z")).intValue())) {
                 budget--;
-                io.github.skyeberhard.hamletfolk.core.Rect rect = Footprints.of(columns, ((Number) row.get("x")).intValue(), ((Number) row.get("z")).intValue());
+                io.github.skyeberhard.hamletfolk.core.Rect rect = Footprints.of(columns, ((Number) row.get("x")).intValue(), ((Number) row.get("z")).intValue(), farm ? 2 : 1);
                 known = rect == null ? new int[0] : new int[] {rect.x(), rect.z(), rect.width(), rect.depth()};
                 mine.put(key, known);
                 footprintsChanged = true;

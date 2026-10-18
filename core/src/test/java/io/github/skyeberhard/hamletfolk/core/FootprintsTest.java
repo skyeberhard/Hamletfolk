@@ -78,4 +78,12 @@ class FootprintsTest {
         assertTrue(found.width() <= Footprints.MAX_SIDE, "no wider than " + Footprints.MAX_SIDE + ": " + found);
         assertEquals(6, found.depth());
     }
+
+    @Test
+    void aFieldWithADitchThroughItIsOneFieldWhenGapsAreBridged() {
+        Rect left = new Rect(0, 0, 4, 6);
+        Rect right = new Rect(5, 0, 4, 6); // one block of water between
+        assertEquals(new Rect(0, 0, 4, 6), Footprints.of(world(ALL, left, right), 1, 1), "not joined across a gap by default");
+        assertEquals(new Rect(0, 0, 9, 6), Footprints.of(world(ALL, left, right), 1, 1, 2), "joined when gaps of one block are bridged");
+    }
 }

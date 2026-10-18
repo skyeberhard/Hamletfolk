@@ -35,6 +35,13 @@ public final class Footprints {
      * a column that is not built itself (a bed in a doorway, a lectern): the nearest built column within two blocks starts the search.
      */
     public static Rect of(Columns world, int markerX, int markerZ) {
+        return of(world, markerX, markerZ, 1);
+    }
+
+    /**
+     * As {@link #of(Columns, int, int)}, joining columns up to {@code link} blocks apart (2 reads a field with a ditch of water through it as one field).
+     */
+    public static Rect of(Columns world, int markerX, int markerZ, int link) {
         if (!world.loaded(markerX, markerZ)) {
             return null;
         }
@@ -67,8 +74,8 @@ public final class Footprints {
             maxX = Math.max(maxX, at[0]);
             minZ = Math.min(minZ, at[1]);
             maxZ = Math.max(maxZ, at[1]);
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dz = -1; dz <= 1; dz++) {
+            for (int dx = -link; dx <= link; dx++) {
+                for (int dz = -link; dz <= link; dz++) {
                     int x = at[0] + dx;
                     int z = at[1] + dz;
                     if ((dx == 0 && dz == 0) || Math.abs(x - markerX) > REACH || Math.abs(z - markerZ) > REACH || !seen.add(key(x, z))) {

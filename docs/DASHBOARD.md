@@ -37,7 +37,7 @@ A fourth layer, **Defence and lights**, shows the street lights (gold where one 
 
 ## Outlines of the vanilla buildings (R8.31)
 
-A vanilla building the plugin found (by its bed or job site) is one point to the plugin, so it used to be a dot. Where its ground is loaded, the map now draws it as a dashed outline in its kind's colour: the connected columns round the marker whose top block is something built and stands at least two blocks above the floor (roofs and walls, not streets or fences), within 11 blocks. It is read once and kept in `footprints-cache.json`. A building whose ground has never been loaded keeps its dot until someone goes near.
+A vanilla building the plugin found (by its bed, job site or farmland) is one point to the plugin, so it used to be a dot. Where its ground is loaded, the map now draws it as a dashed outline in its kind's colour: the connected columns round the marker whose top block is something built and stands at least two blocks above the floor (roofs and walls, not streets or fences), within 11 blocks; a found farm is outlined from its connected farmland instead (a one-block ditch is bridged). It is read once and kept in `footprints-cache.json`. A building whose ground has never been loaded keeps its dot until someone goes near.
 
 ## Needs attention, snapshots, copy /tp, costs (R1.48 to R1.51)
 
