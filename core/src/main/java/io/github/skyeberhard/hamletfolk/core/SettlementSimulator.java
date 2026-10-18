@@ -1394,7 +1394,7 @@ public final class SettlementSimulator {
         settlement.conditions().put(MOVED + resident.id(), day);
     }
 
-    private static boolean recentlyMoved(Settlement settlement, Resident resident, long day) {
+    static boolean recentlyMoved(Settlement settlement, Resident resident, long day) {
         Long moved = settlement.conditions().get(MOVED + resident.id());
         if (moved == null) {
             return false;

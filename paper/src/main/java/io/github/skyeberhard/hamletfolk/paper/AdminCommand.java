@@ -1,5 +1,6 @@
 package io.github.skyeberhard.hamletfolk.paper;
 
+import io.github.skyeberhard.hamletfolk.core.Colonies;
 import io.github.skyeberhard.hamletfolk.core.AdminAction;
 import io.github.skyeberhard.hamletfolk.core.Settlement;
 import io.github.skyeberhard.hamletfolk.core.SettlementInspector;
@@ -16,8 +17,8 @@ import org.bukkit.entity.Player;
  */
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
-    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "noticeboard", "stores", "homes", "trade", "worlds", "worldspeed", "regrade", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | noticeboard [name] | stores [name] | homes [name] | trade [name] | worlds | worldspeed <world> <speed|off> | regrade [name] | regrade streets [name] | replan [name] | warp [name|all|world <world>] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all|world <world>] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
+    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "noticeboard", "stores", "homes", "trade", "worlds", "worldspeed", "colonize", "regrade", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | noticeboard [name] | stores [name] | homes [name] | trade [name] | worlds | worldspeed <world> <speed|off> | colonize [name] | regrade [name] | regrade streets [name] | replan [name] | warp [name|all|world <world>] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all|world <world>] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
 
     private final SettlementService service;
     private final TemplateCommand templates;
@@ -108,6 +109,10 @@ final class AdminCommand {
             case "noticeboard" -> {
                 Optional<Settlement> village = args.length >= 3 ? lookup(sender, words(args, 2, args.length)) : here(sender);
                 village.ifPresent(v -> sender.sendMessage(service.plugin().noticeBoards().placeNow(v)));
+            }
+            case "colonize" -> {
+                Optional<Settlement> village = args.length >= 3 ? lookup(sender, words(args, 2, args.length)) : here(sender);
+                village.ifPresent(v -> colonize(sender, v));
             }
             case "job" -> job(sender, args);
             case "unstick" -> unstick(sender, args);
@@ -308,6 +313,38 @@ final class AdminCommand {
         sender.sendMessage(io.github.skyeberhard.hamletfolk.core.AdminAction.setJob(settlement, resident, job, day, "an admin")
                 + " (/settlement admin job unpin to hand them back)");
         service.plugin().requestSave();
+    }
+
+    /**
+     * R10.2: /settlement admin colonize [name]: says whether the village could send a party to found a daughter village today, and if so who would go
+     * and what it would cost. It changes nothing (founding the new village is R10.4).
+     */
+    private void colonize(CommandSender sender, Settlement village) {
+        Colonies.Rules rules = ColonyConfig.rules(service.plugin().getConfig());
+        org.bukkit.World world = org.bukkit.Bukkit.getWorld(village.world());
+        long day = world == null ? village.lastSimulatedDay() : village.effectiveDay(SettlementService.day(world));
+        int inWorld = (int) service.registry().settlements().stream().filter(v -> v.world().equals(village.world()) && v.population() > 0).count();
+        Colonies.Report report = Colonies.report(village, day, inWorld, rules);
+        sender.sendMessage(village.name() + " (day " + day + ", " + village.population() + " people, " + inWorld + " villages in " + village.world()
+                + "): " + (report.ready() ? "READY to send a party." : "not ready."));
+        report.problems().forEach(p -> sender.sendMessage(" - " + p));
+        report.party().ifPresent(party -> {
+            sender.sendMessage("A party of " + party.size() + " (" + party.adults() + " adults) would go:");
+            party.households().forEach(h -> sender.sendMessage("  " + h));
+        });
+        report.cost().ifPresent(c -> sender.sendMessage("It would take " + c.food() + " food, " + c.wood() + " wood, " + c.stone() + " stone and "
+                + c.emeralds() + " emeralds."));
+        Colonies.parent(village).flatMap(service.registry()::get).ifPresent(p -> sender.sendMessage("It was founded from " + p.name() + "."));
+        for (java.util.UUID id : Colonies.daughters(village)) {
+            service.registry().get(id).ifPresent(d -> sender.sendMessage("It founded " + d.name() + "."));
+        }
+        sender.sendMessage(plugin(service).getConfig().getBoolean("colonies.enabled", false)
+                ? "Colonies are on in the config, but founding the new village is not built yet."
+                : "colonies.enabled is off, and founding the new village is not built yet: this is a report only.");
+    }
+
+    private static HamletfolkPlugin plugin(SettlementService service) {
+        return service.plugin();
     }
 
     /** R1.31: /settlement admin unstick [name]: frees every loaded resident of a village that is walled in. */

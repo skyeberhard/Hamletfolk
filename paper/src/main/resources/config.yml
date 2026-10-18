@@ -213,6 +213,21 @@ names:
 history:
   misdeeds-name-players: true
 
+# Daughter villages (R10). A village that has grown as far as its plan goes (nearly every bed taken, or a building that found no lot) can send
+# a party of its own people (whole households, always with a builder), a kit and a gift from its treasury to found another village, and the two
+# stay kin. So far (R10.1, R10.2) only the rule exists: /settlement admin colonize [name] reports whether a village is ready and who would go,
+# and changes nothing. Founding the new village is not built yet, and nothing here happens by itself.
+colonies:
+  enabled: false
+  min-population: 30       # a village sends a party from this many people
+  min-left-behind: 20      # and keeps at least this many
+  min-party: 4
+  max-party: 8
+  cooldown-days: 90        # between parties from one village
+  max-villages-per-world: 12
+  min-spacing: 300         # blocks from any other village (used when the site is chosen)
+  treasury-gift: 20        # emeralds the party takes from the treasury
+
 # Protection plugins (R1.52), both optional and found by name. With CoreProtect, every block the village places or removes (buildings, works,
 # street lights, felled trees, quarries) is logged under the user below, so it can be looked up and rolled back. With WorldGuard, the village does
 # not start a building, fell a tree or dig a quarry where WorldGuard would stop a stranger building (a region with owners or members, or build: deny).

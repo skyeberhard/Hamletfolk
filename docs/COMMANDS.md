@@ -70,6 +70,7 @@ rate are in the config) showing every village, what is in its way, and a page an
 | `trade [name]` | Forgets the village's last trades and runs a caravan to its neighbours now, and says why nothing trades if nothing does (R6.5) |
 | `homes [name]` | Writes the household names on the village's house signs now, loading the ground, and lists who lives where (R6.1) |
 | `stores [name]` | Draws the village's store barrels now, loading the ground by each building, and says where they are (R4.55) |
+| `colonize [name]` | Whether the village could send a party to found a daughter village (R10.2): every reason it cannot, who would go and what it would take. Changes nothing |
 | `warp [name] <days>` | Runs a village up to 60 days ahead at once |
 | `warp world <world> <days>` | As `warp all`, for the villages of one world (R1.43) |
 | `warp all <days>` | Runs every village that can be run up to 30 days ahead, one after another (the server stalls for the sum) |
