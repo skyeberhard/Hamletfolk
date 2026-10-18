@@ -198,9 +198,20 @@ public final class Construction {
             case STREET_LIGHTS -> project.isUpgrade() ? "lighting the new streets." : "lighting the streets.";
             case PALISADE -> project.isUpgrade() ? "moving the palisade out round the grown village." : "raising the palisade.";
             case RAMPART -> project.tier() >= Rampart.LAST_TIER ? "rebuilding the rampart in stone." : "raising the rampart.";
-            default -> (project.isUpgrade() ? "upgrading the " : "building a ") + project.type().label().toLowerCase(Locale.ROOT)
-                    + " (tier " + project.tier() + ").";
+            default -> {
+                BuildingType replaced = replacedType(settlement, project);
+                yield replaced != null ? "a " + project.type().label().toLowerCase(Locale.ROOT) + " (tier " + project.tier() + ") where a "
+                        + replaced.label().toLowerCase(Locale.ROOT) + " stood."
+                        : (project.isUpgrade() ? "upgrading the " : "building a ") + project.type().label().toLowerCase(Locale.ROOT)
+                                + " (tier " + project.tier() + ").";
+            }
         };
+        BuildingType made = replacedType(settlement, project);
+        if (made != null && settlement.plan() != null && project.lotId() >= 0) { // R4.69: the lot is now one of the new kind
+            settlement.plan().retype(project.lotId(), project.type());
+            settlement.conditions().put(REDEVELOPED, day);
+            settlement.conditions().merge(REDEVELOPED_COUNT, 1L, Long::sum);
+        }
         settlement.record(day, HistoryEvent.Kind.BUILDING, (who == null ? "The builders" : who) + " finished " + what);
         // R4.21: every building finished makes the builder better at it.
         builder.ifPresent(r -> {
@@ -211,6 +222,151 @@ public final class Construction {
                         + " buildings and is now a " + builderTitle(r.built()) + ".");
             }
         });
+    }
+
+    /** R4.69: the kind of building a project was put up over, if that was another kind (the latest finished project on its lot before it). */
+    public static BuildingType replacedType(Settlement settlement, ConstructionProject project) {
+        if (!project.isUpgrade() || project.lotId() < 0) {
+            return null;
+        }
+        ConstructionProject earlier = previousOnLot(settlement, project);
+        return earlier != null && earlier.type() != project.type() ? earlier.type() : null;
+    }
+
+    /** The latest finished project on the same lot before this one, or null. */
+    public static ConstructionProject previousOnLot(Settlement settlement, ConstructionProject project) {
+        if (project.lotId() < 0) {
+            return null; // (a lot forgotten by a re-plan, or the works, which stand on no lot)
+        }
+        ConstructionProject found = null;
+        for (ConstructionProject p : settlement.projects()) {
+            if (p.lotId() == project.lotId() && p.id() < project.id() && p.status() == ConstructionProject.Status.DONE
+                    && (found == null || p.id() > found.id())) {
+                found = p;
+            }
+        }
+        return found;
+    }
+
+    // ----- redevelopment (R4.69) -----
+
+    /** Whether the village is saving up for street lights or a palisade it asks for (as {@link #propose} judges it): nothing else is started meanwhile. */
+    static boolean savingForDefence(Settlement settlement, long day, int treasuryLimit) {
+        VillagePlan plan = settlement.plan();
+        for (Planner.Directive directive : Planner.directives(settlement, day, treasuryLimit)) {
+            Optional<BuildingType> type = BuildingType.fromTarget(directive.target());
+            if (directive.kind() == Planner.Kind.BUILD && type.isPresent() && type.get().isWorks() && type.get() != BuildingType.RAMPART
+                    && !worksSettled(settlement, type.get(), day) && plan.stage() <= PlanGenerator.stageFor(settlement.population())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The day a house was last pulled down to make room, and how many have been. */
+    static final String REDEVELOPED = "redevelopedAt";
+    static final String REDEVELOPED_COUNT = "redeveloped";
+    /** The day one was last set going (finished or not), so one given up is not tried again at once. */
+    static final String REDEVELOP_TRIED = "redevelopTried";
+    static final int REDEVELOP_RETRY_DAYS = 10;
+    /** How much bigger than the house, in blocks a side, the new building may be. */
+    static final int REDEVELOP_OVERHANG = 2;
+    /** At most one in this many days, and this many in all, and the beds that must still be spare after it. */
+    static final int REDEVELOP_COOLDOWN_DAYS = 30;
+    static final int REDEVELOP_MAX = 4;
+    static final int REDEVELOP_SPARE_BEDS = 3;
+    /** The ground search for the building must have run this recently and found nothing. */
+    static final int REDEVELOP_SEARCH_DAYS = 60;
+
+    /**
+     * R4.69: a village with no ground left for a building it badly needs (the plan is at its last stage, and the search for new ground ran and found
+     * none) gives up a house for it. The building must be one of the critical ones (asked for before shelter: food, or the supply tier, which since
+     * R4.68 holds the shop and the treasury when the economy is jammed), small enough for a house lot. The house is one the village's own builders
+     * raised, standing on a lot that holds the new building, and its beds must not be missed: what is left must still hold the people and
+     * {@value #REDEVELOP_SPARE_BEDS} more. Of those, the one with the fewest beds, then the nearest the square. It is built over like an upgrade (the old
+     * house is taken down block by block as the new building goes up) and its lot becomes a lot of the new kind. Never in a famine, with another project
+     * open, more than once in {@value #REDEVELOP_COOLDOWN_DAYS} days or more than {@value #REDEVELOP_MAX} times.
+     */
+    public static Optional<ConstructionProject> redevelop(Settlement settlement, long day, String biome, int treasuryLimit, TemplateCatalog catalog,
+            Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints, HeightSource terrain) {
+        VillagePlan plan = settlement.plan();
+        if (plan == null || settlement.openProject().isPresent() || settlement.hasCondition("famine") || settlement.isAbandoned()
+                || !settlement.housing().counted() || plan.stage() < PlanGenerator.MAX_STAGE
+                || settlement.conditions().getOrDefault(REDEVELOPED_COUNT, 0L) >= REDEVELOP_MAX) {
+            return Optional.empty();
+        }
+        Long last = settlement.conditions().get(REDEVELOPED);
+        Long tried = settlement.conditions().get(REDEVELOP_TRIED);
+        if ((last != null && day >= last && day - last < REDEVELOP_COOLDOWN_DAYS) || (tried != null && day >= tried && day - tried < REDEVELOP_RETRY_DAYS)) {
+            return Optional.empty();
+        }
+        if (savingForDefence(settlement, day, treasuryLimit)) {
+            return Optional.empty(); // lights or a fence the village cannot yet pay for come before everything else
+        }
+        List<ConstructionProject> all = new ArrayList<>(settlement.projects());
+        for (Planner.Directive directive : Planner.directives(settlement, day, treasuryLimit)) {
+            Optional<BuildingType> wanted = BuildingType.fromTarget(directive.target());
+            if (directive.kind() != Planner.Kind.BUILD || wanted.isEmpty() || (directive.tier() != Planner.Tier.FOOD && directive.tier() != Planner.Tier.SUPPLY)) {
+                continue;
+            }
+            BuildingType type = wanted.get();
+            if (type == BuildingType.HOUSE || type == BuildingType.FARM || type == BuildingType.SQUARE || type.isWorks() || type.isPart()
+                    || hasLotFor(plan, settlement, type)) {
+                continue;
+            }
+            Long searched = settlement.conditions().get("lotSearch:" + type.name());
+            if (searched == null || day - searched > REDEVELOP_SEARCH_DAYS) {
+                continue; // the ground has not been searched lately: that comes first
+            }
+            int[] need = PlanGenerator.size(type, plan.biomeSet());
+            List<TemplateCatalog.Template> houses = catalog.ladder(BuildingType.HOUSE, biome);
+            ConstructionProject donor = null;
+            VillagePlan.Lot donorLot = null;
+            int donorBeds = 0;
+            long donorDistance = 0;
+            for (ConstructionProject p : all) {
+                if (p.type() != BuildingType.HOUSE || p.status() != ConstructionProject.Status.DONE || !isLatestOnLot(all, p, day) || !standing(settlement, p)) {
+                    continue;
+                }
+                Optional<VillagePlan.Lot> lot = plan.lots().stream().filter(l -> l.id() == p.lotId()).findFirst();
+                if (lot.isEmpty() || !((lot.get().rect().width() >= need[0] && lot.get().rect().depth() >= need[1])
+                        || (lot.get().rect().width() >= need[1] && lot.get().rect().depth() >= need[0]))) {
+                    continue;
+                }
+                Optional<Blueprint> houseDesign = houses.stream().filter(t -> t.tier() == p.tier()).findFirst().flatMap(blueprints);
+                Optional<Blueprint> newDesign = catalog.ladder(type, biome).stream().findFirst().flatMap(blueprints);
+                if (houseDesign.isPresent() && newDesign.isPresent() && !(
+                        (newDesign.get().width() <= houseDesign.get().width() + REDEVELOP_OVERHANG && newDesign.get().depth() <= houseDesign.get().depth() + REDEVELOP_OVERHANG)
+                        || (newDesign.get().depth() <= houseDesign.get().width() + REDEVELOP_OVERHANG && newDesign.get().width() <= houseDesign.get().depth() + REDEVELOP_OVERHANG))) {
+                    continue; // (the ground under the house was levelled; a building much bigger would stand on ground that was not)
+                }
+                int beds = houseDesign.map(Blueprint::beds).orElse(1);
+                if (settlement.housingCapacity() - beds < settlement.population() + REDEVELOP_SPARE_BEDS) {
+                    continue;
+                }
+                long dx = lot.get().rect().x() - plan.centerX();
+                long dz = lot.get().rect().z() - plan.centerZ();
+                long distance = dx * dx + dz * dz;
+                if (donor == null || beds < donorBeds || (beds == donorBeds && (distance < donorDistance || (distance == donorDistance && p.id() < donor.id())))) {
+                    donor = p;
+                    donorLot = lot.get();
+                    donorBeds = beds;
+                    donorDistance = distance;
+                }
+            }
+            if (donor == null) {
+                continue;
+            }
+            Optional<ConstructionProject> project = queue(settlement, day, biome, type, 0, donorLot, 1, catalog, blueprints, terrain,
+                    directive.reason() + "; there is no ground left, so a house comes down for it", donor, false);
+            if (project.isPresent()) {
+                settlement.conditions().put(REDEVELOP_TRIED, day);
+                settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " will take down a house at " + donorLot.rect().x() + ", " + donorLot.rect().z()
+                        + " (" + donorBeds + (donorBeds == 1 ? " bed" : " beds") + ") to make room for a " + type.label().toLowerCase(Locale.ROOT) + ".");
+                return project;
+            }
+        }
+        return Optional.empty();
     }
 
     // ----- builder skill (R4.21) -----
@@ -693,7 +849,8 @@ public final class Construction {
                 continue; // R4.43: nobody could be spared for it lately
             }
             if (type.isEmpty() || (needUnmet && (directive.tier() == Planner.Tier.GROWTH
-                    || (directive.tier() == Planner.Tier.SUPPLY && type.get() == BuildingType.SMITHY)))) { // R4.37: tools wait for lights and a fence too
+                    || (directive.tier() == Planner.Tier.SUPPLY && (type.get() == BuildingType.SMITHY || type.get() == BuildingType.SHOP
+                            || type.get() == BuildingType.TREASURY))))) { // R4.37: tools wait for lights and a fence too (R4.68: and so does a jammed economy's shop)
                 continue; // (a want waits for a need the village is saving up for)
             }
             if (settlement.hasCondition("famine") && !endsFamine(settlement, type.get())) {
@@ -1010,10 +1167,14 @@ public final class Construction {
             ConstructionProject replacing, boolean explain) {
         List<TemplateCatalog.Template> fullLadder = catalog.ladder(type, biome);
         // R4.56: an upgrade only reaches a tier someone in the village has the skill for (a first tier is never held back)
+        // R4.69: a building put up over a building of another kind (a shop where a house stood) starts its own ladder at the first tier
+        final boolean redevelopment = replacing != null && replacing.type() != type;
+        final int above = redevelopment ? 0 : currentTier;
+        final int previous = replacing == null ? currentTier : replacing.tier();
         final int skillCap = replacing == null ? Integer.MAX_VALUE : Guild.tierCap(settlement, type);
         final List<TemplateCatalog.Template> ladder = replacing == null ? fullLadder
-                : fullLadder.stream().filter(t -> t.tier() <= Math.max(skillCap, currentTier)).toList();
-        if (replacing != null && ladder.stream().noneMatch(t -> t.tier() > currentTier)) {
+                : fullLadder.stream().filter(t -> t.tier() <= Math.max(skillCap, above)).toList();
+        if (replacing != null && ladder.stream().noneMatch(t -> t.tier() > above)) {
             return Optional.empty(); // nobody has the skill for a better tier yet (or there is none): nothing to price
         }
         Map<ResourceType, Integer> stock = new EnumMap<>(ResourceType.class);
@@ -1028,8 +1189,8 @@ public final class Construction {
         // Every building is turned so its entrance faces the nearest street or the square; an upgrade keeps the old facing.
         int desired = settlement.plan().facingFor(lot.rect());
         Optional<Blueprint> oldBlueprint = replacing == null ? Optional.empty()
-                : ladder.stream().filter(t -> t.tier() == replacing.tier()).findFirst().flatMap(blueprints)
-                        .map(b -> b.rotated(replacing.turns()));
+                : (redevelopment ? catalog.ladder(replacing.type(), biome) : ladder).stream().filter(t -> t.tier() == replacing.tier()).findFirst()
+                        .flatMap(blueprints).map(b -> b.rotated(replacing.turns()));
         if (replacing != null && oldBlueprint.isEmpty()) {
             return Optional.empty();
         }
@@ -1044,8 +1205,8 @@ public final class Construction {
         Function<TemplateCatalog.Template, Integer> bedsOf = t -> oriented.apply(t).map(o -> o.blueprint().beds()).orElse(0);
         boolean anyBeds = ladder.stream().anyMatch(t -> bedsOf.apply(t) > 0);
         Optional<TemplateCatalog.Template> best = type == BuildingType.HOUSE && anyBeds
-                ? TemplateCatalog.mostBedsAffordable(ladder, currentTier, costOf, bedsOf, stock, oldBlueprint.map(Blueprint::beds).orElse(0))
-                : TemplateCatalog.plainestAffordable(ladder, currentTier, costOf, stock); // (a ladder with no beds read: as before)
+                ? TemplateCatalog.mostBedsAffordable(ladder, above, costOf, bedsOf, stock, redevelopment ? 0 : oldBlueprint.map(Blueprint::beds).orElse(0))
+                : TemplateCatalog.plainestAffordable(ladder, above, costOf, stock); // (a ladder with no beds read: as before)
         if (best.isEmpty()) {
             if (replacing == null && explain) {
                 explainWhyNot(settlement, day, type, ladder, blueprints, lot);
@@ -1078,7 +1239,7 @@ public final class Construction {
             ground = pad.targetHeight();
         }
         ConstructionProject project = new ConstructionProject(settlement.nextProjectId(), type, best.get().tier(),
-                currentTier, biome, x, ground, z, lot.id(), day);
+                previous, biome, x, ground, z, lot.id(), day);
         project.setTurns(turns);
         if (replacing != null) {
             project.setShift(replacing.x() - x, replacing.z() - z);
@@ -1088,7 +1249,7 @@ public final class Construction {
         PlanOverrides.noteQueued(settlement, project);
         settlement.conditions().put(DECIDED, day); // at most one new project a day
         settlement.record(day, HistoryEvent.Kind.BUILDING, settlement.name() + " set out to "
-                + (currentTier > 0 ? "upgrade its " : "build a ") + type.label().toLowerCase(Locale.ROOT) + " (tier "
+                + (redevelopment ? "build a " : currentTier > 0 ? "upgrade its " : "build a ") + type.label().toLowerCase(Locale.ROOT) + " (tier "
                 + best.get().tier() + "): " + reason + ".");
         return Optional.of(project);
     }

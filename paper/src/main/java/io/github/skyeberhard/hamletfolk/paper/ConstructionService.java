@@ -469,6 +469,10 @@ final class ConstructionService {
         Optional<ConstructionProject> queued = Construction.propose(settlement, settlement.lastSimulatedDay(), style,
                 service.treasuryLimit(settlement), plugin.templates().catalog(), plugin.templates()::blueprint,
                 groundOf(world), streetGround(world)); // (R4.37: ground set aside for a lot is not over a roof or a lamp post)
+        if (queued.isEmpty()) { // R4.69: with no ground left for a building it badly needs, a house comes down for it
+            queued = Construction.redevelop(settlement, settlement.lastSimulatedDay(), style, service.treasuryLimit(settlement),
+                    plugin.templates().catalog(), plugin.templates()::blueprint, groundOf(world));
+        }
         release(holdKey);
         if (queued.isPresent()) {
             plugin.requestSave();
@@ -719,8 +723,11 @@ final class ConstructionService {
             giveUp(settlement, project, "the design could not be found", false);
             return;
         }
-        Blueprint old = project.isUpgrade() && project.previousTier() <= ladder.size()
-                ? plugin.templates().blueprint(ladder.get(project.previousTier() - 1))
+        // R4.69: the building being built over is of another kind when a shop goes where a house stood
+        BuildingType replaced = Construction.replacedType(settlement, project);
+        List<TemplateCatalog.Template> oldLadder = replaced == null ? ladder : plugin.templates().catalog().ladder(replaced, project.biomeSet());
+        Blueprint old = project.isUpgrade() && project.previousTier() <= oldLadder.size()
+                ? plugin.templates().blueprint(oldLadder.get(project.previousTier() - 1))
                         .map(b -> b.rotated(project.oldTurns()).shifted(project.shiftX(), 0, project.shiftZ())).orElse(null) : null;
         Blueprint bp = target.get().rotated(project.turns());
         int ox = project.x();

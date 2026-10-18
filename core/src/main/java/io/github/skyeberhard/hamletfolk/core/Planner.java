@@ -407,12 +407,18 @@ public final class Planner {
     private static List<Directive> growth(Settlement s, int limit) {
         List<Directive> out = new ArrayList<>();
         if (s.buildingCount(BuildingType.SHOP) == 0 && hasSurplus(s)) {
-            out.add(new Directive(Tier.GROWTH, Kind.BUILD, "shop", "the village has more than it needs and no one to sell it"));
+            // R4.68: with a store full to its limit and nobody to sell what is in it, the shop is the way out, not a luxury
+            boolean jammed = s.population() >= CRITICAL_ECONOMY_POPULATION && jammed(s);
+            out.add(new Directive(jammed ? Tier.SUPPLY : Tier.GROWTH, Kind.BUILD, "shop", jammed
+                    ? "a store is full to its limit and the village has no shop to sell what it cannot hold"
+                    : "the village has more than it needs and no one to sell it"));
         }
         int banked = SettlementSimulator.banked(s);
         if (s.buildingCount(BuildingType.TREASURY) == 0 && limit > 0 && banked * 10L >= limit * 6L) {
-            out.add(new Directive(Tier.GROWTH, Kind.BUILD, "treasury", "the treasury is more than half full (" + banked
-                    + " of " + limit + ") and a treasury building raises the limit"));
+            boolean full = s.population() >= CRITICAL_ECONOMY_POPULATION && banked * 10L >= limit * 9L; // R4.68: money coming in is being thrown away
+            out.add(new Directive(full ? Tier.SUPPLY : Tier.GROWTH, Kind.BUILD, "treasury", full
+                    ? "the treasury is full (" + banked + " of " + limit + ") and what comes in is wasted; a treasury building raises the limit"
+                    : "the treasury is more than half full (" + banked + " of " + limit + ") and a treasury building raises the limit"));
         }
         if (out.isEmpty() && s.freeBeds() == 0 && s.housing().counted() && s.housingCapacity() > 0) {
             out.add(new Directive(Tier.GROWTH, Kind.BUILD, "house", "every bed is taken, and a spare bed is what lets newcomers settle"));
@@ -447,6 +453,32 @@ public final class Planner {
                     "it has merchants and a shop, and a trading post gives each merchant one more sale a day"));
         }
         return out;
+    }
+
+    /** R4.68: a hamlet's full store is no emergency; from this many people the shop and the treasury are asked for ahead of shelter when they are. */
+    static final int CRITICAL_ECONOMY_POPULATION = 20;
+
+    /**
+     * R4.68: the stores are jammed: what the storage limit could not hold has piled up for the next passing trader (a store overflowed since the last
+     * visit), or a quarter of a store's room is taken by what nobody uses (copper, gold, redstone, lapis). A store merely at its limit is not a jam: a
+     * village whose lumberjacks and miners rest when their store is full is meant to sit there.
+     */
+    static boolean jammed(Settlement s) {
+        for (ResourceType type : ResourceType.values()) {
+            if (s.conditions().getOrDefault("forSale:" + type.name(), 0L) > 0) {
+                return true;
+            }
+            int inert = 0;
+            for (Commodity c : Commodity.of(type)) {
+                if (c.inert()) {
+                    inert += s.ledger().get(c);
+                }
+            }
+            if (inert * 4L >= SettlementSimulator.capacity(s, type)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean hasSurplus(Settlement s) {
