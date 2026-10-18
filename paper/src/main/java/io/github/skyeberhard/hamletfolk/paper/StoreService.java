@@ -6,6 +6,7 @@ import io.github.skyeberhard.hamletfolk.core.Commodity;
 import io.github.skyeberhard.hamletfolk.core.Donation;
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
 import io.github.skyeberhard.hamletfolk.core.Masterpieces;
+import io.github.skyeberhard.hamletfolk.core.Quality;
 import io.github.skyeberhard.hamletfolk.core.Reputation;
 import io.github.skyeberhard.hamletfolk.core.ResourceMapper;
 import io.github.skyeberhard.hamletfolk.core.ResourceType;
@@ -68,6 +69,7 @@ final class StoreService implements Listener {
     private final NamespacedKey markKey;
     private final NamespacedKey takenKey;
     private final NamespacedKey heirloomKey;
+    private final NamespacedKey gradeKey;
     private final Map<String, Location> barrels = new HashMap<>();
     private final Map<String, Long> placedAt = new HashMap<>();
     private final Map<String, Long> scannedAt = new HashMap<>();
@@ -78,6 +80,7 @@ final class StoreService implements Listener {
         this.markKey = new NamespacedKey(plugin, "store");
         this.takenKey = new NamespacedKey(plugin, "taken");
         this.heirloomKey = new NamespacedKey(plugin, "heirloom");
+        this.gradeKey = new NamespacedKey(plugin, "grade");
     }
 
     void start() {
@@ -285,6 +288,7 @@ final class StoreService implements Listener {
             return;
         }
         List<StoreDisplay.Shown> shown = StoreDisplay.contents(settlement.ledger(), category);
+        Quality.Grade grade = Quality.of(settlement, category); // R4.62
         ItemStack[] want = new ItemStack[barrel.getInventory().getSize()];
         // R4.61: the village's masterpieces stand in the last slots of its goods barrel, and cannot be taken
         List<Masterpieces.Heirloom> heirlooms = category == ResourceType.GOODS ? Masterpieces.heirlooms(settlement) : List.of();
@@ -295,7 +299,7 @@ final class StoreService implements Listener {
         for (int i = 0; i < shown.size() && i < want.length - reserved; i++) {
             Material material = Material.matchMaterial(shown.get(i).material());
             if (material != null) {
-                want[i] = new ItemStack(material, shown.get(i).count());
+                want[i] = graded(new ItemStack(material, shown.get(i).count()), grade);
             }
         }
         ItemStack[] have = barrel.getInventory().getContents();
@@ -303,7 +307,7 @@ final class StoreService implements Listener {
         for (int i = 0; i < want.length && same; i++) {
             ItemStack a = want[i];
             ItemStack b = i < have.length ? have[i] : null;
-            same = (a == null || a.getType().isAir()) ? (b == null || b.getType().isAir()) : a.equals(b);
+            same = (a == null || a.getType().isAir()) ? (b == null || b.getType().isAir()) : sameShown(a, b);
         }
         if (!same) {
             barrel.getInventory().setContents(want);
@@ -322,6 +326,39 @@ final class StoreService implements Listener {
         meta.getPersistentDataContainer().set(heirloomKey, PersistentDataType.BYTE, (byte) 1);
         item.setItemMeta(meta);
         return item;
+    }
+
+    /** R4.62: the items of a category made by skilled hands carry the quality and the maker; a plain village's are left as they are. */
+    private ItemStack graded(ItemStack item, Quality.Grade grade) {
+        if (grade.plain()) {
+            return item;
+        }
+        ItemMeta meta = item.getItemMeta();
+        NamedTextColor colour = grade.level() >= 5 ? NamedTextColor.GOLD : grade.level() == 4 ? NamedTextColor.AQUA : NamedTextColor.GREEN;
+        meta.itemName(Component.text(grade.label() + " ", colour).append(Component.translatable(item.getType().translationKey())));
+        meta.lore(List.of(Component.text("Made under " + grade.maker(), NamedTextColor.GRAY)
+                .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
+        if (grade.level() >= 5) {
+            meta.setEnchantmentGlintOverride(true);
+        }
+        meta.getPersistentDataContainer().set(gradeKey, PersistentDataType.STRING, grade.label() + "|" + grade.maker());
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    /** Whether the barrel already shows this: compares what and how many, and the grade's mark (a rebuilt name would not compare equal after the barrel saved it). */
+    private boolean sameShown(ItemStack want, ItemStack have) {
+        if (have == null || want.getType() != have.getType() || want.getAmount() != have.getAmount()) {
+            return false;
+        }
+        if (isHeirloom(want)) {
+            return want.equals(have);
+        }
+        return java.util.Objects.equals(gradeOf(want), gradeOf(have));
+    }
+
+    private String gradeOf(ItemStack item) {
+        return item.hasItemMeta() ? item.getItemMeta().getPersistentDataContainer().get(gradeKey, PersistentDataType.STRING) : null;
     }
 
     private boolean isHeirloom(ItemStack item) {
