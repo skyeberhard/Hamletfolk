@@ -80,7 +80,7 @@ The `[Exempt]` sign (see TESTING.md) keeps the plugin's hands off villagers and 
 
 1. **Copy today's `settlements.json`** (and the villagers' world data if you want it exact) to the dev server and start the new build there. It should
    migrate with no error; open `/settlement` in a village.
-2. **Build the exact commit** on the dev server (Linux, Java 25, Paper 26.2, GoodeCraft installed) with `tools/build-hamletfolk.sh` after pointing its
+2. **Run `tools/dev-server-check.sh` on the dev server** (it does steps 1 to 4 below: builds against the pinned API, installs, starts, prints the log lines that matter). Or by hand: **build the exact commit** on the dev server (Linux, Java 25, Paper 26.2, GoodeCraft installed) with `tools/build-hamletfolk.sh` after pointing its
    `COMMIT` at the one chosen, and record the SHA-256 of the jar.
 3. **Walk the checklist** in [PLAYTEST.md](PLAYTEST.md) on the dev server, and have one Bedrock player do the barrel and trade parts.
 4. **Watch the first start's log** for the two protection lines ("Logging the village's building to CoreProtect as #Hamletfolk", "Keeping the
