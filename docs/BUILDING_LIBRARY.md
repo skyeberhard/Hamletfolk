@@ -1,6 +1,6 @@
 # Building library
 
-The checklist for the template library behind R4.6 (and R8.3/R8.6): which buildings a village needs in
+The checklist for the template library behind R4.6 (and R8.3/R8.6). To author a building, capture it and add tiers, follow [BUILDING_GUIDE.md](BUILDING_GUIDE.md).: which buildings a village needs in
 each of the five village biomes, which the game already ships, and which still have to be built.
 
 - `- [x]` **Closed**: the piece exists, so there is nothing to author. Vanilla pieces are closed once the

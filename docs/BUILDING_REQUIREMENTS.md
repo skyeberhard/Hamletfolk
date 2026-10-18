@@ -2,7 +2,7 @@
 
 What each building needs, gives and costs: size, beds, workers, when the village asks for it. The numbers are read from the
 code and from the Paper 26.2 jar (sizes and beds with `python tools/piece_sizes.py`), not from memory. Where this page and the
-code disagree, the code wins and this page is wrong: say so. Companion pages: [BUILDING_LIBRARY.md](BUILDING_LIBRARY.md) (which
+code disagree, the code wins and this page is wrong: say so. Companion pages: [BUILDING_GUIDE.md](BUILDING_GUIDE.md) (how to build, capture and add tiers), [BUILDING_LIBRARY.md](BUILDING_LIBRARY.md) (which
 pieces each biome has), [VILLAGE_PLANNING.md](VILLAGE_PLANNING.md) (how the plan is laid out), [GROWTH_BACKLOG.md](GROWTH_BACKLOG.md).
 
 ## 1. The rules that apply to every building
