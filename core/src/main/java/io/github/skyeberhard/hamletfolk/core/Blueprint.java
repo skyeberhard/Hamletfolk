@@ -153,7 +153,7 @@ public record Blueprint(String key, int width, int height, int depth, List<Block
             java.util.Map.entry("CAULDRON", new ResourceMapper.Value(ResourceType.METAL, 7)));
 
     /** A material without its block state: "LADDER[facing=south]" is "LADDER". */
-    static String name(String material) {
+    public static String name(String material) {
         int bracket = material.indexOf('[');
         return bracket < 0 ? material : material.substring(0, bracket);
     }

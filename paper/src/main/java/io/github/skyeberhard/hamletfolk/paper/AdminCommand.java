@@ -17,8 +17,8 @@ import org.bukkit.entity.Player;
  */
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
-    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "noticeboard", "stores", "homes", "trade", "worlds", "worldspeed", "colonize", "regrade", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | noticeboard [name] | stores [name] | homes [name] | trade [name] | worlds | worldspeed <world> <speed|off> | colonize [name] [site] | regrade [name] | regrade streets [name] | replan [name] | warp [name|all|world <world>] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all|world <world>] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
+    private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "noticeboard", "stores", "homes", "trade", "worlds", "worldspeed", "colonize", "adopt", "regrade", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | noticeboard [name] | stores [name] | homes [name] | trade [name] | worlds | worldspeed <world> <speed|off> | colonize [name] [site] | adopt [name] | regrade [name] | regrade streets [name] | replan [name] | warp [name|all|world <world>] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all|world <world>] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
 
     private final SettlementService service;
     private final TemplateCommand templates;
@@ -118,6 +118,10 @@ final class AdminCommand {
                 int end = site ? args.length - 1 : args.length;
                 Optional<Settlement> village = end >= 3 ? lookup(sender, words(args, 2, end)) : here(sender);
                 village.ifPresent(v -> colonize(sender, v, site));
+            }
+            case "adopt" -> {
+                Optional<Settlement> village = args.length >= 3 ? lookup(sender, words(args, 2, args.length)) : here(sender);
+                village.ifPresent(v -> service.plugin().construction().adopt(v).forEach(sender::sendMessage));
             }
             case "job" -> job(sender, args);
             case "unstick" -> unstick(sender, args);

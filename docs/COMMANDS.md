@@ -71,6 +71,7 @@ rate are in the config) showing every village, what is in its way, and a page an
 | `homes [name]` | Writes the household names on the village's house signs now, loading the ground, and lists who lives where (R6.1) |
 | `stores [name]` | Draws the village's store barrels now, loading the ground by each building, and says where they are (R4.55) |
 | `colonize [name] [site]` | Whether the village could send a party to found a daughter village (R10.2): every reason it cannot, who would go and what it would take. With `site` (R10.3) it also looks at 48 places round the village and names the best for a daughter, reading only existing chunks. Changes nothing |
+| `adopt [name]` | Puts back the records of buildings the village's builders raised that have lost theirs (R4.67), by finding where the design stands in the world. Builds nothing; the building can then be upgraded |
 | `warp [name] <days>` | Runs a village up to 60 days ahead at once |
 | `warp world <world> <days>` | As `warp all`, for the villages of one world (R1.43) |
 | `warp all <days>` | Runs every village that can be run up to 30 days ahead, one after another (the server stalls for the sum) |

@@ -415,6 +415,14 @@ public final class PlanGenerator {
     public static final int REPLACEMENT_RADIUS = 64;
     /** How close to a street a replacement lot is looked for first; then, on rough ground, farther out in these steps. */
     static final int[] REPLACEMENT_STREET_REACH = {6, 20, 40};
+    /** R4.66: a farm is looked for farther out than any other building (it lives on the open land round a village, not in the town) and may stand farther from a street. */
+    public static final int FARM_REPLACEMENT_RADIUS = 112;
+    static final int[] FARM_STREET_REACH = {6, 20, 40, 70};
+
+    /** How far from the main square a lot for this kind of building is looked for. */
+    public static int replacementRadius(BuildingType type) {
+        return type == BuildingType.FARM ? FARM_REPLACEMENT_RADIUS : REPLACEMENT_RADIUS;
+    }
 
     /**
      * R4.37: a lot for a building the plan has no lot for (the ground at its own place was too steep or wet, or another building
@@ -428,7 +436,7 @@ public final class PlanGenerator {
         terrain = cached(terrain); // (neighbouring candidates read the same columns)
         // flat dry ground first, at each distance from a street; then ground the pad can level (a slope, shallow water)
         for (boolean grading : new boolean[] {false, true}) {
-            for (int reach : REPLACEMENT_STREET_REACH) {
+            for (int reach : type == BuildingType.FARM ? FARM_STREET_REACH : REPLACEMENT_STREET_REACH) {
                 java.util.Optional<VillagePlan.Lot> found = replacementLot(plan, type, terrain, occupied, withinExtent, reach, grading);
                 if (found.isPresent()) {
                     return found;
@@ -445,8 +453,9 @@ public final class PlanGenerator {
         long bestDistance = Long.MAX_VALUE;
         Rect extent = withinExtent ? Works.extent(plan).orElse(null) : null;
         List<Rect> future = futureStreets(plan);
-        for (int dx = -REPLACEMENT_RADIUS; dx <= REPLACEMENT_RADIUS; dx += 2) {
-            for (int dz = -REPLACEMENT_RADIUS; dz <= REPLACEMENT_RADIUS; dz += 2) {
+        int radius = replacementRadius(type);
+        for (int dx = -radius; dx <= radius; dx += 2) {
+            for (int dz = -radius; dz <= radius; dz += 2) {
                 long distance = (long) dx * dx + (long) dz * dz;
                 if (distance >= bestDistance) {
                     continue;

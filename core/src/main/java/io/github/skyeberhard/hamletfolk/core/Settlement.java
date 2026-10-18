@@ -65,6 +65,57 @@ public final class Settlement {
         return 1;
     }
 
+    /** The name the builders register their buildings under. */
+    public static final String BUILT_BY_BUILDERS = "the builders";
+
+    /**
+     * R4.67: the buildings the village's own builders raised that have no finished project on record any more (the record was lost with an old
+     * save, or dropped before records of standing buildings were kept), so the rules that only upgrade what is on record never touch them.
+     */
+    public List<Building> withoutRecord() {
+        List<Building> out = new ArrayList<>();
+        for (Building b : buildings.values()) {
+            if (!BUILT_BY_BUILDERS.equals(b.registeredBy()) || b.type().isWorks() || b.type().isPart()) {
+                continue;
+            }
+            boolean recorded = projects.stream().anyMatch(p -> p.status() == ConstructionProject.Status.DONE && p.signY() != ConstructionProject.NO_SIGN
+                    && p.signX() == b.x() && p.signY() == b.y() && p.signZ() == b.z());
+            if (!recorded) {
+                out.add(b);
+            }
+        }
+        out.sort(java.util.Comparator.comparing(Building::key));
+        return out;
+    }
+
+    /**
+     * R4.67: puts back the record of a finished building the village's builders raised: its type and tier, where its corner is, how it is turned,
+     * which lot it stands on and where its sign is. The Paper layer works these out from the world (see {@code ConstructionService.adopt}). From then on
+     * the building can be upgraded like any other (if the plan has no lot where it stands, {@code lotIfNone} becomes one). No builder gets credit and nothing
+     * is built.
+     */
+    public ConstructionProject adopt(Building building, int tier, String biomeSet, int x, int y, int z, int turns, int lotId, Rect lotIfNone, long day) {
+        if (lotId < 0 && lotIfNone != null && plan != null) {
+            // the plan was made again since the building went up and has no lot where it stands: one is set down round it, already built on
+            VillagePlan.Lot lot = new VillagePlan.Lot(plan.newId(), lotIfNone, building.type(), plan.biomeSet(), plan.stage(), VillagePlan.LotStatus.FILLED);
+            plan.addLot(lot);
+            lotId = lot.id();
+        }
+        ConstructionProject project = new ConstructionProject(nextProjectId(), building.type(), tier, 0, biomeSet, x, y, z, lotId, day);
+        project.setTurns(turns);
+        project.setSign(building.x(), building.y(), building.z());
+        project.setSiteChecked(true);
+        project.setGraded(true);
+        project.finish(day);
+        projects.add(project);
+        if (plan != null && lotId >= 0) {
+            plan.fill(lotId);
+        }
+        recordQuiet(day, HistoryEvent.Kind.BUILDING, "The record of the " + building.type().label().toLowerCase(java.util.Locale.ROOT) + " at "
+                + building.x() + ", " + building.z() + " was found again (tier " + tier + "), so it can be improved.", 1);
+        return project;
+    }
+
     /** R4.7: the project being built or waiting for a builder, if any (the village does one at a time). */
     public Optional<ConstructionProject> openProject() {
         return projects.stream().filter(ConstructionProject::isOpen).findFirst();

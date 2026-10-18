@@ -73,6 +73,15 @@ public enum Commodity {
         return category;
     }
 
+    /**
+     * R4.65: whether nothing in the village uses this: no smith works it and no building is priced in it (the metals other than iron, apart from
+     * diamonds). It only fills the stores. It is thrown away first at the storage limit, and a trade that rests when its stores are full does not
+     * count it as stock (or a mine's bin full of copper and gold would stop it ever bringing in the iron the smiths need).
+     */
+    public boolean inert() {
+        return this == RAW_COPPER || this == COPPER || this == RAW_GOLD || this == GOLD || this == REDSTONE || this == LAPIS;
+    }
+
     /** e.g. "raw iron". */
     public String label() {
         return label;

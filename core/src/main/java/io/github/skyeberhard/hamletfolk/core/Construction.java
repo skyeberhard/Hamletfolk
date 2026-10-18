@@ -579,10 +579,19 @@ public final class Construction {
      * the chunks round the whole search area loaded for the decision (the plan's own chunks do not reach that far).
      */
     public static boolean needsWiderGround(Settlement settlement, long day, int treasuryLimit) {
+        return widerGroundReach(settlement, day, treasuryLimit) > 0;
+    }
+
+    /**
+     * As {@link #needsWiderGround}, but how far from the main square the ground is to be loaded for the search: the search radius of the
+     * building looked for, and 14 more for the lot to be measured at the edge. 0 if no search is due.
+     */
+    public static int widerGroundReach(Settlement settlement, long day, int treasuryLimit) {
         VillagePlan plan = settlement.plan();
         if (plan == null || settlement.openProject().isPresent()) {
-            return false;
+            return 0;
         }
+        int reach = 0;
         for (Planner.Directive directive : Planner.directives(settlement, day, treasuryLimit)) {
             Optional<BuildingType> type = BuildingType.fromTarget(directive.target());
             if (directive.kind() != Planner.Kind.BUILD || type.isEmpty()
@@ -593,10 +602,10 @@ public final class Construction {
             }
             Long last = settlement.conditions().get("lotSearch:" + type.get().name());
             if (last == null || day - last >= REPLACEMENT_RETRY_DAYS) {
-                return true;
+                reach = Math.max(reach, PlanGenerator.replacementRadius(type.get()) + 14);
             }
         }
-        return false;
+        return reach;
     }
 
     /** R4.37: days before the plan looks again for ground for a building it has no lot for. */
@@ -630,7 +639,7 @@ public final class Construction {
                     + lot.get().rect().z() + " for a " + type.label().toLowerCase(Locale.ROOT) + ", as its plan had no lot for one.");
         } else {
             settlement.recordQuiet(day, HistoryEvent.Kind.BUILDING, settlement.name() + " looked for ground for a " + type.label().toLowerCase(Locale.ROOT)
-                    + " and found none flat, dry and clear enough within " + PlanGenerator.REPLACEMENT_RADIUS + " blocks of its square.", QUIET_DAYS);
+                    + " and found none flat, dry and clear enough within " + PlanGenerator.replacementRadius(type) + " blocks of its square.", QUIET_DAYS);
         }
     }
 

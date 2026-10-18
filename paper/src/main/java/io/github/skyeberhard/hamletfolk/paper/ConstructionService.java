@@ -324,7 +324,7 @@ final class ConstructionService {
         started.plan = settlement.plan();
         streetChecks.put(settlement.id(), started);
         if (unattended()) {
-            hold(world, "s" + settlement.id(), planChunks(settlement, false)); // the ground the plan stands on is loaded for it
+            hold(world, "s" + settlement.id(), planChunks(settlement, 0)); // the ground the plan stands on is loaded for it
         }
         return new CheckResult(true, "The builders will check " + settlement.name() + "'s streets: stairs where a street climbs or falls, hollows filled, "
                 + "bumps cut, narrow water bridged. It takes a minute or so" + (unattended() ? "." : "; stand near the village, as only loaded ground is touched."));
@@ -458,8 +458,8 @@ final class ConstructionService {
                 lastHoldDay.put(settlement.id(), today);
                 lastHoldMs.put(settlement.id(), now);
             }
-            Held loading = hold(world, holdKey, planChunks(settlement, Construction.needsWiderGround(settlement, today,
-                    service.treasuryLimit(settlement)))); // (R4.37: a search for ground reaches past the plan)
+            Held loading = hold(world, holdKey, planChunks(settlement, Construction.widerGroundReach(settlement, today,
+                    service.treasuryLimit(settlement)))); // (R4.37: a search for ground reaches past the plan; a farm's farthest)
             if (!allLoaded(world, loading.chunks()) && now - loading.since() < LOAD_WAIT_MS) {
                 return; // look again in a few seconds; after a while it decides with what has loaded
             }
@@ -489,13 +489,150 @@ final class ConstructionService {
         return order;
     }
 
+    /**
+     * R4.67: finds the records of buildings the village's builders raised that have none (an old farm, say): for each, the tier, the turn and the corner
+     * at which the world best matches the design, searched round the building's sign (it may stand in the footprint or beside it, and the village's
+     * plan may since have been made again, so no lot is relied on). The record is put back only if at least {@link #ADOPT_MATCH} of the design's blocks
+     * are found there. Loads the few chunks round each building (it is an admin's command). Returns a line for each building looked at.
+     */
+    List<String> adopt(Settlement settlement) {
+        List<String> out = new ArrayList<>();
+        World world = Bukkit.getWorld(settlement.world());
+        if (world == null || settlement.plan() == null) {
+            out.add(settlement.name() + " is in a world that is not loaded, or has no plan.");
+            return out;
+        }
+        long day = settlement.lastSimulatedDay();
+        for (io.github.skyeberhard.hamletfolk.core.Building building : settlement.withoutRecord()) {
+            String what = building.type().label() + " at " + building.x() + ", " + building.z();
+            String biome = settlement.plan().biomeSet();
+            List<TemplateCatalog.Template> ladder = plugin.templates().catalog().ladder(building.type(), biome);
+            for (int cx = (building.x() - 40) >> 4; cx <= (building.x() + 40) >> 4; cx++) {
+                for (int cz = (building.z() - 40) >> 4; cz <= (building.z() + 40) >> 4; cz++) {
+                    world.getChunkAt(cx, cz);
+                }
+            }
+            int[] best = null; // tier, turns, x, y, z
+            double bestScore = 0;
+            int widest = 0;
+            for (TemplateCatalog.Template template : ladder) {
+                Optional<Blueprint> blueprint = plugin.templates().blueprint(template);
+                if (blueprint.isEmpty()) {
+                    continue;
+                }
+                widest = Math.max(widest, Math.max(blueprint.get().width(), blueprint.get().depth()));
+                for (int turns = 0; turns < 4; turns++) {
+                    Blueprint bp = blueprint.get().rotated(turns);
+                    List<Blueprint.Block> sample = sampleOf(bp);
+                    for (int ox = building.x() - bp.width() - 2; ox <= building.x() + 3; ox++) {
+                        for (int oz = building.z() - bp.depth() - 2; oz <= building.z() + 3; oz++) {
+                            for (int oy = building.y() - 4; oy <= building.y() + 2; oy++) {
+                                double score = sampleScore(world, sample, ox, oy, oz);
+                                if (score > bestScore) {
+                                    bestScore = score;
+                                    best = new int[] {template.tier(), turns, ox, oy, oz};
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (best != null) { // the whole design, not a sample, at the best place found
+                Blueprint bp = plugin.templates().blueprint(ladder.get(best[0] - 1)).orElseThrow().rotated(best[1]);
+                bestScore = matchScore(world, bp, best[2], best[3], best[4]);
+            }
+            if (best == null || bestScore < ADOPT_MATCH) {
+                out.add(what + ": the design does not match what stands there (best " + Math.round(bestScore * 100) + "%), left alone.");
+                continue;
+            }
+            Blueprint found = plugin.templates().blueprint(ladder.get(best[0] - 1)).orElseThrow().rotated(best[1]);
+            // the lot that holds the sign, if it is of this kind and no other registered building stands on it (a plan made again may have put another
+            // kind of lot there); otherwise the lot is made round the building, if that does not overlap another lot
+            int lotId = settlement.plan().lots().stream().filter(l -> l.type() == building.type() && l.rect().contains(building.x(), building.z())
+                    && settlement.buildings().stream().noneMatch(o -> o != building && !o.equals(building) && o.type() == building.type()
+                            && l.rect().contains(o.x(), o.z()))).mapToInt(VillagePlan.Lot::id).findFirst().orElse(-1);
+            int side = Math.max(widest, Math.max(found.width(), found.depth()));
+            Rect wide = new Rect(best[2] + found.width() / 2 - side / 2, best[4] + found.depth() / 2 - side / 2, side, side);
+            Rect footprint = new Rect(best[2], best[4], found.width(), found.depth());
+            Rect around = null;
+            if (lotId < 0) { // a lot is made round the building, if that overlaps no other lot: the larger tiers' room, else the footprint alone
+                if (settlement.plan().lots().stream().noneMatch(l -> l.rect().overlaps(wide))) {
+                    around = wide;
+                } else if (settlement.plan().lots().stream().noneMatch(l -> l.rect().overlaps(footprint))) {
+                    around = footprint;
+                }
+            }
+            settlement.adopt(building, best[0], biome, best[2], best[3], best[4], best[1], lotId, around, day);
+            out.add(what + ": found again as tier " + best[0] + " (" + Math.round(bestScore * 100) + "% match).");
+        }
+        if (out.isEmpty()) {
+            out.add("Every building the builders raised in " + settlement.name() + " has its record.");
+        } else {
+            plugin.requestSave();
+        }
+        return out;
+    }
+
+    /** About forty of a design's solid blocks, spread through it, to try places against quickly. */
+    private static List<Blueprint.Block> sampleOf(Blueprint bp) {
+        List<Blueprint.Block> solid = new ArrayList<>();
+        for (Blueprint.Block b : bp.blocks()) {
+            String name = Blueprint.name(b.material());
+            if (!(name.equals("AIR") || name.endsWith("_SIGN") || name.endsWith("TORCH") || name.endsWith("LANTERN"))) {
+                solid.add(b);
+            }
+        }
+        int step = Math.max(1, solid.size() / 40);
+        List<Blueprint.Block> sample = new ArrayList<>();
+        for (int i = 0; i < solid.size(); i += step) {
+            sample.add(solid.get(i));
+        }
+        return sample;
+    }
+
+    /** The share of the sample the world has where the design would put it; given up early on a place that clearly is not it. */
+    private static double sampleScore(World world, List<Blueprint.Block> sample, int ox, int oy, int oz) {
+        int same = 0;
+        for (int i = 0; i < sample.size(); i++) {
+            Blueprint.Block b = sample.get(i);
+            Block at = world.getBlockAt(ox + b.x(), oy + b.y(), oz + b.z());
+            if (Construction.matches(TemplateLibrary.materialOf(at.getBlockData()), b.material())) {
+                same++;
+            }
+            if (i == 11 && same < 3) {
+                return 0; // a dozen looked at and hardly any match
+            }
+        }
+        return sample.isEmpty() ? 0 : (double) same / sample.size();
+    }
+
+    /** The share of a design's solid blocks that the world has where the design would put them (the design set down with its corner at the given place). */
+    private static double matchScore(World world, Blueprint bp, int ox, int oy, int oz) {
+        int total = 0;
+        int same = 0;
+        for (Blueprint.Block b : bp.blocks()) {
+            String name = Blueprint.name(b.material());
+            if (name.equals("AIR") || name.endsWith("_SIGN") || name.endsWith("TORCH") || name.endsWith("LANTERN")) {
+                continue;
+            }
+            total++;
+            Block at = world.getBlockAt(ox + b.x(), oy + b.y(), oz + b.z());
+            if (Construction.matches(TemplateLibrary.materialOf(at.getBlockData()), b.material())) {
+                same++;
+            }
+        }
+        return total == 0 ? 0 : (double) same / total;
+    }
+
+    /** The share of a design's blocks that must be found for a building's record to be put back. */
+    static final double ADOPT_MATCH = 0.55;
+
     /** The chunks the village's plan covers: its lots, streets and square, which is where a decision needs the ground. */
-    private static Set<Long> planChunks(Settlement settlement, boolean wide) {
+    private static Set<Long> planChunks(Settlement settlement, int wide) {
         Set<Long> out = new HashSet<>();
         VillagePlan plan = settlement.plan();
-        if (wide) {
-            int reach = PlanGenerator.REPLACEMENT_RADIUS + 14; // the search area and the lot to be measured at its edge
-            out.addAll(ChunkRegion.covering(plan.centerX(), plan.centerZ(), reach, reach));
+        if (wide > 0) {
+            out.addAll(ChunkRegion.covering(plan.centerX(), plan.centerZ(), wide, wide)); // the search area and the lot to be measured at its edge
         }
         List<Rect> rects = new ArrayList<>();
         plan.lots().forEach(l -> rects.add(l.rect()));

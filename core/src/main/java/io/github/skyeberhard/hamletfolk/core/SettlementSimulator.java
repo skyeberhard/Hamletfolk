@@ -700,7 +700,21 @@ public final class SettlementSimulator {
      * limit, and goes back to work when any of it has fallen below {@link #RESUME_BELOW} of the limit; the state is
      * kept in the settlement's conditions so it survives a restart.
      */
-    private static java.util.Set<Occupation> updateResting(Settlement settlement) {
+    /**
+     * R4.65: the stock of a category that is worth something to the village: what is in the stores less the {@link Commodity#inert} commodities
+     * (copper, gold, redstone, lapis), which the storage limit throws away before anything else. A mine does not rest because its bin is full of them.
+     */
+    static int usefulStock(Settlement settlement, ResourceType type) {
+        int have = settlement.ledger().get(type);
+        for (Commodity c : Commodity.of(type)) {
+            if (c.inert()) {
+                have -= settlement.ledger().get(c);
+            }
+        }
+        return Math.max(0, have);
+    }
+
+    static java.util.Set<Occupation> updateResting(Settlement settlement) {
         java.util.Set<Occupation> resting = java.util.EnumSet.noneOf(Occupation.class);
         for (Occupation trade : List.of(Occupation.LUMBERJACK, Occupation.MINER, Occupation.MASON)) {
             String key = RESTING + trade.name();
@@ -711,7 +725,7 @@ public final class SettlementSimulator {
                 if (type == null) {
                     continue;
                 }
-                int have = settlement.ledger().get(type);
+                int have = usefulStock(settlement, type);
                 full &= have >= capacity(settlement, type);
                 low |= have < RESUME_BELOW * capacity(settlement, type);
             }
