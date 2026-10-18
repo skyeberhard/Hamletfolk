@@ -5,6 +5,7 @@ import io.github.skyeberhard.hamletfolk.core.Building;
 import io.github.skyeberhard.hamletfolk.core.Commodity;
 import io.github.skyeberhard.hamletfolk.core.Donation;
 import io.github.skyeberhard.hamletfolk.core.HistoryEvent;
+import io.github.skyeberhard.hamletfolk.core.Masterpieces;
 import io.github.skyeberhard.hamletfolk.core.Reputation;
 import io.github.skyeberhard.hamletfolk.core.ResourceMapper;
 import io.github.skyeberhard.hamletfolk.core.ResourceType;
@@ -66,6 +67,7 @@ final class StoreService implements Listener {
     private final SettlementService service;
     private final NamespacedKey markKey;
     private final NamespacedKey takenKey;
+    private final NamespacedKey heirloomKey;
     private final Map<String, Location> barrels = new HashMap<>();
     private final Map<String, Long> placedAt = new HashMap<>();
     private final Map<String, Long> scannedAt = new HashMap<>();
@@ -75,6 +77,7 @@ final class StoreService implements Listener {
         this.service = service;
         this.markKey = new NamespacedKey(plugin, "store");
         this.takenKey = new NamespacedKey(plugin, "taken");
+        this.heirloomKey = new NamespacedKey(plugin, "heirloom");
     }
 
     void start() {
@@ -283,7 +286,13 @@ final class StoreService implements Listener {
         }
         List<StoreDisplay.Shown> shown = StoreDisplay.contents(settlement.ledger(), category);
         ItemStack[] want = new ItemStack[barrel.getInventory().getSize()];
-        for (int i = 0; i < shown.size() && i < want.length; i++) {
+        // R4.61: the village's masterpieces stand in the last slots of its goods barrel, and cannot be taken
+        List<Masterpieces.Heirloom> heirlooms = category == ResourceType.GOODS ? Masterpieces.heirlooms(settlement) : List.of();
+        int reserved = Math.min(heirlooms.size(), Masterpieces.MAX_HEIRLOOMS);
+        for (int i = 0; i < reserved; i++) {
+            want[want.length - 1 - i] = heirloom(heirlooms.get(i));
+        }
+        for (int i = 0; i < shown.size() && i < want.length - reserved; i++) {
             Material material = Material.matchMaterial(shown.get(i).material());
             if (material != null) {
                 want[i] = new ItemStack(material, shown.get(i).count());
@@ -299,6 +308,24 @@ final class StoreService implements Listener {
         if (!same) {
             barrel.getInventory().setContents(want);
         }
+    }
+
+    /** R4.61: a masterpiece as an item: named for the piece, lore for the maker, marked so it cannot be taken. */
+    private ItemStack heirloom(Masterpieces.Heirloom heirloom) {
+        Material material = Material.matchMaterial(heirloom.material());
+        ItemStack item = new ItemStack(material == null ? Material.PAPER : material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(heirloom.title(), NamedTextColor.GOLD).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+        meta.lore(List.of(
+                Component.text("Made by " + heirloom.maker() + ", master " + heirloom.trade(), NamedTextColor.GRAY).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false),
+                Component.text("Kept by the village since day " + heirloom.day(), NamedTextColor.DARK_GRAY).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)));
+        meta.getPersistentDataContainer().set(heirloomKey, PersistentDataType.BYTE, (byte) 1);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private boolean isHeirloom(ItemStack item) {
+        return item != null && item.hasItemMeta() && item.getItemMeta().getPersistentDataContainer().has(heirloomKey, PersistentDataType.BYTE);
     }
 
     // ---------------------------------------------------------------- the barrels are the village's
@@ -359,6 +386,10 @@ final class StoreService implements Listener {
             return; // moving things about in their own pockets
         }
         event.setCancelled(true);
+        if (isHeirloom(event.getCurrentItem())) {
+            player.sendMessage(Component.text("A masterpiece the village keeps. It is not for taking.", NamedTextColor.GOLD));
+            return;
+        }
         Optional<Settlement> village = villageOf(mark);
         if (village.isEmpty()) {
             return;

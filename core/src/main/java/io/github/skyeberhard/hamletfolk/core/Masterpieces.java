@@ -3,6 +3,7 @@ package io.github.skyeberhard.hamletfolk.core;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 /**
  * R4.60: what a master is remembered for. The first time a resident becomes a master the history names a masterpiece, a piece of flavour chosen from
@@ -74,5 +75,83 @@ public final class Masterpieces {
                 : ", and trained " + String.join(" and ", pupils.subList(0, Math.min(2, pupils.size())));
         return "The " + master.occupation().title().toLowerCase(Locale.ROOT) + "'s trade in " + s.name() + " mourns " + master.fullName()
                 + ", a " + TradeLevel.title(master) + " remembered for " + of(master) + taught + ".";
+    }
+
+    // ----- R4.61: heirlooms, the masterpiece as an item the village keeps on show -----
+
+    static final String HEIRLOOM = "heirloom:";
+    /** The most heirlooms a village keeps on show; the oldest make way. */
+    public static final int MAX_HEIRLOOMS = 6;
+
+    /** One masterpiece kept by the village. */
+    public record Heirloom(String material, String title, String maker, String trade, long day) {
+    }
+
+    /** The item that stands for a trade's masterpiece (a Minecraft item name). */
+    static String materialFor(Occupation trade) {
+        return switch (trade) {
+            case FARMER -> "golden_carrot";
+            case FISHERMAN -> "tropical_fish";
+            case BUTCHER -> "cooked_porkchop";
+            case SHEPHERD -> "magenta_wool";
+            case LEATHERWORKER -> "saddle";
+            case FLETCHER -> "bow";
+            case MASON, MINER -> "diamond_pickaxe";
+            case LUMBERJACK -> "diamond_axe";
+            case ARMORER -> "iron_chestplate";
+            case WEAPONSMITH -> "iron_sword";
+            case TOOLSMITH -> "diamond_shovel";
+            case CARTOGRAPHER -> "filled_map";
+            case CLERIC -> "potion";
+            case LIBRARIAN -> "enchanted_book";
+            case BEEKEEPER -> "honey_bottle";
+            case HORSE_TRAINER -> "golden_horse_armor";
+            case GLASSBLOWER -> "glass_bottle";
+            case GUARD -> "shield";
+            case MERCHANT -> "emerald";
+            default -> "paper";
+        };
+    }
+
+    /** Keeps a new master's masterpiece: the key carries the trade, the maker's id and name, and the value is the day. */
+    static void keep(Settlement s, Resident r, long day) {
+        s.conditions().put(HEIRLOOM + r.occupation().name() + ":" + r.id() + ":" + r.fullName(), day);
+        List<String> keys = new ArrayList<>();
+        for (String key : s.conditions().keySet()) {
+            if (key.startsWith(HEIRLOOM)) {
+                keys.add(key);
+            }
+        }
+        keys.sort(java.util.Comparator.comparingLong((String k) -> s.conditions().get(k)).thenComparing(k -> k));
+        while (keys.size() > MAX_HEIRLOOMS) {
+            s.conditions().remove(keys.remove(0));
+        }
+    }
+
+    /** The masterpieces the village keeps, newest first. */
+    public static List<Heirloom> heirlooms(Settlement s) {
+        List<Heirloom> out = new ArrayList<>();
+        for (var entry : s.conditions().entrySet()) {
+            String key = entry.getKey();
+            if (!key.startsWith(HEIRLOOM)) {
+                continue;
+            }
+            String[] parts = key.substring(HEIRLOOM.length()).split(":", 3);
+            if (parts.length < 3) {
+                continue;
+            }
+            try {
+                Occupation trade = Occupation.valueOf(parts[0]);
+                UUID id = UUID.fromString(parts[1]);
+                List<String> list = pieces(trade);
+                String piece = list.get(Math.floorMod(id.hashCode(), list.size()));
+                out.add(new Heirloom(materialFor(trade), piece.substring(0, 1).toUpperCase(Locale.ROOT) + piece.substring(1), parts[2],
+                        trade.title().toLowerCase(Locale.ROOT), entry.getValue()));
+            } catch (IllegalArgumentException e) {
+                // a damaged key: ignore it
+            }
+        }
+        out.sort(java.util.Comparator.comparingLong(Heirloom::day).reversed().thenComparing(Heirloom::maker));
+        return out;
     }
 }

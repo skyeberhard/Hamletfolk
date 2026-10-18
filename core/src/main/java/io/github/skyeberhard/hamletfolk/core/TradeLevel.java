@@ -88,6 +88,7 @@ public final class TradeLevel {
         resident.addXp(1);
         if (before < MASTER && of(resident.xp()) == MASTER) {
             settlement.record(day, HistoryEvent.Kind.MILESTONE, Masterpieces.promotion(resident)); // R4.60
+            Masterpieces.keep(settlement, resident, day); // R4.61
         }
     }
 

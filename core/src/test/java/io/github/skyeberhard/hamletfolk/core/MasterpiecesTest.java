@@ -73,4 +73,27 @@ class MasterpiecesTest {
         assertEquals(42, less); // 84% of 50
         assertEquals(50, TradeLevel.paid(masters, ResourceType.STONE, 50), "no mason or miner here");
     }
+
+    @Test
+    void aNewMastersMasterpieceIsKeptAsAnHeirloomAndOnlySixAreShown() {
+        Settlement s = village();
+        Resident r = person(Occupation.FARMER, 99, null);
+        s.addResident(r);
+        TradeLevel.worked(s, r, 7);
+        var kept = Masterpieces.heirlooms(s);
+        assertEquals(1, kept.size());
+        assertEquals("golden_carrot", kept.get(0).material());
+        assertEquals(r.fullName(), kept.get(0).maker());
+        assertEquals(7, kept.get(0).day());
+        assertTrue(kept.get(0).title().equalsIgnoreCase(Masterpieces.of(r)));
+        for (int i = 0; i < 10; i++) {
+            Resident other = person(Occupation.MINER, 99, null);
+            s.addResident(other);
+            TradeLevel.worked(s, other, 10 + i);
+        }
+        var all = Masterpieces.heirlooms(s);
+        assertEquals(Masterpieces.MAX_HEIRLOOMS, all.size());
+        assertEquals(19, all.get(0).day(), "newest first");
+        assertTrue(all.stream().noneMatch(h -> h.maker().equals(r.fullName())), "the oldest made way");
+    }
 }
