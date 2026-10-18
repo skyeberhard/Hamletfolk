@@ -3,8 +3,8 @@
 A village that has grown as far as its plan goes sends a party of its own people to found another, and the two stay kin. This page is the
 design: what already exists, what is new, the order it is built in, and the numbers. Roadmap items are R10.1 onward in [ROADMAP.md](../ROADMAP.md).
 
-**State today:** the rule is built and tested (R10.1) and `/settlement admin colonize [name]` reports on it (R10.2). Nothing founds a village yet and
-nothing happens by itself.
+**State today:** the rule is built and tested (R10.1), `/settlement admin colonize [name]` reports on it (R10.2) and `... site` names the best place
+for a daughter (R10.3). Nothing founds a village yet and nothing happens by itself.
 
 ## What the game already gives us
 
@@ -49,9 +49,9 @@ them again).
 **The tie** is two conditions, `colonyDaughter:<id>` on the parent and `colonyParent:<id>` on the daughter (the value is the day), so there is no
 save-format change. Both histories say what happened.
 
-### Choosing the site (R10.3, planned)
+### Choosing the site (R10.3, built)
 
-The Minecraft layer proposes candidates in a ring 300 to 600 blocks from the parent and the rule ranks them:
+The Minecraft layer proposes 48 candidates in a ring from the spacing out to 600 blocks from the parent (`ColonySiteFinder`) and `ColonySites` ranks them:
 
 - only chunks already generated (nothing is generated for a search; on GoodeCraft the worlds are pre-generated), loaded one at a time and let go;
 - not within the spacing of any village, not in an exempt zone or a WorldGuard region (R1.52), not over anything a player built, not water or lava;

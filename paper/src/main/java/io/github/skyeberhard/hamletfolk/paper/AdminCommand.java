@@ -18,7 +18,7 @@ import org.bukkit.entity.Player;
 final class AdminCommand {
     static final String PERMISSION = "hamletfolk.admin";
     private static final List<String> SUBCOMMANDS = List.of("list", "inspect", "rename", "save", "ignore", "capture", "build", "cancelproject", "found", "resettle", "noticeboard", "stores", "homes", "trade", "worlds", "worldspeed", "colonize", "regrade", "replan", "warp", "job", "unstick", "fastforward", "dialogue");
-    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | noticeboard [name] | stores [name] | homes [name] | trade [name] | worlds | worldspeed <world> <speed|off> | colonize [name] | regrade [name] | regrade streets [name] | replan [name] | warp [name|all|world <world>] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all|world <world>] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
+    private static final String USAGE = "Usage: /settlement admin list | inspect [name|id] | rename <name|id> <new name> | save | ignore (look at a villager) | capture ... | build ... | cancelproject [name] | found [name] [residents] | resettle [name] [travellers] | noticeboard [name] | stores [name] | homes [name] | trade [name] | worlds | worldspeed <world> <speed|off> | colonize [name] [site] | regrade [name] | regrade streets [name] | replan [name] | warp [name|all|world <world>] <days> | job <occupation>|unpin (look at a villager) | unstick [name] | fastforward [name|all|world <world>] [speed|stop] | dialogue (reload the lines in plugins/Hamletfolk/dialogue/)";
 
     private final SettlementService service;
     private final TemplateCommand templates;
@@ -111,8 +111,13 @@ final class AdminCommand {
                 village.ifPresent(v -> sender.sendMessage(service.plugin().noticeBoards().placeNow(v)));
             }
             case "colonize" -> {
-                Optional<Settlement> village = args.length >= 3 ? lookup(sender, words(args, 2, args.length)) : here(sender);
-                village.ifPresent(v -> colonize(sender, v));
+                String whole = args.length >= 3 ? words(args, 2, args.length) : "";
+                // R10.3: a trailing "site" asks for a place, unless the whole thing is the name of a village
+                boolean site = args.length >= 3 && args[args.length - 1].equalsIgnoreCase("site")
+                        && service.registry().settlements().stream().noneMatch(v -> v.name().equalsIgnoreCase(whole));
+                int end = site ? args.length - 1 : args.length;
+                Optional<Settlement> village = end >= 3 ? lookup(sender, words(args, 2, end)) : here(sender);
+                village.ifPresent(v -> colonize(sender, v, site));
             }
             case "job" -> job(sender, args);
             case "unstick" -> unstick(sender, args);
@@ -319,7 +324,7 @@ final class AdminCommand {
      * R10.2: /settlement admin colonize [name]: says whether the village could send a party to found a daughter village today, and if so who would go
      * and what it would cost. It changes nothing (founding the new village is R10.4).
      */
-    private void colonize(CommandSender sender, Settlement village) {
+    private void colonize(CommandSender sender, Settlement village, boolean site) {
         Colonies.Rules rules = ColonyConfig.rules(service.plugin().getConfig());
         org.bukkit.World world = org.bukkit.Bukkit.getWorld(village.world());
         long day = world == null ? village.lastSimulatedDay() : village.effectiveDay(SettlementService.day(world));
@@ -338,6 +343,26 @@ final class AdminCommand {
         for (java.util.UUID id : Colonies.daughters(village)) {
             service.registry().get(id).ifPresent(d -> sender.sendMessage("It founded " + d.name() + "."));
         }
+        if (site) {
+            sender.sendMessage("Looking at the land round " + village.name() + " (only land that already exists is read; nothing is generated)...");
+            new ColonySiteFinder(service.plugin(), service).find(village, rules, outcome -> {
+                if (outcome.error() != null) {
+                    sender.sendMessage(outcome.error());
+                    return;
+                }
+                io.github.skyeberhard.hamletfolk.core.ColonySites.Result result = outcome.result();
+                sender.sendMessage(result.considered() + " places looked at round " + village.name() + ".");
+                if (result.best().isEmpty()) {
+                    sender.sendMessage("No place will do.");
+                } else {
+                    sender.sendMessage("Best: " + io.github.skyeberhard.hamletfolk.core.ColonySites.describe(result.best().get(), village));
+                    result.others().forEach(c -> sender.sendMessage("Next: " + io.github.skyeberhard.hamletfolk.core.ColonySites.describe(c, village)));
+                }
+                result.ruledOut().forEach((why, count) -> sender.sendMessage(" - " + count + " ruled out: " + why));
+            });
+            return;
+        }
+        sender.sendMessage("Add 'site' to look for a place: /settlement admin colonize " + village.name() + " site");
         sender.sendMessage(plugin(service).getConfig().getBoolean("colonies.enabled", false)
                 ? "Colonies are on in the config, but founding the new village is not built yet."
                 : "colonies.enabled is off, and founding the new village is not built yet: this is a report only.");
