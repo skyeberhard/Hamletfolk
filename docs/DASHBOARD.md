@@ -35,6 +35,10 @@ Above a village's plan map: **Slope** (the ground read every 4 blocks where the 
 
 A fourth layer, **Defence and lights**, shows the street lights (gold where one stands), the wall (planned dimly, then in its colour; red where a post is missing), the guards' patrol, and a line with the counts, the threat and recent attacks. It is read from the world only where it is loaded, and only while the layer is open. Point at a building for its tier and (for a house) its beds now and next; click it for a Selected building panel, where with `dashboard.allow-actions` an **Upgrade** button has the builders improve it to the next tier (queued like any project, paid from the stores; refused with the reason for a player's or a found building, the best tier, busy builders, or empty stores). The Buildings tab has the same in its Tier, Beds and last columns.
 
+## Tiers of vanilla buildings (R8.29)
+
+A vanilla building the village did not raise has no tier of its own and is never upgraded (the builders only improve what they built, and nothing a player or the game made). The dashboard shows a guess, marked "≈": a house by the beds the game counts there, any other building by the area of its outline against the area of each design in the ladder. With nothing known yet it shows tier 1 without the mark.
+
 ## Outlines of the vanilla buildings (R8.31)
 
 A vanilla building the plugin found (by its bed, job site or farmland) is one point to the plugin, so it used to be a dot. Where its ground is loaded, the map now draws it as a dashed outline in its kind's colour: the connected columns round the marker whose top block is something built and stands at least two blocks above the floor (roofs and walls, not streets or fences), within 11 blocks; a found farm is outlined from its connected farmland instead (a one-block ditch is bridged). It is read once and kept in `footprints-cache.json`. A building whose ground has never been loaded keeps its dot until someone goes near.

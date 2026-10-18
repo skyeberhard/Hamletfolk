@@ -25,9 +25,15 @@ public final class BuildingTiers {
      * @param why       when it cannot be upgraded, why, in words
      * @param cost      what the next tier costs the stores (empty if there is no next tier or its design is not known here)
      * @param lacking   how much of each the stores are short of now (empty if they can pay)
+     * @param estimated true if the tier is a guess from the building size or beds (a vanilla building the village did not raise has no tier of its own)
      */
     public record Info(int tier, int maxTier, int beds, int nextBeds, boolean upgradable, String why, Map<ResourceType, Integer> cost,
-            Map<ResourceType, Integer> lacking) {
+            Map<ResourceType, Integer> lacking, boolean estimated) {
+    }
+
+    /** What is known of the buildings the village did not raise, to guess their tier from: footprints ({@code x, z, width, depth}) and live beds, by building key. */
+    public record Evidence(Map<String, int[]> footprints, Map<String, Integer> liveBeds) {
+        public static final Evidence NONE = new Evidence(Map.of(), Map.of());
     }
 
     /** What an order did. */
@@ -36,18 +42,24 @@ public final class BuildingTiers {
 
     /** The tier, beds and upgrade state of every registered building, keyed by the building's key (its sign's position). */
     public static Map<String, Info> of(Settlement s, TemplateCatalog catalog, Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints) {
+        return of(s, catalog, blueprints, Evidence.NONE);
+    }
+
+    /** As above, guessing the tier of a vanilla building the village did not raise from what is known of its size and beds. */
+    public static Map<String, Info> of(Settlement s, TemplateCatalog catalog, Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints, Evidence evidence) {
         Map<String, Info> out = new LinkedHashMap<>();
         String biome = s.plan() == null ? "plains" : s.plan().biomeSet();
         for (Building b : s.buildings()) {
-            out.put(b.key(), info(s, b, biome, catalog, blueprints));
+            out.put(b.key(), info(s, b, biome, catalog, blueprints, evidence));
         }
         return out;
     }
 
     /** As {@link #of} but as plain data for the dashboard: {@code tier}, {@code maxTier}, {@code beds}, {@code nextBeds}, {@code upgradable}, {@code why}. */
-    public static Map<String, Map<String, Object>> asData(Settlement s, TemplateCatalog catalog, Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints) {
+    public static Map<String, Map<String, Object>> asData(Settlement s, TemplateCatalog catalog, Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints,
+            Evidence evidence) {
         Map<String, Map<String, Object>> out = new LinkedHashMap<>();
-        of(s, catalog, blueprints).forEach((key, i) -> {
+        of(s, catalog, blueprints, evidence).forEach((key, i) -> {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("tier", i.tier());
             row.put("maxTier", i.maxTier());
@@ -55,6 +67,7 @@ public final class BuildingTiers {
             row.put("nextBeds", i.nextBeds());
             row.put("upgradable", i.upgradable());
             row.put("why", i.why());
+            row.put("estimated", i.estimated());
             Map<String, Integer> cost = new LinkedHashMap<>();
             i.cost().forEach((t, n) -> cost.put(t.name().toLowerCase(java.util.Locale.ROOT), n));
             Map<String, Integer> lacking = new LinkedHashMap<>();
@@ -67,8 +80,20 @@ public final class BuildingTiers {
     }
 
     static Info info(Settlement s, Building b, String biome, TemplateCatalog catalog, Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints) {
+        return info(s, b, biome, catalog, blueprints, Evidence.NONE);
+    }
+
+    static Info info(Settlement s, Building b, String biome, TemplateCatalog catalog, Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints, Evidence evidence) {
         int tier = s.tierOf(b);
         var ladder = catalog.ladder(b.type(), biome);
+        boolean estimated = false;
+        if (built(s, b) == null) { // not raised by the village builders: a vanilla or player building has no tier of its own, so guess one
+            Integer guess = estimate(ladder, b, evidence, blueprints);
+            if (guess != null) {
+                tier = guess;
+                estimated = true;
+            }
+        }
         int max = ladder.stream().mapToInt(TemplateCatalog.Template::tier).max().orElse(tier);
         int beds = 0;
         int next = 0;
@@ -79,8 +104,9 @@ public final class BuildingTiers {
         String why = refusal(s, b, tier, max);
         Map<ResourceType, Integer> cost = new java.util.EnumMap<>(ResourceType.class);
         Map<ResourceType, Integer> lacking = new java.util.EnumMap<>(ResourceType.class);
+        final int nextTier = tier + 1;
         if (tier < max) { // what the next tier would cost, and what the stores lack of it
-            ladder.stream().filter(t -> t.tier() == tier + 1).findFirst().flatMap(blueprints).ifPresent(bp -> {
+            ladder.stream().filter(t -> t.tier() == nextTier).findFirst().flatMap(blueprints).ifPresent(bp -> {
                 Construction.priceFor(s, b.type(), true, bp).forEach((type, amount) -> {
                     if (amount > 0) {
                         cost.put(type, amount);
@@ -92,7 +118,38 @@ public final class BuildingTiers {
                 });
             });
         }
-        return new Info(tier, Math.max(tier, max), beds, next, why == null, why == null ? "" : why, cost, lacking);
+        return new Info(tier, Math.max(tier, max), beds, next, why == null, why == null ? "" : why, cost, lacking, estimated);
+    }
+
+    /**
+     * Which rung of the ladder a building not raised by the village is nearest to: a house by its beds (the game count, if read), anything else
+     * by the area of its outline against the area of each design. Null if nothing is known to go on.
+     */
+    private static Integer estimate(java.util.List<TemplateCatalog.Template> ladder, Building b, Evidence evidence,
+            Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints) {
+        int best = -1;
+        long bestGap = Long.MAX_VALUE;
+        Integer live = evidence.liveBeds().get(b.key());
+        int[] rect = evidence.footprints().get(b.key());
+        for (TemplateCatalog.Template t : ladder) {
+            Optional<Blueprint> bp = blueprints.apply(t);
+            if (bp.isEmpty()) {
+                continue;
+            }
+            long gap;
+            if (b.type() == BuildingType.HOUSE && live != null && live > 0) {
+                gap = Math.abs(bp.get().beds() - live);
+            } else if (rect != null && rect.length == 4) {
+                gap = Math.abs((long) bp.get().width() * bp.get().depth() - (long) rect[2] * rect[3]);
+            } else {
+                return null;
+            }
+            if (gap < bestGap) {
+                bestGap = gap;
+                best = t.tier();
+            }
+        }
+        return best < 0 ? null : best;
     }
 
     private static int bedsAt(java.util.List<TemplateCatalog.Template> ladder, int tier, Function<TemplateCatalog.Template, Optional<Blueprint>> blueprints) {

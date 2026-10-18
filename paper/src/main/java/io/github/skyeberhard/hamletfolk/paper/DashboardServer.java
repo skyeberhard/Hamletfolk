@@ -505,24 +505,34 @@ final class DashboardServer {
                 }
                 page.put("ground", io.github.skyeberhard.hamletfolk.core.Terrain.asData(ground.get(s.id())));
             }
-            if (plugin.templates() != null) { // R8.29: each building's tier, beds and whether it can be upgraded
-                page.put("buildingInfo", io.github.skyeberhard.hamletfolk.core.BuildingTiers.asData(s, plugin.templates().catalog(), plugin.templates()::blueprint));
+            // the beds the game knows of and the outlines of the vanilla buildings come first: a vanilla building has no tier of its own, so its tier is guessed from them
+            java.util.List<io.github.skyeberhard.hamletfolk.core.BedCounts.Bed> beds = world == null ? java.util.List.of() : bedsOf(s, world);
+            if (world != null) {
+                page.put("bedsLive", io.github.skyeberhard.hamletfolk.core.BedCounts.asData(beds)); // R8.30
+                footprintsFor(s, world, page); // R8.31
             }
-            if (world != null) { // R8.30: the beds the game knows of, and which are claimed
-                var beds = bedsOf(s, world);
-                page.put("bedsLive", io.github.skyeberhard.hamletfolk.core.BedCounts.asData(beds));
-                if (page.get("buildingInfo") instanceof Map<?, ?> info) {
-                    io.github.skyeberhard.hamletfolk.core.BedCounts.perHouse(s, beds).forEach((key, counts) -> {
-                        if (info.get(key) instanceof Map<?, ?> row) {
-                            @SuppressWarnings("unchecked") Map<String, Object> mutable = (Map<String, Object>) row;
-                            mutable.put("liveBeds", counts[0]);
-                            mutable.put("claimedBeds", counts[1]);
-                        }
-                    });
+            Map<String, int[]> outlines = new HashMap<>();
+            if (page.get("buildings") instanceof List<?> rows) {
+                for (Object o : rows) {
+                    if (o instanceof Map<?, ?> row && row.get("footprint") instanceof int[] rect) {
+                        outlines.put(row.get("x") + "," + row.get("y") + "," + row.get("z"), rect);
+                    }
                 }
             }
-            if (world != null) {
-                footprintsFor(s, world, page); // R8.31
+            Map<String, int[]> perHouse = io.github.skyeberhard.hamletfolk.core.BedCounts.perHouse(s, beds);
+            Map<String, Integer> liveBeds = new HashMap<>();
+            perHouse.forEach((key, counts) -> liveBeds.put(key, counts[0]));
+            if (plugin.templates() != null) { // R8.29: each building's tier (guessed for a vanilla one), beds and whether it can be upgraded
+                var info = io.github.skyeberhard.hamletfolk.core.BuildingTiers.asData(s, plugin.templates().catalog(), plugin.templates()::blueprint,
+                        new io.github.skyeberhard.hamletfolk.core.BuildingTiers.Evidence(outlines, liveBeds));
+                perHouse.forEach((key, counts) -> {
+                    Map<String, Object> row = info.get(key);
+                    if (row != null) {
+                        row.put("liveBeds", counts[0]);
+                        row.put("claimedBeds", counts[1]);
+                    }
+                });
+                page.put("buildingInfo", info);
             }
             var signs = plugin.homeSigns();
             if (signs != null) {

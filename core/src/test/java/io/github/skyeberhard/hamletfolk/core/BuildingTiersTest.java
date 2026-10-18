@@ -126,4 +126,29 @@ class BuildingTiersTest {
         assertFalse(poor.lacking().isEmpty());
         poor.lacking().forEach((type, short_) -> assertEquals(poor.cost().get(type), short_, "nothing is held, so all of it is short"));
     }
+
+    @Test
+    void aFoundBuildingGetsAnEstimatedTierFromItsBedsAndNeverAnUpgrade() {
+        Settlement s = withFarm();
+        s.registerBuilding(new Building(BuildingType.HOUSE, 400, 64, 400, 1, "found"));
+        var ladder = catalog.ladder(BuildingType.HOUSE, "plains");
+        int bedsAtTwo = ladder.stream().filter(t -> blueprints(t).map(Blueprint::beds).orElse(0) == 2).mapToInt(TemplateCatalog.Template::tier).findFirst().orElse(-1);
+        BuildingTiers.Evidence evidence = new BuildingTiers.Evidence(Map.of(), Map.of("400,64,400", 2));
+        BuildingTiers.Info house = BuildingTiers.of(s, catalog, this::blueprints, evidence).get("400,64,400");
+        assertTrue(house.estimated());
+        if (bedsAtTwo > 0) {
+            assertEquals(bedsAtTwo, house.tier());
+        }
+        assertFalse(house.upgradable(), "a vanilla building is never upgraded");
+        BuildingTiers.Info unknown = BuildingTiers.of(s, catalog, this::blueprints).get("400,64,400");
+        assertFalse(unknown.estimated(), "with nothing to go on there is no guess");
+        assertEquals(1, unknown.tier());
+    }
+
+    @Test
+    void aBuildingTheVillageRaisedIsNeverEstimated() {
+        Settlement s = withFarm();
+        BuildingTiers.Evidence evidence = new BuildingTiers.Evidence(Map.of(farmKey(s), new int[] {0, 0, 30, 30}), Map.of());
+        assertFalse(BuildingTiers.of(s, catalog, this::blueprints, evidence).get(farmKey(s)).estimated());
+    }
 }
