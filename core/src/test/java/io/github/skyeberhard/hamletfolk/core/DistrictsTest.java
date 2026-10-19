@@ -35,19 +35,22 @@ class DistrictsTest {
         assertEquals(3, PlanGenerator.stageFor(50));
         assertEquals(3, PlanGenerator.stageFor(99));
         assertEquals(4, PlanGenerator.stageFor(100));
-        assertEquals(4, PlanGenerator.stageFor(5000));
+        assertEquals(4, PlanGenerator.stageFor(149));
+        assertEquals(5, PlanGenerator.stageFor(150));
+        assertEquals(6, PlanGenerator.stageFor(200));
+        assertEquals(6, PlanGenerator.stageFor(5000));
         assertEquals(112, PlanGenerator.readRadius(2), "what stage two always needed");
         assertTrue(PlanGenerator.readRadius(1) >= 96, "the axis choice samples 96 blocks each way");
         assertTrue(PlanGenerator.readRadius(3) > PlanGenerator.readRadius(2) && PlanGenerator.readRadius(4) > PlanGenerator.readRadius(3));
     }
 
     @Test
-    void thePlanGrowsToFourStagesAndNoFurther() {
-        VillagePlan plan = grown(7, 4);
-        assertEquals(4, plan.stage());
-        assertFalse(PlanGenerator.extend(plan, HeightSource.flat(64)), "four is the last");
-        assertEquals(4, plan.stage());
-        for (int stage = 1; stage <= 4; stage++) {
+    void thePlanGrowsToSixStagesAndNoFurther() {
+        VillagePlan plan = grown(7, 6);
+        assertEquals(PlanGenerator.MAX_STAGE, plan.stage());
+        assertFalse(PlanGenerator.extend(plan, HeightSource.flat(64)), "six is the last");
+        assertEquals(6, plan.stage());
+        for (int stage = 1; stage <= 6; stage++) {
             final int s = stage;
             assertTrue(plan.roads().stream().anyMatch(r -> r.stage() == s), "stage " + s + " added streets");
             assertTrue(plan.lots().stream().anyMatch(l -> l.stage() == s), "stage " + s + " added lots");
@@ -135,7 +138,7 @@ class DistrictsTest {
             while (PlanGenerator.extend(plan, ground)) {
                 // grow all the way
             }
-            assertEquals(4, plan.stage());
+            assertEquals(PlanGenerator.MAX_STAGE, plan.stage());
             for (VillagePlan.Lot lot : plan.lots()) {
                 if (lot.status() == VillagePlan.LotStatus.ROUGH) {
                     assertTrue(PlanGenerator.gradable(ground, lot.rect()), "seed " + seed + " rough lot " + lot.id()); // (R8.19: shallow water may be filled)
@@ -355,5 +358,101 @@ class DistrictsTest {
         assertNotEquals(lines.get(0), lines.get(1));
         Set<String> distinct = new HashSet<>(lines);
         assertEquals(3, distinct.size());
+    }
+
+    @Test
+    void stagesFiveAndSixGrowTheVillageAcrossTheMainStreetWithoutCrossingAnything() {
+        for (long seed = 1; seed <= 6; seed++) {
+            VillagePlan plan = grown(seed, 6);
+            boolean alongX = plan.spineAlongX();
+            List<VillagePlan.Road> cross = plan.roads().stream().filter(r -> r.kind() == VillagePlan.RoadKind.CROSS).toList();
+            List<VillagePlan.Road> crossBranches = plan.roads().stream().filter(r -> r.kind() == VillagePlan.RoadKind.CROSS_BRANCH).toList();
+            assertFalse(cross.isEmpty(), "seed " + seed + ": a cross street through the square");
+            assertFalse(crossBranches.isEmpty(), "seed " + seed + ": and streets across it");
+            assertTrue(cross.stream().allMatch(r -> r.stage() >= PlanGenerator.FIRST_CROSS_STAGE));
+            assertTrue(cross.stream().allMatch(r -> plan.runsAlongX(r) != alongX), "the cross street runs the other way");
+            assertTrue(crossBranches.stream().allMatch(r -> plan.runsAlongX(r) == alongX), "and its branches run with the main one");
+            assertTrue(plan.lots().stream().anyMatch(l -> l.stage() >= 5 && l.type() == BuildingType.FARM), "farmland is laid out on the new streets");
+            for (VillagePlan.Lot a : plan.lots()) {
+                for (VillagePlan.Lot b : plan.lots()) {
+                    assertTrue(a == b || !a.rect().overlaps(b.rect()), "seed " + seed + ": lots " + a.id() + " and " + b.id() + " overlap");
+                }
+                for (VillagePlan.Road road : plan.roads()) {
+                    assertFalse(a.rect().overlaps(road.rect()), "seed " + seed + ": lot " + a.id() + " is on road " + road.id());
+                }
+            }
+        }
+    }
+
+    @Test
+    void groundThatStopsTheMainStreetStillLetsTheVillageGrowAcross() {
+        // water across the main street at 40 blocks out, both ways: nothing grows along it past that, but the cross street is clear
+        HeightSource ground = HeightSource.of((x, z) -> 64, (x, z) -> Math.abs(x) >= 40 && Math.abs(x) <= 44);
+        VillagePlan plan = PlanGenerator.generate(0, 0, 7, "plains", ground);
+        while (PlanGenerator.extend(plan, ground)) {
+            // grow all the way
+        }
+        long beyondOnMain = plan.lots().stream().filter(l -> l.stage() <= 4 && Math.abs(l.rect().x()) > 46).count();
+        long onCross = plan.lots().stream().filter(l -> l.stage() >= 5).count();
+        assertTrue(onCross > 0, "the cross street grew lots: " + onCross + " (the main street's beyond the water: " + beyondOnMain + ")");
+    }
+
+    @Test
+    void aPlanWithTheCrossStreetsSurvivesTheSave() {
+        Settlement s = new Settlement(new java.util.UUID(70, 70), "Crossford", "world", 0, 0, 0);
+        s.setPlan(grown(3, 6));
+        Settlement loaded = SettlementCodec.decode(SettlementCodec.encode(s));
+        assertEquals(6, loaded.plan().stage());
+        assertEquals(s.plan().roads().size(), loaded.plan().roads().size());
+        assertTrue(loaded.plan().roads().stream().anyMatch(r -> r.kind() == VillagePlan.RoadKind.CROSS));
+        assertTrue(loaded.plan().roads().stream().anyMatch(r -> r.kind() == VillagePlan.RoadKind.CROSS_BRANCH));
+        assertEquals(31, SettlementCodec.FORMAT_VERSION);
+    }
+
+    @Test
+    void theWallsLightsAndPatrolsFollowTheCrossStreetsToo() {
+        for (long seed = 1; seed <= 6; seed++) {
+            VillagePlan plan = grown(seed, 6);
+            Rect four = Works.extent(plan, 4).orElseThrow();
+            Rect six = Works.extent(plan, 6).orElseThrow();
+            assertTrue(six.width() * six.depth() >= four.width() * four.depth(), "seed " + seed + ": the village is no smaller");
+            assertFalse(Works.palisade(plan, 6).isEmpty(), "a ring round the grown village");
+            assertFalse(Works.lights(plan, 6).isEmpty());
+            assertTrue(Works.lights(plan, 6).size() > Works.lights(plan, 4).size(), "the cross streets are lit too");
+            assertFalse(Rampart.pieces(plan, 6, 2).isEmpty(), "and a rampart can be drawn round it");
+            Works.palisade(plan, 6); // (no exception from the gates of the cross streets)
+        }
+    }
+
+    @Test
+    void replacementLotsAtAnEarlyStageStayClearOfTheMainStreetsLaterReach() {
+        for (long seed = 1; seed <= 12; seed++) {
+            VillagePlan plan = PlanGenerator.generate(0, 0, seed, "plains", HeightSource.flat(64));
+            PlanGenerator.extend(plan, HeightSource.flat(64)); // stage 2
+            for (int i = 0; i < 12; i++) {
+                PlanGenerator.addReplacementLot(plan, BuildingType.FARM, HeightSource.flat(64), List.of(), false);
+            }
+            while (PlanGenerator.extend(plan, HeightSource.flat(64))) {
+                // grow all the way
+            }
+            for (VillagePlan.Lot lot : plan.lots()) {
+                for (VillagePlan.Road road : plan.roads()) {
+                    assertFalse(lot.rect().overlaps(road.rect()), "seed " + seed + ": lot " + lot.id() + " is under road " + road.id() + " of stage " + road.stage());
+                }
+            }
+        }
+    }
+
+    @Test
+    void aSaveFromBeforeTheCrossStreetsStillLoads() {
+        Settlement s = new Settlement(new java.util.UUID(71, 71), "Oldford", "world", 0, 0, 0);
+        s.setPlan(grown(4, 4));
+        java.util.Map<String, Object> old = new java.util.LinkedHashMap<>(SettlementCodec.encode(s));
+        old.put("format", 30);
+        Settlement loaded = SettlementCodec.decode(old);
+        assertEquals(4, loaded.plan().stage());
+        assertEquals(s.plan().lots().size(), loaded.plan().lots().size());
+        assertTrue(PlanGenerator.extend(loaded.plan(), HeightSource.flat(64)), "and it can grow across");
+        assertEquals(5, loaded.plan().stage());
     }
 }

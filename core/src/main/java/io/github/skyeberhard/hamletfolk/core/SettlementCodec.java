@@ -16,7 +16,7 @@ public final class SettlementCodec {
     // 1: initial format. 2: added "turned" (R1.2, zombie villagers awaiting a cure).
     // 3: history events may carry "count" and "actor" (R1.21, merged donations).
     // 4: added "flow" (R3.7, 7-day produced/consumed totals).
-    public static final int FORMAT_VERSION = 30;
+    public static final int FORMAT_VERSION = 31;
 
     private SettlementCodec() {
     }
@@ -483,6 +483,8 @@ public final class SettlementCodec {
                 migrated.put("conditions", conditions);
             }
         }
+        // v30 -> v31: roads may be CROSS or CROSS_BRANCH (R8.33, the plan's stages 5 and 6 across the main street); an older build would fail on the
+        // unknown names, so it must refuse the save. Nothing in an old save changes.
         // v29 -> v30: spouses (R6.1) and the THEFT and MARRIAGE history kinds are new and optional; nothing in an old save changes.
         migrated.put("format", FORMAT_VERSION);
         return migrated;

@@ -386,7 +386,7 @@ class ConstructionTest {
         old.remove("projects");
         old.put("format", 18);
         assertTrue(SettlementCodec.decode(old).projects().isEmpty());
-        assertEquals(30, SettlementCodec.FORMAT_VERSION);
+        assertEquals(31, SettlementCodec.FORMAT_VERSION);
     }
 
     @Test

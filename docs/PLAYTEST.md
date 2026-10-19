@@ -9,7 +9,7 @@ Rough time: 90 to 120 minutes in all. Each part stands alone, so you can stop af
 ## 0. Before you start (10 minutes)
 
 - [ ] **Back up the world and the villages.** Stop the server, copy `plugins/Hamletfolk/settlements.json` and the world folders, or use a copy of the server
-      (`./gradlew runServer` uses `paper/run`). Save format is now 30: the first start migrates the saves, and an older plugin cannot read them again.
+      (`./gradlew runServer` uses `paper/run`). Save format is now 31: the first start migrates the saves, and an older plugin cannot read them again.
 - [ ] Build and start: `./gradlew build`, then `./gradlew runServer`. In the console the plugin should report no errors.
 - [ ] In `plugins/Hamletfolk/config.yml`: `dashboard.enabled: true`, `dashboard.allow-actions: true`, `brain.enabled: true` (for part 3), and keep the new switches at their
       defaults (`noticeboard.enabled`, `lights.lamps`, `stores.visible`, `homes.signs`, `trade.enabled` are all on).

@@ -16,7 +16,9 @@ import java.util.Optional;
  */
 public final class VillagePlan {
     public enum RoadKind {
-        SPINE, BRANCH
+        SPINE, BRANCH,
+        /** R8.33: the second street, across the main one through the square (stages 5 and 6), and the streets across it (parallel to the main one). */
+        CROSS, CROSS_BRANCH
     }
 
     public enum LotStatus {
@@ -114,9 +116,12 @@ public final class VillagePlan {
         this.square = square;
     }
 
-    /** True if a road runs east-west: the main street along the spine's axis, a branch across it (whatever its length). */
+    /** True if a road runs east-west: the main street along the spine's axis, a branch across it (whatever its length); the cross street the other way. */
     public boolean runsAlongX(Road road) {
-        return road.kind() == RoadKind.SPINE ? spineAlongX : !spineAlongX;
+        return switch (road.kind()) {
+            case SPINE, CROSS_BRANCH -> spineAlongX;
+            case BRANCH, CROSS -> !spineAlongX;
+        };
     }
 
     public List<Road> roads() {

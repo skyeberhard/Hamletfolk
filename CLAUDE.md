@@ -110,7 +110,7 @@ The first `runServer` stops to make you accept the EULA in `paper/run/eula.txt`.
   map room, glassworks) is asked for by the trade rule once its trade opens, not by the signature rule; the trading post is not a trade building.
 - **Street grading (R4.33):** `StreetGrade.computeStreets` takes `Street(rect, alongX)`; a piece of street clipped to a window can be wider than long,
   so use `VillagePlan.runsAlongX(road)` for its direction, never the piece's shape. `compute(List<Rect>)` guesses from the shape and is for whole streets only.
-- **Plan stages and districts (R8.14):** `VillagePlan.stage()` runs 1 to `PlanGenerator.MAX_STAGE` (4); `PlanGenerator.stageFor(population)` says which
+- **Plan stages and districts (R8.14):** `VillagePlan.stage()` runs 1 to `PlanGenerator.MAX_STAGE` (6: stages 5 and 6, R8.33, lay a CROSS street through the square at right angles to the main one with CROSS_BRANCH streets parallel to the main one, so always use `VillagePlan.runsAlongX(road)`; the stages call for 25, 50, 100, 150 and 200 people); `PlanGenerator.stageFor(population)` says which
   stage a village is big enough for (25, 50, 100) and `extend` adds one stage at a time (the main street is one `SPINE` road piece per stage:
   never assume there is one, and `VillagePlan.fromMap` accepts any number of them). `Districts` (core) derives the districts from the plan,
   never stored: stage 1 is the old town, stage 2 the new quarter, later ones are named for the commonest non-house lot type of their stage.

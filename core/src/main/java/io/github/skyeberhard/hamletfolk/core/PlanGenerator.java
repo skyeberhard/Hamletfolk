@@ -26,14 +26,21 @@ public final class PlanGenerator {
     static final int BRANCH_LEN_1 = 28;
     static final int BRANCH_AT_2 = 52;
     static final int BRANCH_LEN_2 = 36;
-    /** R8.14: the plan grows to four stages. */
-    public static final int MAX_STAGE = 4;
+    /**
+     * R8.14: the plan grows to four stages along its main street. R8.33: and to two more across it: a second street through the square at right angles
+     * (stages 5 and 6, laid out like stages 1 and 2 on the other axis), so a village whose main street meets water, rock or the edge of what is measured
+     * can grow the other way.
+     */
+    public static final int MAX_STAGE = 6;
     /** Residents at which the plan reaches each stage (index is the stage). */
-    private static final int[] STAGE_POPULATION = {0, 0, 25, 50, 100};
-    /** How far the spine runs, where a stage's branches cross it and how long they are (index is the stage). */
-    private static final int[] SPINE = {0, SPINE_1, SPINE_2, 100, 128};
-    private static final int[] BRANCH_AT = {0, BRANCH_AT_1, BRANCH_AT_2, 76, 104};
-    private static final int[] BRANCH_LEN = {0, BRANCH_LEN_1, BRANCH_LEN_2, 40, 44};
+    private static final int[] STAGE_POPULATION = {0, 0, 25, 50, 100, 150, 200};
+    /** How far the spine runs, where a stage's branches cross it and how long they are (index is the stage; for stages 5 and 6, the cross street's). */
+    private static final int[] SPINE = {0, SPINE_1, SPINE_2, 100, 128, SPINE_1, SPINE_2};
+    private static final int[] BRANCH_AT = {0, BRANCH_AT_1, BRANCH_AT_2, 76, 104, BRANCH_AT_1, BRANCH_AT_2};
+    private static final int[] BRANCH_LEN = {0, BRANCH_LEN_1, BRANCH_LEN_2, 40, 44, BRANCH_LEN_1, BRANCH_LEN_2};
+    /** The first stage laid out on the cross street, and the last laid out along the main street (whose spine runs furthest at that stage). */
+    public static final int FIRST_CROSS_STAGE = 5;
+    static final int LAST_MAIN_STAGE = 4;
 
     /** The stage of plan a village of this many residents has: 1 to {@link #MAX_STAGE}. */
     public static int stageFor(int population) {
@@ -62,6 +69,11 @@ public final class PlanGenerator {
     private static final BuildingType[] STAGE_FOUR = {BuildingType.HOUSE, BuildingType.HOUSE, BuildingType.SHOP,
             BuildingType.HOUSE, BuildingType.FARM, BuildingType.HOUSE, BuildingType.MINE, BuildingType.HOUSE,
             BuildingType.GUARD_POST, BuildingType.HOUSE};
+    /** R8.33: the cross street's new quarter is farmland and houses first: it is where a village that ran out of room grows its food. */
+    private static final BuildingType[] STAGE_FIVE = {BuildingType.FARM, BuildingType.HOUSE, BuildingType.FARM, BuildingType.HOUSE,
+            BuildingType.HOUSE, BuildingType.FARM, BuildingType.SHOP, BuildingType.HOUSE, BuildingType.GUARD_POST, BuildingType.HOUSE};
+    private static final BuildingType[] STAGE_SIX = {BuildingType.HOUSE, BuildingType.FARM, BuildingType.HOUSE, BuildingType.FARM,
+            BuildingType.HOUSE, BuildingType.SMITHY, BuildingType.HOUSE, BuildingType.FARM, BuildingType.HOUSE, BuildingType.TREASURY};
     private static final BuildingType[] STAGE_TWO = {BuildingType.HOUSE, BuildingType.HOUSE, BuildingType.FARM,
             BuildingType.HOUSE, BuildingType.SHOP, BuildingType.HOUSE, BuildingType.SMITHY, BuildingType.HOUSE,
             BuildingType.FARM, BuildingType.HOUSE};
@@ -169,6 +181,10 @@ public final class PlanGenerator {
         if (next > MAX_STAGE) {
             return false;
         }
+        if (next >= FIRST_CROSS_STAGE) {
+            extendAcross(plan, terrain, next);
+            return true;
+        }
         Frame frame = new Frame(plan.centerX(), plan.centerZ(), plan.spineAlongX());
         int oldUp = 0;
         int oldDown = 0;
@@ -199,6 +215,51 @@ public final class PlanGenerator {
         return true;
     }
 
+    /**
+     * R8.33: stages 5 and 6. The cross street runs through the square at right angles to the main street (stage 5, as far as the ground allows up to
+     * {@link #SPINE_1} each way) and is lengthened at stage 6; branches across it run parallel to the main street. Lots are placed along them as in the
+     * other stages, clear of every road, lot and building already there.
+     */
+    private static void extendAcross(VillagePlan plan, HeightSource terrain, int next) {
+        Frame frame = new Frame(plan.centerX(), plan.centerZ(), !plan.spineAlongX());
+        int oldUp = 0;
+        int oldDown = 0;
+        boolean laid = false;
+        for (VillagePlan.Road road : plan.roads()) {
+            if (road.kind() == VillagePlan.RoadKind.CROSS) {
+                laid = true;
+                oldUp = Math.max(oldUp, alongMax(frame, road.rect()));
+                oldDown = Math.max(oldDown, -alongMin(frame, road.rect()));
+            }
+        }
+        int fromUp = laid ? oldUp + 1 : SQUARE_HALF + 1;
+        int fromDown = laid ? oldDown + 1 : SQUARE_HALF + 1;
+        int up = armLength(plan, terrain, frame, fromUp, SPINE[next], +1, 0);
+        int down = armLength(plan, terrain, frame, fromDown, SPINE[next], -1, 0);
+        List<Arm> arms = new ArrayList<>();
+        if (!laid) {
+            plan.addRoad(new VillagePlan.Road(plan.newId(), VillagePlan.RoadKind.CROSS,
+                    frame.rect(-down, -SPINE_HALF_WIDTH, up + down + 1, 2 * SPINE_HALF_WIDTH + 1), next));
+            arms.add(new Arm(true, 0, +1, SQUARE_HALF + 2, up, SPINE_HALF_WIDTH));
+            arms.add(new Arm(true, 0, -1, SQUARE_HALF + 2, down, SPINE_HALF_WIDTH));
+        } else {
+            if (up > oldUp) {
+                plan.addRoad(new VillagePlan.Road(plan.newId(), VillagePlan.RoadKind.CROSS,
+                        frame.rect(oldUp + 1, -SPINE_HALF_WIDTH, up - oldUp, 2 * SPINE_HALF_WIDTH + 1), next));
+                arms.add(new Arm(true, 0, +1, oldUp + 2, up, SPINE_HALF_WIDTH));
+            }
+            if (down > oldDown) {
+                plan.addRoad(new VillagePlan.Road(plan.newId(), VillagePlan.RoadKind.CROSS,
+                        frame.rect(-down, -SPINE_HALF_WIDTH, down - oldDown, 2 * SPINE_HALF_WIDTH + 1), next));
+                arms.add(new Arm(true, 0, -1, oldDown + 2, down, SPINE_HALF_WIDTH));
+            }
+        }
+        addBranch(plan, frame, terrain, +BRANCH_AT[next], BRANCH_LEN[next], next, arms, Math.max(up, oldUp), VillagePlan.RoadKind.CROSS_BRANCH);
+        addBranch(plan, frame, terrain, -BRANCH_AT[next], BRANCH_LEN[next], next, arms, Math.max(down, oldDown), VillagePlan.RoadKind.CROSS_BRANCH);
+        plan.setStage(next);
+        placeLots(plan, frame, terrain, arms, next == FIRST_CROSS_STAGE ? STAGE_FIVE : STAGE_SIX, next, plan.lots().size());
+    }
+
     private static int alongMax(Frame frame, Rect rect) {
         return frame.alongX() ? rect.maxX() - frame.centerX() : rect.maxZ() - frame.centerZ();
     }
@@ -219,15 +280,21 @@ public final class PlanGenerator {
 
     private static void addBranch(VillagePlan plan, Frame frame, HeightSource terrain, int at, int length, int stage,
             List<Arm> arms, int spineReach) {
+        addBranch(plan, frame, terrain, at, length, stage, arms, spineReach, VillagePlan.RoadKind.BRANCH);
+    }
+
+    private static void addBranch(VillagePlan plan, Frame frame, HeightSource terrain, int at, int length, int stage,
+            List<Arm> arms, int spineReach, VillagePlan.RoadKind kind) {
         // A branch only exists where the main street actually reaches (it would be cut off from the village otherwise).
         if (spineReach < Math.abs(at) + BRANCH_HALF_WIDTH) {
             return;
         }
         // A branch runs across the spine at offset 'at'; each of its two arms ends where the ground gives out.
-        int toPositive = armLength(terrain, frame, SPINE_HALF_WIDTH + 1, length, +1, at);
-        int toNegative = armLength(terrain, frame, SPINE_HALF_WIDTH + 1, length, -1, at);
+        VillagePlan keepClearOf = kind == VillagePlan.RoadKind.CROSS_BRANCH ? plan : null; // (R8.33: the cross streets keep off lots already laid)
+        int toPositive = armLength(keepClearOf, terrain, frame, SPINE_HALF_WIDTH + 1, length, +1, at);
+        int toNegative = armLength(keepClearOf, terrain, frame, SPINE_HALF_WIDTH + 1, length, -1, at);
         Rect rect = frame.rect(at - BRANCH_HALF_WIDTH, -toNegative, 2 * BRANCH_HALF_WIDTH + 1, toPositive + toNegative + 1);
-        plan.addRoad(new VillagePlan.Road(plan.newId(), VillagePlan.RoadKind.BRANCH, rect, stage));
+        plan.addRoad(new VillagePlan.Road(plan.newId(), kind, rect, stage));
         arms.add(new Arm(false, at, +1, SPINE_HALF_WIDTH + FRONT_GAP + 1, toPositive, BRANCH_HALF_WIDTH));
         arms.add(new Arm(false, at, -1, SPINE_HALF_WIDTH + FRONT_GAP + 1, toNegative, BRANCH_HALF_WIDTH));
     }
@@ -238,6 +305,11 @@ public final class PlanGenerator {
      * the spine itself, whose "cross" offset is then zero).
      */
     private static int armLength(HeightSource terrain, Frame frame, int from, int max, int direction, int at) {
+        return armLength(null, terrain, frame, from, max, direction, at);
+    }
+
+    /** As above; with a plan, a street also stops short of any lot already laid out (R8.33: the cross street runs through ground the first stages filled). */
+    private static int armLength(VillagePlan plan, HeightSource terrain, Frame frame, int from, int max, int direction, int at) {
         boolean spine = at == 0;
         int reach = Math.min(from - 1, max);
         for (int step = from; step <= max; step++) {
@@ -246,12 +318,12 @@ public final class PlanGenerator {
             if (spine) {
                 for (int cross = -SPINE_HALF_WIDTH; cross <= SPINE_HALF_WIDTH && ok; cross++) {
                     Rect column = frame.rect(direction * step, cross, 1, 1);
-                    ok = usable(terrain, column.x(), column.z());
+                    ok = usable(terrain, column.x(), column.z()) && !onLot(plan, column.x(), column.z());
                 }
             } else {
                 for (int along = at - BRANCH_HALF_WIDTH; along <= at + BRANCH_HALF_WIDTH && ok; along++) {
                     Rect column = frame.rect(along, direction * step, 1, 1);
-                    ok = usable(terrain, column.x(), column.z());
+                    ok = usable(terrain, column.x(), column.z()) && !onLot(plan, column.x(), column.z());
                 }
             }
             if (!ok) {
@@ -260,6 +332,18 @@ public final class PlanGenerator {
             reach = step;
         }
         return Math.max(0, reach);
+    }
+
+    private static boolean onLot(VillagePlan plan, int x, int z) {
+        if (plan == null) {
+            return false;
+        }
+        for (VillagePlan.Lot lot : plan.lots()) {
+            if (lot.rect().contains(x, z)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean usable(HeightSource terrain, int x, int z) {
@@ -528,12 +612,17 @@ public final class PlanGenerator {
         Frame frame = new Frame(plan.centerX(), plan.centerZ(), plan.spineAlongX());
         int side = SPINE_HALF_WIDTH + FRONT_GAP + 1;
         List<Rect> out = new ArrayList<>();
-        out.add(frame.rect(-SPINE[MAX_STAGE], -side, 2 * SPINE[MAX_STAGE] + 1, 2 * side + 1));
+        out.add(frame.rect(-SPINE[LAST_MAIN_STAGE], -side, 2 * SPINE[LAST_MAIN_STAGE] + 1, 2 * side + 1)); // (the main street's longest reach, not the plan's last stage)
+        Frame across = new Frame(plan.centerX(), plan.centerZ(), !plan.spineAlongX());
+        if (plan.stage() < FIRST_CROSS_STAGE) { // R8.33: the cross street, through the square, as far as it will run
+            out.add(across.rect(-SPINE[FIRST_CROSS_STAGE + 1], -side, 2 * SPINE[FIRST_CROSS_STAGE + 1] + 1, 2 * side + 1));
+        }
         for (int stage = plan.stage() + 1; stage <= MAX_STAGE; stage++) {
             int along = BRANCH_HALF_WIDTH + FRONT_GAP + 1;
             int length = BRANCH_LEN[stage] + SPINE_HALF_WIDTH;
+            Frame on = stage >= FIRST_CROSS_STAGE ? across : frame;
             for (int sign = -1; sign <= 1; sign += 2) {
-                out.add(frame.rect(sign * BRANCH_AT[stage] - along, -length, 2 * along + 1, 2 * length + 1));
+                out.add(on.rect(sign * BRANCH_AT[stage] - along, -length, 2 * along + 1, 2 * length + 1));
             }
         }
         return out;
