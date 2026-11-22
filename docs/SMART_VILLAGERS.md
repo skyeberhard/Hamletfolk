@@ -91,6 +91,41 @@ simulation only, which also keeps the cost down), and they show what the simulat
    (the module checks once a second and re-attaches; a `/data` profession change on the test server left all 8 being called,
    but whether that rebuilt the brain is not known), the fault path on a real error, and the test behaviour with a player near.
 
+## Puppet NPCs instead of villagers (R9.8, a spike)
+
+Most of the work-arounds in M9 fight vanilla: professions the game changes back, panic memories a guard must
+erase, idle chat that resets a walk, a module pinned to one server build. The question R9.8 answers is whether a
+resident could be played by an entity the plugin drives itself. The plugin is server-side only, so whatever it is
+must still look like an entity the client already knows; only its behaviour would be ours. Four options were
+weighed (2026-11-22):
+
+| Option | Cost | Gain | Risk |
+|---|---|---|---|
+| 0. Keep villagers and the brain module | nothing new | raids, golems, beds, trading and world-generated villagers for free | every server update can break `brain/` |
+| 1. A goal-based host mob through the public `MobGoals` API | low to medium | full control, no internals, survives updates | is there a host that looks right? |
+| 2. Player-shaped NPCs (skins) | high: movement and pathing from scratch | the best look | Bedrock display, much new code |
+| 3. Our own entity class in internals | highest | the most freedom | all of `brain/`'s pinning and messy saves |
+
+The recommendation was to stay on villagers until the playtest (R1.1) shows they are the bottleneck, and to keep
+option 1 ready with this spike. A hybrid of 0 and 1 is also tested: a villager with its own AI switched off and
+moved through the public `Pathfinder` API keeps the villager look and drops the brain work-arounds, if navigation
+still works without the AI (not known).
+
+Whatever is chosen, the entities are not saved: the simulation already holds every resident, so a puppet is spawned
+when its chunk loads and removed when it unloads, and removing the plugin leaves a clean world (rule 5).
+
+What the spike must find, on a local server (`./gradlew runServer`):
+
+1. Which humanoid mobs in Paper 26.2 use goal-based AI (read from the server jar with javap, never from memory).
+2. Whether a villager with `setAware(false)` can still be walked with `Mob.getPathfinder()`, and whether it then
+   stops panicking, chatting, claiming beds and changing profession.
+3. For the best candidate: one test NPC for a resident walks a `Journey` route, opens a trade screen
+   (`Bukkit.createMerchant`) and is gone after its chunk unloads, with nothing left in the save; seen in Java and
+   on Bedrock through Geyser.
+4. What it loses against a villager, and a recommendation with a rough size for the switch.
+
+Findings go below this line when the spike is run.
+
 ## Risks we accept, and how they are contained
 
 - *Game updates break the module.* Pinned to 26.2; the self-check refuses to run on a mismatch.
